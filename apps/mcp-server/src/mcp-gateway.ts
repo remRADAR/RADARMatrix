@@ -1,1 +1,1 @@
-<<CONTENT OF apps/mcp-server/src/mcp-gateway.ts FROM WORKSPACE>>
+<<REPLACE_WITH_WORKSPACE:apps/mcp-server/src/mcp-gateway.ts>>

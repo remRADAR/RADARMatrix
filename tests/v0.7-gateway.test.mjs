@@ -1,1 +1,1 @@
-<<CONTENT OF tests/v0.7-gateway.test.mjs FROM WORKSPACE>>
+<<REPLACE_WITH_WORKSPACE:tests/v0.7-gateway.test.mjs>>
