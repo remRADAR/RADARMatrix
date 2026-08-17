@@ -1,0 +1,1 @@
+<<CONTENT OF tests/v0.8-chatgpt-contract.test.mjs FROM WORKSPACE>>

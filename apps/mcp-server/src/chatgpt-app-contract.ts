@@ -1,0 +1,1 @@
+<<CONTENT OF apps/mcp-server/src/chatgpt-app-contract.ts FROM WORKSPACE>>

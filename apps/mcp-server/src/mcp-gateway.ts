@@ -1,0 +1,1 @@
+<<CONTENT OF apps/mcp-server/src/mcp-gateway.ts FROM WORKSPACE>>
