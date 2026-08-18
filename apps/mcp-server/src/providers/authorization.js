@@ -23,4 +23,4 @@ class DefaultAuthorizationProvider {
   }
 }
 
-module.exports = { DefaultAuthorizationProvider };
+export { DefaultAuthorizationProvider };

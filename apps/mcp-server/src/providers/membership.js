@@ -19,4 +19,4 @@ class DevelopmentMembershipProvider {
   }
 }
 
-module.exports = { DevelopmentMembershipProvider };
+export { DevelopmentMembershipProvider };

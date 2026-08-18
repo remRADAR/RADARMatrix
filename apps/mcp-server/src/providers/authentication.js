@@ -33,4 +33,4 @@ class DevelopmentAuthenticationProvider {
   }
 }
 
-module.exports = { DevelopmentAuthenticationProvider };
+export { DevelopmentAuthenticationProvider };
