@@ -1,0 +1,22 @@
+{
+  "name": "radarmatrix",
+  "version": "0.8.0",
+  "description": "RADARMatrix - ChatGPT Integration Foundation",
+  "type": "module",
+  "main": "apps/mcp-server/src/mcp-gateway.ts",
+  "scripts": {
+    "test": "node tests/test-runner.mjs",
+    "test:gateway": "node tests/v0.7-gateway.test.mjs",
+    "test:contract": "node tests/v0.8-chatgpt-contract.test.mjs"
+  },
+  "keywords": [
+    "radarmatrix",
+    "chatgpt",
+    "mcp",
+    "model-context-protocol"
+  ],
+  "author": "remRADAR",
+  "license": "MIT",
+  "devDependencies": {},
+  "dependencies": {}
+}

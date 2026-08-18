@@ -1,1 +1,162 @@
-<<REPLACE_WITH_WORKSPACE:apps/mcp-server/.well-known/oauth-protected-resource.json>>
+{
+  "resource": {
+    "id": "radarmatrix",
+    "name": "RADARMatrix",
+    "description": "Cloud intelligence and memory layer for RADARCharts",
+    "version": "0.8",
+    "status": "foundation"
+  },
+  "authentication": {
+    "scheme": "oauth2",
+    "bearer_format": "jwt",
+    "issuer": "https://auth.radarmatrix.local",
+    "authorization_server": "https://auth.radarmatrix.local/oauth2/authorize",
+    "token_endpoint": "https://auth.radarmatrix.local/oauth2/token",
+    "jwks_uri": "https://auth.radarmatrix.local/.well-known/jwks.json",
+    "audience": "radarmatrix"
+  },
+  "scopes": [
+    {
+      "name": "radar.search",
+      "description": "Full-text and semantic search across canonical data and documents",
+      "type": "read"
+    },
+    {
+      "name": "radar.recall",
+      "description": "Retrieve decisions and context from decision log",
+      "type": "read"
+    },
+    {
+      "name": "radar.get_context",
+      "description": "Load workspace context and configuration",
+      "type": "read"
+    },
+    {
+      "name": "radar.get_project",
+      "description": "Get project metadata and associated entities",
+      "type": "read"
+    },
+    {
+      "name": "radar.get_entity",
+      "description": "Get entity details, relationships, and context",
+      "type": "read"
+    },
+    {
+      "name": "radar.remember",
+      "description": "Record data to workspace memory",
+      "type": "write",
+      "minimum_role": "contributor"
+    },
+    {
+      "name": "radar.record_decision",
+      "description": "Log decision with rationale and metadata",
+      "type": "write",
+      "minimum_role": "editor"
+    },
+    {
+      "name": "radar.admin",
+      "description": "Administrative operations",
+      "type": "admin",
+      "minimum_role": "admin"
+    }
+  ],
+  "roles": [
+    {
+      "name": "viewer",
+      "level": 1,
+      "description": "Read-only access to all data",
+      "permissions": [
+        "radar.search",
+        "radar.recall",
+        "radar.get_context",
+        "radar.get_project",
+        "radar.get_entity"
+      ]
+    },
+    {
+      "name": "contributor",
+      "level": 2,
+      "description": "Read access plus ability to contribute data",
+      "permissions": [
+        "radar.search",
+        "radar.recall",
+        "radar.get_context",
+        "radar.get_project",
+        "radar.get_entity",
+        "radar.remember"
+      ]
+    },
+    {
+      "name": "editor",
+      "level": 3,
+      "description": "Full write access including decision recording",
+      "permissions": [
+        "radar.search",
+        "radar.recall",
+        "radar.get_context",
+        "radar.get_project",
+        "radar.get_entity",
+        "radar.remember",
+        "radar.record_decision"
+      ]
+    },
+    {
+      "name": "admin",
+      "level": 100,
+      "description": "Full administrative access",
+      "permissions": [
+        "*"
+      ]
+    }
+  ],
+  "policies": {
+    "workspace_isolation": {
+      "enabled": true,
+      "description": "All operations are scoped to a single workspace",
+      "enforcement": "mandatory"
+    },
+    "audit_logging": {
+      "enabled": true,
+      "description": "All write operations are logged for compliance",
+      "immutable": true
+    },
+    "immutability": {
+      "enabled": true,
+      "description": "Decisions and memories are immutable after creation",
+      "enforced_for": [
+        "radar.remember",
+        "radar.record_decision"
+      ]
+    },
+    "rate_limiting": {
+      "enabled": false,
+      "description": "Rate limiting per workspace (production)",
+      "note": "Not implemented in foundation v0.8"
+    }
+  },
+  "endpoints": [
+    {
+      "name": "MCP Gateway",
+      "path": "/mcp/invoke",
+      "method": "POST",
+      "description": "Invoke MCP tools",
+      "authentication": "oauth2",
+      "authorization": "rbac"
+    }
+  ],
+  "metadata": {
+    "created_at": "2026-08-18T00:00:00Z",
+    "updated_at": "2026-08-18T00:00:00Z",
+    "maintainer": "remRADAR",
+    "support_url": "https://github.com/remRADAR/RADARMatrix",
+    "documentation_url": "https://github.com/remRADAR/RADARMatrix/blob/main/docs/V0.8-CHATGPT-INTEGRATION.md",
+    "security_contact": "security@radarmatrix.local"
+  },
+  "compliance": {
+    "gdpr_compliant": true,
+    "audit_logging": true,
+    "data_minimization": true,
+    "right_to_erasure": false,
+    "note": "Foundation implementation. Right to erasure not supported (immutability enforced)."
+  }
+}
