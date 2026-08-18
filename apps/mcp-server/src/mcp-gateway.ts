@@ -78,77 +78,51 @@ interface AuditEvent {
  * - [ ] Token expiry validation
  * - [ ] Scope validation
  */
+// Providers (development defaults)
+const { DevelopmentAuthenticationProvider } = require('./providers/authentication');
+const { DefaultAuthorizationProvider } = require('./providers/authorization');
+const { DevelopmentMembershipProvider } = require('./providers/membership');
+
+const authProvider = new DevelopmentAuthenticationProvider();
+const authorizationProvider = new DefaultAuthorizationProvider();
+const membershipProvider = new DevelopmentMembershipProvider();
+
+/**
+ * Authenticate using pluggable AuthenticationProvider
+ */
 function authenticate(request: MCPRequest): AuthenticatedRequest | null {
-  const caller_id = request.context?.caller_id;
-  const workspace_id = request.context?.workspace_id;
-
-  if (!caller_id || !workspace_id) {
-    return null;
-  }
-
-  // Foundation v0.8: Stub role assignment
-  // In production, would fetch from OAuth token claims or user database
-  const caller_roles = getRoleForCaller(caller_id);
+  const principal = authProvider.authenticate(request);
+  if (!principal) return null;
 
   return {
-    caller_id,
-    caller_roles,
-    workspace_id,
-    request_id: request.context?.request_id || generateRequestId(),
-    timestamp: request.context?.timestamp || new Date().toISOString(),
+    caller_id: principal.caller_id,
+    caller_roles: principal.roles,
+    workspace_id: principal.workspace_id,
+    request_id: principal.request_id || generateRequestId(),
+    timestamp: principal.timestamp || new Date().toISOString(),
     tool: request.tool,
     params: request.params,
   };
 }
 
 /**
- * Foundation stub: Get role for caller
- * In production, this would query a user database or OAuth token
+ * Authorization delegates to pluggable AuthorizationProvider
  */
-function getRoleForCaller(caller_id: string): string[] {
-  // Foundation: Default to viewer role for demonstration
-  // In production:
-  // 1. Query user database for caller's roles
-  // 2. Extract roles from OAuth token claims
-  // 3. Validate role assertions
-  // 4. Check role expiry if time-bounded
-  if (caller_id === "admin_123") return ["admin", "editor", "contributor", "viewer"];
-  if (caller_id === "editor_456") return ["editor", "contributor", "viewer"];
-  if (caller_id === "contributor_789") return ["contributor", "viewer"];
-  return ["viewer"];
+function authorize(request: AuthenticatedRequest, toolRegistry: any): boolean {
+  return authorizationProvider.isAuthorized(request, toolRegistry, request.tool);
 }
 
 // ============================================================================
-// AUTHORIZATION LAYER (RBAC)
+// WORKSPACE ISOLATION
 // ============================================================================
 
 /**
- * Checks if caller has permission to execute the requested tool.
- * 
- * Authorization rules:
- * - All read tools: VIEWER+
- * - radar.remember: CONTRIBUTOR+
- * - radar.record_decision: EDITOR+
- * - All admin tools: ADMIN only
+ * Validates that request parameters are scoped to the authorized workspace.
+ * Prevents cross-workspace data access.
  */
-function authorize(request: AuthenticatedRequest, toolRegistry: any): boolean {
-  const tool = toolRegistry[request.tool];
-  if (!tool) return false;
-
-  const required_role = tool.required_role;
-  
-  // Role hierarchy: viewer < contributor < editor < admin
-  const role_hierarchy: Record<string, number> = {
-    viewer: 1,
-    contributor: 2,
-    editor: 3,
-    admin: 100,
-  };
-
-  const caller_max_role = Math.max(...request.caller_roles.map(r => role_hierarchy[r] || 0));
-  const required_level = role_hierarchy[required_role] || 0;
-
-  return caller_max_role >= required_level;
+function validateWorkspaceIsolation(request: AuthenticatedRequest): boolean {
+  // Use membership provider to assert membership of caller in workspace
+  return membershipProvider.isMember(request.caller_id, request.workspace_id);
 }
 
 // ============================================================================
