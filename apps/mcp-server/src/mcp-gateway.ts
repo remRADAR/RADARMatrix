@@ -1,10 +1,30 @@
 /**
  * RADARMatrix MCP Gateway
- * Version: 0.9 (workspace-isolation hardening)
+ * Version: 0.9
  *
- * Development transport/foundation.
- * NOT production-ready until the production authentication,
- * persistence, audit, and transport layers are implemented.
+ * Security-hardened development gateway.
+ *
+ * Execution pipeline:
+ *
+ * REQUEST
+ *   ↓
+ * REQUEST VALIDATION
+ *   ↓
+ * AUTHENTICATION
+ *   ↓
+ * WORKSPACE MEMBERSHIP
+ *   ↓
+ * AUTHORIZATION
+ *   ↓
+ * TOOL EXECUTION
+ *   ↓
+ * AUDIT
+ *   ↓
+ * RESPONSE VALIDATION
+ *
+ * IMPORTANT:
+ * This remains a development/foundation gateway.
+ * Production authentication must use verified OAuth/OIDC tokens.
  */
 
 interface MCPRequest {
@@ -54,6 +74,11 @@ interface AuditEvent {
   error_code?: string;
 }
 
+/**
+ * Development providers.
+ *
+ * Production replacements must preserve these interfaces.
+ */
 const {
   DevelopmentAuthenticationProvider,
 } = require("./providers/authentication");
@@ -66,36 +91,30 @@ const {
   DevelopmentMembershipProvider,
 } = require("./providers/membership");
 
-/**
- * Development providers.
- *
- * These are intentionally isolated behind provider interfaces so that
- * production implementations can replace them without changing the
- * gateway's security flow.
- */
+const {
+  TOOL_REGISTRY,
+} = require("./chatgpt-app-contract");
 
-const authProvider = new DevelopmentAuthenticationProvider();
+const authProvider =
+  new DevelopmentAuthenticationProvider();
 
 const authorizationProvider =
   new DefaultAuthorizationProvider();
 
 const membershipProvider =
-  new DevelopmentMembershipProvider({
-    members: {
-      admin_123: ["w_dev"],
-      editor_456: ["w_dev"],
-      contributor_789: ["w_dev"],
-      viewer_000: ["w_dev"],
-    },
-  });
+  new DevelopmentMembershipProvider();
 
 /**
- * Authenticate an incoming MCP request.
+ * --------------------------------------------------------------------------
+ * AUTHENTICATION
+ * --------------------------------------------------------------------------
  */
+
 function authenticate(
   request: MCPRequest,
 ): AuthenticatedRequest | null {
-  const principal = authProvider.authenticate(request);
+  const principal =
+    authProvider.authenticate(request);
 
   if (!principal) {
     return null;
@@ -106,46 +125,45 @@ function authenticate(
     caller_roles: principal.roles,
     workspace_id: principal.workspace_id,
     request_id:
-      principal.request_id || generateRequestId(),
+      principal.request_id ||
+      generateRequestId(),
     timestamp:
-      principal.timestamp || new Date().toISOString(),
+      principal.timestamp ||
+      new Date().toISOString(),
     tool: request.tool,
     params: request.params,
   };
 }
 
 /**
- * Authorize the authenticated caller against the tool registry.
+ * --------------------------------------------------------------------------
+ * MEMBERSHIP / WORKSPACE ISOLATION
+ * --------------------------------------------------------------------------
+ *
+ * Authentication answers:
+ * "Who are you?"
+ *
+ * Membership answers:
+ * "Are you allowed inside this workspace?"
+ *
+ * Workspace ID supplied by a request is NEVER treated as proof
+ * of membership.
  */
-function authorize(
-  request: AuthenticatedRequest,
-  toolRegistry: any,
-): boolean {
-  return authorizationProvider.isAuthorized(
-    request,
-    toolRegistry,
-    request.tool,
-  );
-}
 
-/**
- * Fail-closed workspace isolation.
- *
- * A request is permitted only when:
- *
- * 1. caller_id exists
- * 2. workspace_id exists
- * 3. the membership provider explicitly confirms membership
- *
- * No fallback authorization is permitted here.
- */
 function validateWorkspaceIsolation(
   request: AuthenticatedRequest,
 ): boolean {
   if (
     !request ||
-    !request.caller_id ||
-    !request.workspace_id
+    typeof request.caller_id !== "string" ||
+    request.caller_id.trim() === ""
+  ) {
+    return false;
+  }
+
+  if (
+    typeof request.workspace_id !== "string" ||
+    request.workspace_id.trim() === ""
   ) {
     return false;
   }
@@ -157,123 +175,226 @@ function validateWorkspaceIsolation(
 }
 
 /**
- * Audit write operations.
- *
- * Production implementation must replace console logging
- * with an append-only durable audit store.
+ * --------------------------------------------------------------------------
+ * AUTHORIZATION
+ * --------------------------------------------------------------------------
  */
-function auditOperation(event: AuditEvent): void {
-  if (!event.is_write) {
-    return;
-  }
 
-  const status = event.success
-    ? "SUCCESS"
-    : `FAILED(${event.error_code || "UNKNOWN"})`;
-
-  console.log(
-    `[AUDIT] ${event.operation} | ` +
-      `${event.caller_id}@${event.workspace_id} | ` +
-      `${event.tool} | ${status}`,
+function authorize(
+  request: AuthenticatedRequest,
+): boolean {
+  return authorizationProvider.isAuthorized(
+    request,
+    TOOL_REGISTRY,
+    request.tool,
   );
 }
 
 /**
- * Validate the incoming request against the tool registry.
+ * --------------------------------------------------------------------------
+ * REQUEST VALIDATION
+ * --------------------------------------------------------------------------
  */
+
 function validateRequest(
   request: MCPRequest,
-  toolRegistry: any,
 ): string[] {
   const errors: string[] = [];
 
-  if (!request || typeof request !== "object") {
+  if (
+    !request ||
+    typeof request !== "object"
+  ) {
     return ["Invalid request"];
   }
 
-  if (!request.tool || typeof request.tool !== "string") {
+  if (
+    typeof request.tool !== "string" ||
+    request.tool.trim() === ""
+  ) {
     errors.push("Missing tool");
-    return errors;
-  }
-
-  const tool = toolRegistry[request.tool];
-
-  if (!tool) {
-    errors.push(`Unknown tool: ${request.tool}`);
     return errors;
   }
 
   if (
     !request.params ||
-    typeof request.params !== "object"
+    typeof request.params !== "object" ||
+    Array.isArray(request.params)
   ) {
-    errors.push("Missing params");
+    errors.push(
+      "Invalid params object",
+    );
   }
 
-  if (tool.input_schema?.required) {
-    for (const field of tool.input_schema.required) {
-      if (
-        !request.params ||
-        !(field in request.params)
-      ) {
-        errors.push(
-          `Missing required field: ${field}`,
-        );
-      }
-    }
+  if (
+    !request.context ||
+    typeof request.context !== "object"
+  ) {
+    errors.push(
+      "Missing request context",
+    );
+    return errors;
   }
 
-  if (!request.context?.workspace_id) {
+  if (
+    typeof request.context.caller_id !==
+      "string" ||
+    request.context.caller_id.trim() === ""
+  ) {
+    errors.push(
+      "Missing caller_id in context",
+    );
+  }
+
+  if (
+    typeof request.context.workspace_id !==
+      "string" ||
+    request.context.workspace_id.trim() === ""
+  ) {
     errors.push(
       "Missing workspace_id in context",
     );
+  }
+
+  const tool =
+    TOOL_REGISTRY[request.tool];
+
+  if (!tool) {
+    errors.push(
+      `Unknown tool: ${request.tool}`,
+    );
+    return errors;
+  }
+
+  const requiredFields =
+    Array.isArray(
+      tool.input_schema?.required,
+    )
+      ? tool.input_schema.required
+      : [];
+
+  for (const field of requiredFields) {
+    if (
+      !Object.prototype.hasOwnProperty.call(
+        request.params,
+        field,
+      )
+    ) {
+      errors.push(
+        `Missing required field: ${field}`,
+      );
+    }
+  }
+
+  /**
+   * Prevent a request from silently operating on
+   * a workspace different from its authenticated context.
+   *
+   * If a tool contains workspace_id in params,
+   * it must equal the authenticated context.
+   */
+  if (
+    Object.prototype.hasOwnProperty.call(
+      request.params,
+      "workspace_id",
+    )
+  ) {
+    if (
+      request.params.workspace_id !==
+      request.context.workspace_id
+    ) {
+      errors.push(
+        "Workspace mismatch between context and params",
+      );
+    }
   }
 
   return errors;
 }
 
 /**
- * Validate the standard RADARMatrix response envelope.
+ * --------------------------------------------------------------------------
+ * RESPONSE VALIDATION
+ * --------------------------------------------------------------------------
  */
+
 function validateResponse(
   response: MCPResponse,
 ): boolean {
-  if (!response?.metadata) {
-    return false;
-  }
-
   if (
-    !response.metadata.request_id ||
-    !response.metadata.timestamp ||
-    response.metadata.execution_time_ms ===
-      undefined
+    !response ||
+    typeof response !== "object"
   ) {
     return false;
   }
 
   if (
-    response.error &&
-    (
-      !response.error.code ||
-      !response.error.message
-    )
+    typeof response.success !== "boolean"
   ) {
     return false;
+  }
+
+  if (!response.metadata) {
+    return false;
+  }
+
+  if (
+    typeof response.metadata.request_id !==
+      "string" ||
+    response.metadata.request_id.length ===
+      0
+  ) {
+    return false;
+  }
+
+  if (
+    typeof response.metadata.timestamp !==
+      "string" ||
+    response.metadata.timestamp.length ===
+      0
+  ) {
+    return false;
+  }
+
+  if (
+    typeof response.metadata
+      .execution_time_ms !==
+      "number"
+  ) {
+    return false;
+  }
+
+  if (response.error) {
+    if (
+      typeof response.error.code !==
+        "string" ||
+      typeof response.error.message !==
+        "string" ||
+      typeof response.error.status !==
+        "number"
+    ) {
+      return false;
+    }
   }
 
   return true;
 }
 
 /**
- * Development tool executor.
+ * --------------------------------------------------------------------------
+ * TOOL EXECUTION
+ * --------------------------------------------------------------------------
  *
- * These implementations intentionally return deterministic
- * development-safe structures. Real persistence will be added
- * through the production repository layer.
+ * v0.9 still uses deterministic development implementations.
+ *
+ * The security pipeline is real.
+ * The underlying persistence/retrieval layer remains a development
+ * boundary until the production storage providers are connected.
  */
+
 function executeTool(
   request: AuthenticatedRequest,
-): any {
+): Record<string, any> {
   switch (request.tool) {
     case "radar.search":
       return {
@@ -292,6 +413,7 @@ function executeTool(
         workspace_id:
           request.workspace_id,
         config: {},
+        entities: [],
       };
 
     case "radar.get_project":
@@ -315,9 +437,6 @@ function executeTool(
         memory_id: generateId(),
         recorded_at:
           new Date().toISOString(),
-        recorded_by:
-          request.caller_id,
-        immutable: true,
       };
 
     case "radar.record_decision":
@@ -325,40 +444,56 @@ function executeTool(
         decision_id: generateId(),
         recorded_at:
           new Date().toISOString(),
-        recorded_by:
-          request.caller_id,
-        immutable: true,
       };
 
     default:
-      throw new Error(
+      throw new GatewayError(
+        "UNKNOWN_TOOL",
         `Unknown tool: ${request.tool}`,
+        404,
       );
   }
 }
 
 /**
- * Main MCP request lifecycle:
- *
- * Validate
- *   ↓
- * Authenticate
- *   ↓
- * Workspace isolation
- *   ↓
- * Authorize
- *   ↓
- * Execute
- *   ↓
- * Audit
- *   ↓
- * Validate response
+ * --------------------------------------------------------------------------
+ * AUDIT
+ * --------------------------------------------------------------------------
  */
-function handleMCPRequest(
+
+function auditOperation(
+  event: AuditEvent,
+): void {
+  /**
+   * Development implementation:
+   * write operations are logged.
+   *
+   * Production:
+   * append-only durable audit storage.
+   */
+  if (event.is_write) {
+    const status = event.success
+      ? "SUCCESS"
+      : `FAILED(${event.error_code || "UNKNOWN"})`;
+
+    console.log(
+      `[AUDIT] ${event.operation} | ` +
+        `${event.caller_id}@${event.workspace_id} | ` +
+        `${event.tool} | ${status}`,
+    );
+  }
+}
+
+/**
+ * --------------------------------------------------------------------------
+ * GATEWAY REQUEST HANDLER
+ * --------------------------------------------------------------------------
+ */
+
+function handleRequest(
   request: MCPRequest,
-  toolRegistry: any,
 ): MCPResponse {
-  const startTime = Date.now();
+  const startedAt = Date.now();
 
   const requestId =
     request?.context?.request_id ||
@@ -367,187 +502,232 @@ function handleMCPRequest(
   const timestamp =
     new Date().toISOString();
 
-  try {
-    /**
-     * 1. Request validation
-     */
-    const validationErrors =
-      validateRequest(
-        request,
-        toolRegistry,
+  /**
+   * 1. Validate request shape.
+   */
+  const validationErrors =
+    validateRequest(request);
+
+  if (validationErrors.length > 0) {
+    return buildErrorResponse(
+      requestId,
+      timestamp,
+      startedAt,
+      "INVALID_REQUEST",
+      validationErrors.join("; "),
+      400,
+    );
+  }
+
+  /**
+   * 2. Authenticate.
+   */
+  const authenticated =
+    authenticate(request);
+
+  if (!authenticated) {
+    return buildErrorResponse(
+      requestId,
+      timestamp,
+      startedAt,
+      "UNAUTHENTICATED",
+      "Authentication failed",
+      401,
+    );
+  }
+
+  /**
+   * 3. Verify workspace membership.
+   */
+  if (
+    !validateWorkspaceIsolation(
+      authenticated,
+    )
+  ) {
+    const isWrite =
+      isWriteOperation(
+        authenticated.tool,
       );
 
-    if (validationErrors.length) {
-      return createErrorResponse(
-        "INVALID_REQUEST",
-        validationErrors.join("; "),
-        400,
-        requestId,
-        timestamp,
-        startTime,
+    auditOperation({
+      operation:
+        "workspace_membership_check",
+      caller_id:
+        authenticated.caller_id,
+      workspace_id:
+        authenticated.workspace_id,
+      tool: authenticated.tool,
+      timestamp:
+        new Date().toISOString(),
+      is_write: isWrite,
+      success: false,
+      error_code:
+        "WORKSPACE_FORBIDDEN",
+    });
+
+    return buildErrorResponse(
+      authenticated.request_id,
+      authenticated.timestamp,
+      startedAt,
+      "WORKSPACE_FORBIDDEN",
+      "Caller is not a member of the requested workspace",
+      403,
+    );
+  }
+
+  /**
+   * 4. Authorize tool.
+   */
+  if (!authorize(authenticated)) {
+    const isWrite =
+      isWriteOperation(
+        authenticated.tool,
       );
-    }
 
-    /**
-     * 2. Authentication
-     */
-    const authenticated =
-      authenticate(request);
-
-    if (!authenticated) {
-      return createErrorResponse(
-        "AUTH_FAILED",
-        "Authentication failed",
-        401,
-        requestId,
-        timestamp,
-        startTime,
-      );
-    }
-
-    /**
-     * 3. Workspace isolation
-     */
-    if (
-      !validateWorkspaceIsolation(
-        authenticated,
-      )
-    ) {
-      return createErrorResponse(
-        "INVALID_WORKSPACE",
-        "Caller is not a member of the requested workspace",
-        403,
-        requestId,
-        timestamp,
-        startTime,
-      );
-    }
-
-    /**
-     * 4. Tool authorization
-     */
-    if (
-      !authorize(
-        authenticated,
-        toolRegistry,
-      )
-    ) {
-      auditOperation({
-        operation:
-          "UNAUTHORIZED_ACCESS",
-        caller_id:
-          authenticated.caller_id,
-        workspace_id:
-          authenticated.workspace_id,
-        tool:
-          authenticated.tool,
-        timestamp,
-        is_write: false,
-        success: false,
-        error_code:
-          "FORBIDDEN",
-      });
-
-      return createErrorResponse(
+    auditOperation({
+      operation:
+        "authorization_check",
+      caller_id:
+        authenticated.caller_id,
+      workspace_id:
+        authenticated.workspace_id,
+      tool: authenticated.tool,
+      timestamp:
+        new Date().toISOString(),
+      is_write: isWrite,
+      success: false,
+      error_code:
         "FORBIDDEN",
-        `User role(s) ${authenticated.caller_roles.join(
-          ", ",
-        )} cannot access ${authenticated.tool}`,
-        403,
-        requestId,
-        timestamp,
-        startTime,
-      );
-    }
+    });
 
-    /**
-     * 5. Execute
-     */
-    const tool =
-      toolRegistry[
-        authenticated.tool
-      ];
+    return buildErrorResponse(
+      authenticated.request_id,
+      authenticated.timestamp,
+      startedAt,
+      "FORBIDDEN",
+      "Caller is not authorized to invoke this tool",
+      403,
+    );
+  }
 
-    const result =
+  /**
+   * 5. Execute.
+   */
+  const isWrite =
+    isWriteOperation(
+      authenticated.tool,
+    );
+
+  try {
+    const data =
       executeTool(authenticated);
 
     /**
-     * 6. Audit successful writes
+     * 6. Audit successful write operations.
      */
-    if (tool.is_write_operation) {
-      auditOperation({
-        operation:
-          "WRITE_OPERATION",
-        caller_id:
-          authenticated.caller_id,
-        workspace_id:
-          authenticated.workspace_id,
-        tool:
-          authenticated.tool,
-        timestamp,
-        is_write: true,
-        success: true,
-      });
-    }
+    auditOperation({
+      operation:
+        "tool_execution",
+      caller_id:
+        authenticated.caller_id,
+      workspace_id:
+        authenticated.workspace_id,
+      tool: authenticated.tool,
+      timestamp:
+        new Date().toISOString(),
+      is_write: isWrite,
+      success: true,
+    });
 
     /**
-     * 7. Response validation
+     * 7. Construct response.
      */
-    const response =
-      createSuccessResponse(
-        result,
-        requestId,
-        timestamp,
-        startTime,
-      );
+    const response: MCPResponse = {
+      success: true,
+      data,
+      metadata: {
+        request_id:
+          authenticated.request_id,
+        timestamp:
+          new Date().toISOString(),
+        execution_time_ms:
+          Date.now() - startedAt,
+      },
+    };
 
+    /**
+     * 8. Validate response before returning.
+     */
     if (!validateResponse(response)) {
-      throw new Error(
-        "Response validation failed",
+      return buildErrorResponse(
+        authenticated.request_id,
+        authenticated.timestamp,
+        startedAt,
+        "INVALID_RESPONSE",
+        "Gateway generated an invalid response",
+        500,
       );
     }
 
     return response;
-  } catch (error: any) {
-    return createErrorResponse(
-      "INTERNAL_ERROR",
-      error?.message ||
-        "Internal server error",
-      500,
-      requestId,
-      timestamp,
-      startTime,
+  } catch (error) {
+    const gatewayError =
+      normalizeError(error);
+
+    auditOperation({
+      operation:
+        "tool_execution",
+      caller_id:
+        authenticated.caller_id,
+      workspace_id:
+        authenticated.workspace_id,
+      tool: authenticated.tool,
+      timestamp:
+        new Date().toISOString(),
+      is_write: isWrite,
+      success: false,
+      error_code:
+        gatewayError.code,
+    });
+
+    return buildErrorResponse(
+      authenticated.request_id,
+      authenticated.timestamp,
+      startedAt,
+      gatewayError.code,
+      gatewayError.message,
+      gatewayError.status,
     );
   }
 }
 
-function createSuccessResponse(
-  data: any,
-  requestId: string,
-  timestamp: string,
-  startTime: number,
-): MCPResponse {
-  return {
-    success: true,
-    data,
-    metadata: {
-      request_id: requestId,
-      timestamp,
-      execution_time_ms:
-        Date.now() - startTime,
-    },
-  };
+/**
+ * --------------------------------------------------------------------------
+ * HELPERS
+ * --------------------------------------------------------------------------
+ */
+
+function isWriteOperation(
+  toolName: string,
+): boolean {
+  const tool =
+    TOOL_REGISTRY[toolName];
+
+  return Boolean(
+    tool &&
+      tool.is_write_operation === true,
+  );
 }
 
-function createErrorResponse(
+function buildErrorResponse(
+  requestId: string,
+  timestamp: string,
+  startedAt: number,
   code: string,
   message: string,
   status: number,
-  requestId: string,
-  timestamp: string,
-  startTime: number,
 ): MCPResponse {
-  return {
+  const response: MCPResponse = {
     success: false,
     error: {
       code,
@@ -558,9 +738,36 @@ function createErrorResponse(
       request_id: requestId,
       timestamp,
       execution_time_ms:
-        Date.now() - startTime,
+        Date.now() - startedAt,
     },
   };
+
+  /**
+   * Defensive validation.
+   *
+   * If this itself fails, return the same shape rather than
+   * exposing an exception or sensitive internal information.
+   */
+  if (!validateResponse(response)) {
+    return {
+      success: false,
+      error: {
+        code: "INTERNAL_ERROR",
+        message:
+          "Unable to construct a valid gateway response",
+        status: 500,
+      },
+      metadata: {
+        request_id: requestId,
+        timestamp:
+          new Date().toISOString(),
+        execution_time_ms:
+          Date.now() - startedAt,
+      },
+    };
+  }
+
+  return response;
 }
 
 function generateRequestId(): string {
@@ -581,13 +788,65 @@ function generateId(): string {
   );
 }
 
-export {
-  handleMCPRequest,
+class GatewayError extends Error {
+  code: string;
+  status: number;
+
+  constructor(
+    code: string,
+    message: string,
+    status: number,
+  ) {
+    super(message);
+    this.name = "GatewayError";
+    this.code = code;
+    this.status = status;
+  }
+}
+
+function normalizeError(
+  error: unknown,
+): {
+  code: string;
+  message: string;
+  status: number;
+} {
+  if (error instanceof GatewayError) {
+    return {
+      code: error.code,
+      message: error.message,
+      status: error.status,
+    };
+  }
+
+  /**
+   * Never expose arbitrary internal exception messages
+   * to the external caller.
+   */
+  return {
+    code: "INTERNAL_ERROR",
+    message: "Tool execution failed",
+    status: 500,
+  };
+}
+
+/**
+ * --------------------------------------------------------------------------
+ * EXPORTS
+ * --------------------------------------------------------------------------
+ */
+
+module.exports = {
   authenticate,
   authorize,
   validateWorkspaceIsolation,
   validateRequest,
   validateResponse,
-  auditOperation,
   executeTool,
+  auditOperation,
+  handleRequest,
+  isWriteOperation,
+  generateRequestId,
+  generateId,
+  GatewayError,
 };
