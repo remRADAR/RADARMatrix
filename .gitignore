@@ -1,0 +1,7 @@
+# Local durable workspace state
+.data/
+
+# Runtime logs and temporary verification files
+*.log
+*.tmp
+.DS_Store

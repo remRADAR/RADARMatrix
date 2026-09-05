@@ -117,6 +117,8 @@ RADARMatrix exposes seven production MCP tools:
 - [ARCHITECTURE.md](ARCHITECTURE.md) — Complete system design and component responsibilities
 - [SECURITY.md](SECURITY.md) — Detailed security requirements, threat model, and controls
 - [docs/V0.8-CHATGPT-INTEGRATION.md](docs/V0.8-CHATGPT-INTEGRATION.md) — Integration specification and roadmap
+- [docs/USAGE-TUTORIAL.md](docs/USAGE-TUTORIAL.md) — Step-by-step operating tutorial
+- [docs/BRAND-ASSET-APP.md](docs/BRAND-ASSET-APP.md) — Brand-asset application product model
 
 ### Core Gateway
 
@@ -140,7 +142,8 @@ RADARMatrix exposes seven production MCP tools:
 ```bash
 npm test                    # Run all tests
 npm run test:gateway        # Run gateway tests only
-npm run test:contract       # Run contract tests only
+npm run test:contract        # Run contract tests
+npm run brand:dev             # Run the local brand command center
 ```
 
 ## Next Steps
