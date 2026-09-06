@@ -18,8 +18,13 @@ export async function createRuntime() {
   const store = storageMode === 'supabase'
     ? new SupabaseWorkspaceStore({ workspaceId })
     : new WorkspaceStore(process.env.RADARMATRIX_DATA_FILE || join(root, '../../.data/workspace.json'));
-  await store.init();
-  return { store, gateway: new BrandGateway(store), storageMode };
+  try {
+    await store.init();
+    return { store, gateway: new BrandGateway(store), storageMode, runtimeError: null };
+  } catch (error) {
+    if (runtimeMode === 'production') return { store: null, gateway: null, storageMode, runtimeError: error.message };
+    throw error;
+  }
 }
 
 function safePath(requestUrl) {
@@ -51,13 +56,17 @@ function contextFor(request) {
   return { caller_id: requestCaller, workspace_id: workspaceId, request_id: `ui_${Date.now()}` };
 }
 
-export function createRequestHandler({ gateway, storageMode }) {
+export function createRequestHandler({ gateway, storageMode, runtimeError }) {
   return async (request, response) => {
     const url = new URL(request.url || '/', `http://localhost:${port}`);
     if (url.pathname.startsWith('/api/')) {
       try {
         if (runtimeMode !== 'development' && !callerId) {
           sendJson(response, 503, { success: false, error: { code: 'AUTH_CONFIGURATION_REQUIRED', message: 'Production authentication is not configured', status: 503 } });
+          return;
+        }
+        if (runtimeError || !gateway) {
+          sendJson(response, 503, { success: false, error: { code: 'STORAGE_CONFIGURATION_REQUIRED', message: 'Production storage is not configured; no workspace data or mutations are available.', status: 503 } });
           return;
         }
         const invoke = (tool, params, requestBody = {}) => gateway.invoke({ tool, params: { ...params, workspace_id: workspaceId }, context: contextFor(request), approval: requestBody.approval, consent: requestBody.consent });

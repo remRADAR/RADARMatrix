@@ -9,7 +9,8 @@
     "test:gateway": "node tests/v0.7-gateway.test.mjs",
     "test:contract": "node tests/v0.8-chatgpt-contract.test.mjs",
     "brand:dev": "node apps/brand-studio/server.mjs",
-    "brand:start": "node apps/brand-studio/server.mjs"
+    "brand:start": "node apps/brand-studio/server.mjs",
+    "test:deployment": "RADARMATRIX_RUNTIME_MODE=production RADARMATRIX_NO_LISTEN=1 node tests/deployment-smoke.mjs"
   },
   "keywords": [
     "radarmatrix",
