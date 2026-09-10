@@ -2,14 +2,14 @@
 
 ## Current state
 
-RADARMatrix has a separate Supabase project for durable workspace storage:
+RADARMatrix previously used a separate Supabase project for durable workspace storage. That NairaLeap-hosted project has now been intentionally deleted; the migration below remains the source of truth for the replacement remRADAR project:
 
 | Property | Value |
 |---|---|
 | Project | RADARMatrix |
-| Project ref | `xtwrbgfdrlkqddszfwpt` |
+| Project ref | **Retired; do not reuse** (`xtwrbgfdrlkqddszfwpt`) |
 | Region | `eu-west-1` |
-| Status at setup | `ACTIVE_HEALTHY` |
+| Status at setup | `DELETED; replacement pending` |
 | Project-creation quote | `$0.00/month` at setup time |
 
 The first workspace migration is stored at `supabase/migrations/001_radarmatrix_workspace.sql`. It creates RLS-enabled tables for workspaces, memberships, brand assets, content, community items, safety state, rate events, and audit events. It seeds only the development workspace `w_dev` and development callers used by the local test runtime.
