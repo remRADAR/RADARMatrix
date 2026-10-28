@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "registryVersion": "0.1.0",
+  "sourcePack": {
+    "repository": "https://github.com/remRADAR/radar-vibe-queue",
+    "branch": "main",
+    "commit": "813095879cf10047142193af52c9c4223e606451",
+    "adaptation": "Platform-neutral profiles authored for RADARMatrix; source Markdown is referenced, not treated as executable code."
+  },
+  "limits": {
+    "maxTaskCharacters": 4000,
+    "maxSpecialists": 2,
+    "executionMode": "plan_only",
+    "externalActionsRequireHumanApproval": true
+  },
+  "skills": [
+    { "id": "radar-vibe-queue", "name": "RADAR Task Router", "sourcePath": "skills/radar-vibe-queue/SKILL.md", "file": "skills/radar-vibe-queue.md" },
+    { "id": "agent-continuation", "name": "Agent Continuation", "sourcePath": "skills/agent-continuation/SKILL.md", "file": "skills/agent-continuation.md" },
+    { "id": "universal-agent-architect", "name": "Universal Agent Architect", "sourcePath": "skills/universal-agent-architect/SKILL.md", "file": "skills/universal-agent-architect.md" },
+    { "id": "radar-meta", "name": "RADAR Social Intelligence", "sourcePath": "skills/radar-meta/SKILL.md", "file": "skills/radar-meta.md" },
+    { "id": "application-engineering", "name": "Application Engineering", "sourcePath": "skills/application-engineering/SKILL.md", "file": "skills/application-engineering.md" },
+    { "id": "web-development", "name": "Web Development", "sourcePath": "skills/web-development/SKILL.md", "file": "skills/web-development.md" },
+    { "id": "lovable-vibecode", "name": "AI Builder / Vibecode Engineering", "sourcePath": "skills/lovable-vibecode/SKILL.md", "file": "skills/lovable-vibecode.md" },
+    { "id": "debug-incident", "name": "Debugging and Incident Response", "sourcePath": "skills/debug-incident/SKILL.md", "file": "skills/debug-incident.md" },
+    { "id": "market-intelligence", "name": "Market Intelligence", "sourcePath": "skills/market-intelligence/SKILL.md", "file": "skills/market-intelligence.md" },
+    { "id": "code-language", "name": "Code and Language Engineering", "sourcePath": "skills/code-language/SKILL.md", "file": "skills/code-language.md" },
+    { "id": "authorized-product-study", "name": "Authorized Product Study", "sourcePath": "skills/authorized-product-study/SKILL.md", "file": "skills/authorized-product-study.md" }
+  ],
+  "agents": [
+    {
+      "id": "radar_orchestrator",
+      "name": "RADAR Orchestrator",
+      "role": "Coordinator",
+      "description": "Routes a request to the smallest useful specialist set and prepares a bounded handoff; it does not execute agent work in this version.",
+      "skillIds": ["radar-vibe-queue", "universal-agent-architect", "agent-continuation"],
+      "categories": [],
+      "coordinator": true,
+      "accessMode": "plan_only",
+      "allowedMcpTools": []
+    },
+    {
+      "id": "radar_social_intelligence",
+      "name": "RADAR Social Intelligence",
+      "role": "Audience, community, trend, and brand analyst",
+      "description": "Prepares evidence-led RADARCharts social, audience, community, culture, and brand-analysis work from authorized sources.",
+      "skillIds": ["radar-meta"],
+      "categories": ["radar_social"],
+      "coordinator": false,
+      "accessMode": "plan_only",
+      "allowedMcpTools": []
+    },
+    {
+      "id": "agent_architect",
+      "name": "Agent Architect",
+      "role": "Agent, skill, MCP, and workflow designer",
+      "description": "Designs bounded agent roles, tool contracts, handoffs, approvals, memory, and run-state flows.",
+      "skillIds": ["universal-agent-architect", "radar-vibe-queue"],
+      "categories": ["agent_architecture"],
+      "coordinator": false,
+      "accessMode": "plan_only",
+      "allowedMcpTools": []
+    },
+    {
+      "id": "application_engineer",
+      "name": "Application Engineer",
+      "role": "Application, API, and service engineer",
+      "description": "Plans and implements scoped application, API, database, and service changes after repository inspection.",
+      "skillIds": ["application-engineering"],
+      "optionalSkillIds": ["code-language"],
+      "categories": ["application_engineering"],
+      "coordinator": false,
+      "accessMode": "plan_only",
+      "allowedMcpTools": []
+    },
+    {
+      "id": "web_engineer",
+      "name": "Web Engineer",
+      "role": "Web product and interface engineer",
+      "description": "Plans web interface work with accessibility, security, performance, and responsive behavior in scope.",
+      "skillIds": ["web-development"],
+      "categories": ["web_development"],
+      "coordinator": false,
+      "accessMode": "plan_only",
+      "allowedMcpTools": []
+    },
+    {
+      "id": "ai_builder_engineer",
+      "name": "AI Builder / Vibecode Engineer",
+      "role": "AI-generated application engineer",
+      "description": "Inspects and safely modifies applications created with prompt-driven or AI coding tools.",
+      "skillIds": ["lovable-vibecode"],
+      "categories": ["ai_builder"],
+      "coordinator": false,
+      "accessMode": "plan_only",
+      "allowedMcpTools": []
+    },
+    {
+      "id": "debug_incident_responder",
+      "name": "Debug / Incident Responder",
+      "role": "Failure diagnosis and recovery analyst",
+      "description": "Builds an evidence log, isolates the failing layer, and proposes a minimal reversible repair.",
+      "skillIds": ["debug-incident"],
+      "categories": ["incident"],
+      "coordinator": false,
+      "accessMode": "plan_only",
+      "allowedMcpTools": []
+    },
+    {
+      "id": "market_analyst",
+      "name": "Market Intelligence Analyst",
+      "role": "Company, industry, and market researcher",
+      "description": "Plans evidence-based market and company research with dated sources, explicit cut-offs, and uncertainty.",
+      "skillIds": ["market-intelligence"],
+      "categories": ["market_intelligence"],
+      "coordinator": false,
+      "accessMode": "plan_only",
+      "allowedMcpTools": []
+    },
+    {
+      "id": "product_study_analyst",
+      "name": "Authorized Product Study Analyst",
+      "role": "Product and UX observer",
+      "description": "Maps permitted product flows and visible behavior, separating observations from architectural guesses.",
+      "skillIds": ["authorized-product-study"],
+      "categories": ["product_study"],
+      "coordinator": false,
+      "accessMode": "plan_only",
+      "allowedMcpTools": []
+    }
+  ],
+  "routes": [
+    { "category": "incident", "agentId": "debug_incident_responder", "label": "Debug / incident", "priority": 100, "keywords": ["incident", "outage", "broken", "bug", "debug", "regression", "crash", "error", "failure", "failed", "fix"] },
+    { "category": "ai_builder", "agentId": "ai_builder_engineer", "label": "AI builder / vibecode", "priority": 90, "keywords": ["lovable", "vibecode", "vibe coding", "ai builder", "prompt-driven builder", "generated app"] },
+    { "category": "product_study", "agentId": "product_study_analyst", "label": "Authorized product study", "priority": 80, "keywords": ["study this product", "product study", "compare interface", "user flow", "ux", "ui behavior", "feature comparison", "inspect portal", "analyze website", "product discovery"] },
+    { "category": "radar_social", "agentId": "radar_social_intelligence", "label": "RADAR social intelligence", "priority": 70, "keywords": ["radar meta", "social intelligence", "audience", "community", "artist", "instagram", "followers", "engagement", "culture", "social media", "brand reputation", "trend discovery"] },
+    { "category": "agent_architecture", "agentId": "agent_architect", "label": "Agent architecture", "priority": 60, "keywords": ["agent", "agents", "skill", "skills", "routing", "orchestration", "workflow", "mcp", "tool contract", "handoff", "multi-agent"] },
+    { "category": "market_intelligence", "agentId": "market_analyst", "label": "Market intelligence", "priority": 50, "keywords": ["market research", "industry research", "company research", "competitor analysis", "financial research", "market sizing", "securities", "valuation"] },
+    { "category": "web_development", "agentId": "web_engineer", "label": "Web development", "priority": 40, "keywords": ["website", "web app", "web page", "frontend", "front end", "interface", "dashboard", "accessibility", "responsive"] },
+    { "category": "application_engineering", "agentId": "application_engineer", "label": "Application engineering", "priority": 30, "keywords": ["implement", "implementation", "code", "repository", "repo", "api", "database", "backend", "server", "integration", "runtime", "typescript", "node.js", "refactor"] }
+  ]
+}

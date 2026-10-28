@@ -74,6 +74,18 @@ export function createRequestHandler({ gateway, storageMode, runtimeError }) {
           sendJson(response, 200, { success: true, data: { ok: true, storage: storageMode, runtime: runtimeMode, mutations_paused: true } });
           return;
         }
+        if (request.method === 'GET' && url.pathname === '/api/agents') {
+          const category = url.searchParams.get('category') || undefined;
+          const result = await invoke('radar.list_agents', { category });
+          sendJson(response, result.success ? 200 : result.error.status, result);
+          return;
+        }
+        if (request.method === 'POST' && url.pathname === '/api/task-routing/plan') {
+          const body = await readJson(request);
+          const result = await invoke('radar.plan_task', { goal: body.goal, category: body.category });
+          sendJson(response, result.success ? 200 : result.error.status, result);
+          return;
+        }
         if (request.method === 'GET' && url.pathname === '/api/workspace') {
           const result = await invoke('radar.get_context', {});
           sendJson(response, result.success ? 200 : result.error.status, result);

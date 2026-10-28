@@ -13,10 +13,12 @@ RADARMatrix provides a foundation for integrating knowledge management, context 
 - ✅ MCP gateway architecture with authentication, authorization, and workspace isolation
 - ✅ Authentication/authorization boundaries with role-based access control (RBAC)
 - ✅ Workspace isolation model with audit trails
-- ✅ Seven production-ready MCP tools with full type safety
+- ✅ Nine MCP tool contracts: seven foundation tools plus two read-only agent directory/routing tools
+- ✅ Versioned RADAR specialist skill registry and deterministic, plan-only task routing in Brand Studio
+- ✅ Sandboxed live-preview UI and explicit-consent browser-control integration point
 - ✅ Comprehensive security model (read/write separation, immutability, audit events)
 - ✅ OAuth protected resource definition
-- ✅ Complete test suite (56 tests, all passing)
+- ✅ Existing foundation checks plus agent-router and BrandGateway API regression tests
 - ⏳ **NOT**: Production Cloudflare (D1/R2/Vectorize) deployment
 - ⏳ **NOT**: Live MCP endpoint
 - ⏳ **NOT**: Live ChatGPT connection
@@ -53,9 +55,9 @@ Canonical Data + Document Storage + Vector Retrieval
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for complete system design.
 
-## MCP Tool Contract (v0.8)
+## MCP Tool Contract (foundation)
 
-RADARMatrix exposes seven production MCP tools:
+RADARMatrix defines nine MCP tools in the contract. The agent directory and task planner are read-only and plan-only; they do not invoke a model, save a run, or perform external actions. The live MCP endpoint remains unimplemented.
 
 ### Read Operations (VIEWER+)
 
@@ -66,6 +68,8 @@ RADARMatrix exposes seven production MCP tools:
 | `radar.get_context` | Load workspace context and configuration | VIEWER+ | Read |
 | `radar.get_project` | Get project metadata and associated entities | VIEWER+ | Read |
 | `radar.get_entity` | Get entity details, relationships, and context | VIEWER+ | Read |
+| `radar.list_agents` | List the configured workspace-scoped specialist profiles | VIEWER+ | Read / plan-only |
+| `radar.plan_task` | Preview a deterministic route to up to two specialists | VIEWER+ | Read / plan-only |
 
 ### Write Operations
 
@@ -73,6 +77,14 @@ RADARMatrix exposes seven production MCP tools:
 |------|-------------|------|------|
 | `radar.remember` | Record data to workspace memory | CONTRIBUTOR+ | Write |
 | `radar.record_decision` | Log decision with rationale and metadata | EDITOR+ | Write |
+
+## Agent Skills and Task Routing
+
+The RADAR VIBE QUEUE skill pack is adapted into a declarative registry and platform-neutral role files under [`apps/agent-skills/`](apps/agent-skills/). Brand Studio exposes `GET /api/agents` and `POST /api/task-routing/plan`; the planner is deterministic, bounded to 4,000 characters and at most two specialists, and returns clarification questions when no route matches. See [`docs/AGENT-ROUTING.md`](docs/AGENT-ROUTING.md) for categories, pipeline stages, and the execution boundary.
+
+## Live Preview and Browser Control
+
+Brand Studio now has a Live Preview view with an HTTP(S)-only URL form and isolated sandboxed iframe. The Browser Takeover panel remains disabled by default because the repository does not contain an authenticated browser-session service or remote-control transport; it is not simulated. A trusted host adapter contract and production security requirements are documented in [`docs/PREVIEW-AND-BROWSER-CONTROL.md`](docs/PREVIEW-AND-BROWSER-CONTROL.md).
 
 ## Role-Based Access Control
 
@@ -119,6 +131,8 @@ RADARMatrix exposes seven production MCP tools:
 - [docs/V0.8-CHATGPT-INTEGRATION.md](docs/V0.8-CHATGPT-INTEGRATION.md) — Integration specification and roadmap
 - [docs/USAGE-TUTORIAL.md](docs/USAGE-TUTORIAL.md) — Step-by-step operating tutorial
 - [docs/BRAND-ASSET-APP.md](docs/BRAND-ASSET-APP.md) — Brand-asset application product model
+- [docs/AGENT-ROUTING.md](docs/AGENT-ROUTING.md) — Specialist registry, routing rules, and plan-only boundary
+- [docs/PREVIEW-AND-BROWSER-CONTROL.md](docs/PREVIEW-AND-BROWSER-CONTROL.md) — Sandboxed live preview and trusted host-bridge contract
 
 ### Core Gateway
 
@@ -130,8 +144,10 @@ RADARMatrix exposes seven production MCP tools:
 
 - `tests/v0.7-gateway.test.mjs` — 18 gateway tests (authentication, authorization, isolation, errors)
 - `tests/v0.8-chatgpt-contract.test.mjs` — 38 contract tests (tools, schemas, validation)
+- `tests/agent-routing.test.mjs` — Deterministic routing, registry, and boundary tests
+- `tests/brand-gateway-routing.test.mjs` — Authenticated API and no-side-effect integration checks
 - `tests/test-runner.mjs` — Orchestrated test execution
-- **Status**: 56/56 tests passing ✅
+- **Status**: run `npm test` for the current verification result
 
 ### Project Configuration
 
@@ -143,6 +159,7 @@ RADARMatrix exposes seven production MCP tools:
 npm test                    # Run all tests
 npm run test:gateway        # Run gateway tests only
 npm run test:contract        # Run contract tests
+npm run test:agents          # Run route planner and BrandGateway integration tests
 npm run brand:dev             # Run the local brand command center
 ```
 

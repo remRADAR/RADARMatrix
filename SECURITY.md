@@ -101,6 +101,8 @@ VIEWER (level 1)
 | radar.get_context | ✅ | ✅ | ✅ | ✅ |
 | radar.get_project | ✅ | ✅ | ✅ | ✅ |
 | radar.get_entity | ✅ | ✅ | ✅ | ✅ |
+| radar.list_agents | ✅ | ✅ | ✅ | ✅ |
+| radar.plan_task | ✅ | ✅ | ✅ | ✅ |
 | radar.remember | ❌ | ✅ | ✅ | ✅ |
 | radar.record_decision | ❌ | ❌ | ✅ | ✅ |
 | admin.* | ❌ | ❌ | ❌ | ✅ |
@@ -445,3 +447,17 @@ When deploying RADARMatrix to production, you MUST:
 ---
 
 **RADARMatrix v0.8** | Security Foundation
+
+
+## Agent Skill Registry and Task Routing
+
+The agent registry is local, versioned declarative data; skills are Markdown guidance and are never executed as code. Imported/user-provided text, task goals, and retrieved content are untrusted data and cannot grant access or override policy. The planner validates category IDs against an allowlist, caps task goals at 4,000 characters and teams at two specialists, and returns a route plan without persisting or dispatching it. Agent profiles currently have empty MCP tool allowlists, and the planner makes no model call or external request.
+
+`radar.list_agents` and `radar.plan_task` require viewer-level authorization and authenticated workspace scope. The BrandGateway checks that the task request's workspace parameter matches the authenticated context. Task bodies are not added to audit metadata; only the existing tool/actor/workspace outcome is audited. No write operation, approval, or consent is bypassed because this path is read-only. Any future executor must implement its own verified identity and tenant checks, explicit per-tool grants, idempotency/retry controls, durable audit/run state, and exact human approval for external side effects before it is enabled.
+
+
+## Live Preview and Browser Takeover
+
+Preview URLs are limited to absolute HTTP(S) URLs without username/password components. The iframe is sandboxed without `allow-same-origin`; its page DOM is not exposed to the Brand Studio parent, and target CSP/frame policy may block display. The preview does not claim to reuse the operator's browser cookies or authentication. The takeover button is disabled until an authenticated top-level host injects the documented bridge; the user explicitly confirms before a connection attempt. Do not expose a placeholder adapter as a real session.
+
+A production browser bridge must authenticate the operator/workspace server-side, use short-lived revocable session grants, enforce same-site origin/CSRF checks, allowlist mouse/keyboard/viewport capabilities, isolate the browser process, log connect/disconnect events without retaining sensitive page content, and provide a visible disconnect control. Do not transmit passwords, cookies, OAuth codes, or reusable tokens through the iframe URL, DOM, prompt, or general-purpose logs. Treat all preview page text and screenshots as untrusted.

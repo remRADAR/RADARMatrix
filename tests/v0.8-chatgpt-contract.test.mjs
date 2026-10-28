@@ -49,6 +49,18 @@ const TOOL_REGISTRY = {
     required_role: "viewer",
     is_write_operation: false,
   },
+  "radar.list_agents": {
+    name: "radar.list_agents",
+    description: "List configured specialist profiles",
+    required_role: "viewer",
+    is_write_operation: false,
+  },
+  "radar.plan_task": {
+    name: "radar.plan_task",
+    description: "Create a plan-only route to specialist agents",
+    required_role: "viewer",
+    is_write_operation: false,
+  },
   "radar.remember": {
     name: "radar.remember",
     description: "Record to memory",
@@ -74,6 +86,8 @@ export function testToolExistence() {
     "radar.get_context",
     "radar.get_project",
     "radar.get_entity",
+    "radar.list_agents",
+    "radar.plan_task",
     "radar.remember",
     "radar.record_decision",
   ];
@@ -141,6 +155,8 @@ export function testToolContracts() {
 export function testRoleBasedAccess() {
   const tests = [
     { role: "viewer", tool: "radar.search", should_allow: true },
+    { role: "viewer", tool: "radar.list_agents", should_allow: true },
+    { role: "viewer", tool: "radar.plan_task", should_allow: true },
     { role: "viewer", tool: "radar.remember", should_allow: false },
     { role: "viewer", tool: "radar.record_decision", should_allow: false },
     { role: "contributor", tool: "radar.search", should_allow: true },
@@ -161,6 +177,8 @@ export function testRoleBasedAccess() {
           "radar.get_context",
           "radar.get_project",
           "radar.get_entity",
+          "radar.list_agents",
+          "radar.plan_task",
         ],
         contributor: [
           "radar.search",
@@ -168,6 +186,8 @@ export function testRoleBasedAccess() {
           "radar.get_context",
           "radar.get_project",
           "radar.get_entity",
+          "radar.list_agents",
+          "radar.plan_task",
           "radar.remember",
         ],
         editor: [
@@ -176,6 +196,8 @@ export function testRoleBasedAccess() {
           "radar.get_context",
           "radar.get_project",
           "radar.get_entity",
+          "radar.list_agents",
+          "radar.plan_task",
           "radar.remember",
           "radar.record_decision",
         ],
@@ -208,6 +230,8 @@ export function testToolDescriptions() {
     { tool: "radar.recall", should_have_description: true },
     { tool: "radar.remember", should_have_description: true },
     { tool: "radar.record_decision", should_have_description: true },
+    { tool: "radar.list_agents", should_have_description: true },
+    { tool: "radar.plan_task", should_have_description: true },
   ];
 
   console.log("\n[TEST] Tool Descriptions");
@@ -257,6 +281,12 @@ export function testRequestValidation() {
       params: { workspace_id: "w_123", decision: "decision" },
       should_pass: false,
     },
+    {
+      name: "Should accept radar.plan_task with workspace and goal",
+      tool: "radar.plan_task",
+      params: { workspace_id: "w_123", goal: "Plan a market research task" },
+      should_pass: true,
+    },
   ];
 
   console.log("\n[TEST] Request Validation");
@@ -276,6 +306,8 @@ export function testRequestValidation() {
           test.params.rationale
             ? true
             : false;
+      } else if (test.tool === "radar.plan_task") {
+        is_valid = test.params.workspace_id && typeof test.params.goal === "string" && test.params.goal.trim().length > 0 ? true : false;
       }
 
       assert.strictEqual(is_valid, test.should_pass, test.name);
@@ -360,13 +392,13 @@ export function testWriteOperationGating() {
 export function testToolRegistry() {
   const tests = [
     {
-      name: "Tool registry contains 7 tools",
-      expected: 7,
+      name: "Tool registry contains 9 tools",
+      expected: 9,
       actual: Object.keys(TOOL_REGISTRY).length,
     },
     {
-      name: "Tool registry contains 5 read-only tools",
-      expected: 5,
+      name: "Tool registry contains 7 read-only tools",
+      expected: 7,
       actual: Object.values(TOOL_REGISTRY).filter((t) => !t.is_write_operation)
         .length,
     },

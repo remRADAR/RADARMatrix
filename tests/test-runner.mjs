@@ -9,6 +9,8 @@
 
 import { runAllTests as runGatewayTests } from "./v0.7-gateway.test.mjs";
 import { runAllTests as runContractTests } from "./v0.8-chatgpt-contract.test.mjs";
+import { runAllTests as runAgentRoutingTests } from "./agent-routing.test.mjs";
+import { runAllTests as runBrandGatewayRoutingTests } from "./brand-gateway-routing.test.mjs";
 
 console.log("\n");
 console.log("╔════════════════════════════════════════╗");
@@ -25,6 +27,10 @@ runGatewayTests();
 // Run contract tests
 console.log("▶ Running ChatGPT Contract Tests (v0.8)...\n");
 runContractTests();
+
+console.log("▶ Running RADAR Agent Routing Tests...\n");
+runAgentRoutingTests();
+await runBrandGatewayRoutingTests();
 
 // Summary
 const duration = Date.now() - startTime;

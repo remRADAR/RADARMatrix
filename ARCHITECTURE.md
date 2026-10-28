@@ -103,7 +103,7 @@ The architecture enforces strict boundaries between:
 
 **Responsibility**: Define MCP tool contract with schemas and validation.
 
-**Seven Tools**:
+**Nine Tool Contracts** (the two agent tools remain plan-only):
 
 #### Read Operations (VIEWER+)
 1. **radar.search** — Full-text and semantic search
@@ -111,10 +111,12 @@ The architecture enforces strict boundaries between:
 3. **radar.get_context** — Workspace context loading
 4. **radar.get_project** — Project metadata
 5. **radar.get_entity** — Entity details
+6. **radar.list_agents** — Specialist profile directory (read-only)
+7. **radar.plan_task** — Deterministic specialist route preview (read-only; no execution)
 
 #### Write Operations
-6. **radar.remember** (CONTRIBUTOR+) — Memory recording
-7. **radar.record_decision** (EDITOR+) — Decision logging
+8. **radar.remember** (CONTRIBUTOR+) — Memory recording
+9. **radar.record_decision** (EDITOR+) — Decision logging
 
 **Key Components**:
 - `TOOL_REGISTRY` — Complete tool definitions
@@ -223,6 +225,8 @@ VIEWER (1)
   ├─ radar.get_context
   ├─ radar.get_project
   ├─ radar.get_entity
+  ├─ radar.list_agents
+  ├─ radar.plan_task
   └─ No write operations
 ```
 
@@ -373,3 +377,15 @@ VIEWER (1)
 ---
 
 **RADARMatrix v0.8** | Foundation Architecture
+
+
+## Specialist Skill Registry and Task Routing
+
+The declarative registry lives in `apps/agent-skills/registry.json`; its adapted, platform-neutral skill guidance lives under `apps/agent-skills/skills/`. `apps/mcp-server/src/runtime/agent-routing.cjs` validates the catalog and creates a deterministic plan from a bounded task goal. It selects one primary specialist and at most one supporting specialist, with the RADAR Orchestrator limited to intake/routing/review. An unmatched request returns a clarification question rather than dispatching the whole roster.
+
+Brand Studio exposes the directory at `GET /api/agents` and a plan preview at `POST /api/task-routing/plan`. The MCP contract adds viewer-level, read-only `radar.list_agents` and `radar.plan_task` tools; the foundation gateway dispatches them only to the same deterministic planner. Plans are ephemeral: the router has no model provider, queue worker, task persistence, or specialist tool grants. External side effects remain unsupported and require a separate authorized execution design and human approval gate.
+
+
+## Live Preview and Browser Control Panel
+
+Brand Studio's `preview` view accepts HTTP(S) development URLs and renders them in a sandboxed iframe. It has no `allow-same-origin`, credentials in the URL are rejected, and preview content is not inspected or trusted. Sites can block framing. The adjacent browser-takeover control is disabled unless a trusted top-level host injects `window.RADAR_BROWSER_BRIDGE` with `connect` and `disconnect` methods and emits `radar-browser-bridge-ready`. The operator explicitly confirms before connecting. No bridge/session broker or remote-control transport is implemented in this repository; the UI reports the unavailable state honestly. See `docs/PREVIEW-AND-BROWSER-CONTROL.md` for the adapter contract and production requirements.

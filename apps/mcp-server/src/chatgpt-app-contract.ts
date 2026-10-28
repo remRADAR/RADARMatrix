@@ -425,6 +425,65 @@ const TOOL_RADAR_RECORD_DECISION: MCPToolDefinition = {
   },
 };
 
+/**
+ * Tool 8: radar.list_agents
+ * Read-only directory of configured RADARMatrix agent profiles.
+ */
+const TOOL_RADAR_LIST_AGENTS: MCPToolDefinition = {
+  name: "radar.list_agents",
+  description: "List the workspace-scoped RADARMatrix specialist profiles and routing categories",
+  required_role: "viewer",
+  is_write_operation: false,
+  input_schema: {
+    type: "object",
+    required: ["workspace_id"],
+    properties: {
+      workspace_id: { type: "string", description: "Authenticated workspace ID" },
+      category: { type: "string", enum: ["auto", "incident", "ai_builder", "product_study", "radar_social", "agent_architecture", "market_intelligence", "web_development", "application_engineering"] },
+    },
+  },
+  output_schema: {
+    type: "object",
+    properties: {
+      registryVersion: { type: "string" },
+      executionMode: { type: "string", enum: ["plan_only"] },
+      agents: { type: "array", items: { type: "object" } },
+      categories: { type: "array", items: { type: "object" } },
+    },
+  },
+};
+
+/**
+ * Tool 9: radar.plan_task
+ * Deterministic, read-only task routing. Does not invoke agents or persist a run.
+ */
+const TOOL_RADAR_PLAN_TASK: MCPToolDefinition = {
+  name: "radar.plan_task",
+  description: "Create a plan-only route to the smallest relevant specialist set; no model call, task execution, or external action is performed",
+  required_role: "viewer",
+  is_write_operation: false,
+  input_schema: {
+    type: "object",
+    required: ["workspace_id", "goal"],
+    properties: {
+      workspace_id: { type: "string", description: "Authenticated workspace ID" },
+      goal: { type: "string", minLength: 1, maxLength: 4000, description: "Task outcome to classify and route" },
+      category: { type: "string", enum: ["auto", "incident", "ai_builder", "product_study", "radar_social", "agent_architecture", "market_intelligence", "web_development", "application_engineering"], default: "auto" },
+    },
+  },
+  output_schema: {
+    type: "object",
+    properties: {
+      status: { type: "string", enum: ["planned", "needs_clarification"] },
+      selectedCategory: { type: ["string", "null"] },
+      coordinator: { type: "object" },
+      assignments: { type: "array", items: { type: "object" } },
+      pipeline: { type: "array", items: { type: "object" } },
+      execution: { type: "object", description: "Always plan_only; started=false in this implementation" },
+    },
+  },
+};
+
 // ============================================================================
 // TOOL REGISTRY
 // ============================================================================
@@ -439,6 +498,8 @@ const TOOL_REGISTRY: Record<string, MCPToolDefinition> = {
   "radar.get_context": TOOL_RADAR_GET_CONTEXT,
   "radar.get_project": TOOL_RADAR_GET_PROJECT,
   "radar.get_entity": TOOL_RADAR_GET_ENTITY,
+  "radar.list_agents": TOOL_RADAR_LIST_AGENTS,
+  "radar.plan_task": TOOL_RADAR_PLAN_TASK,
   "radar.remember": TOOL_RADAR_REMEMBER,
   "radar.record_decision": TOOL_RADAR_RECORD_DECISION,
 };
@@ -560,6 +621,8 @@ export {
   TOOL_RADAR_GET_CONTEXT,
   TOOL_RADAR_GET_PROJECT,
   TOOL_RADAR_GET_ENTITY,
+  TOOL_RADAR_LIST_AGENTS,
+  TOOL_RADAR_PLAN_TASK,
   TOOL_RADAR_REMEMBER,
   TOOL_RADAR_RECORD_DECISION,
   validateToolDefinition,

@@ -5,6 +5,7 @@ const require = createRequire(import.meta.url);
 const { DevelopmentAuthenticationProvider } = require('../providers/authentication.cjs');
 const { DefaultAuthorizationProvider } = require('../providers/authorization.cjs');
 const { DevelopmentMembershipProvider } = require('../providers/membership.cjs');
+const { TaskRoutingError, getAgentDirectory, planTask } = require('./agent-routing.cjs');
 
 const WORKSPACE_ID = 'w_dev';
 const authProvider = new DevelopmentAuthenticationProvider();
@@ -21,6 +22,8 @@ const membershipProvider = new DevelopmentMembershipProvider({
 const TOOL_REGISTRY = {
   'radar.get_context': { requiredRole: 'viewer', write: false },
   'radar.search': { requiredRole: 'viewer', write: false },
+  'radar.list_agents': { requiredRole: 'viewer', write: false },
+  'radar.plan_task': { requiredRole: 'viewer', write: false },
   'radar.remember': { requiredRole: 'contributor', write: true },
   'radar.record_decision': { requiredRole: 'editor', write: true },
 };
@@ -29,6 +32,8 @@ const rateState = new Map();
 const RATE_LIMITS = {
   'radar.get_context': { capacity: 60, refillPerSecond: 1 },
   'radar.search': { capacity: 60, refillPerSecond: 1 },
+  'radar.list_agents': { capacity: 120, refillPerSecond: 2 },
+  'radar.plan_task': { capacity: 30, refillPerSecond: 30 / 60 },
   'radar.remember': { capacity: 12, refillPerSecond: 12 / 3600 },
   'radar.record_decision': { capacity: 12, refillPerSecond: 12 / 3600 },
 };
@@ -68,7 +73,7 @@ export class BrandGateway {
       }
       this.consumeRate(authenticated.caller_id, authenticated.workspace_id, tool);
 
-      const workspace = this.store.getWorkspace(authenticated.workspace_id);
+      const workspace = await this.store.getWorkspace(authenticated.workspace_id);
       if (!workspace) throw new GatewayError('WORKSPACE_NOT_FOUND', 'Workspace not found', 404);
       if (workspace.safety.mutationPause && descriptor.write && tool !== 'radar.record_decision') {
         throw new GatewayError('MUTATIONS_PAUSED', 'Instagram and workspace mutations are paused', 423);
@@ -84,7 +89,11 @@ export class BrandGateway {
       await this.store.appendAudit({ requestId, callerId: authenticated.caller_id, workspaceId: authenticated.workspace_id, tool, isWrite: descriptor.write, success: true, action: params.action || tool });
       return this.response(true, data, requestId, timestamp, startedAt);
     } catch (error) {
-      const normalized = error instanceof GatewayError ? error : new GatewayError('INTERNAL_ERROR', 'Gateway execution failed', 500);
+      const normalized = error instanceof GatewayError
+        ? error
+        : error instanceof TaskRoutingError
+          ? new GatewayError(error.code, error.message, error.status)
+          : new GatewayError('INTERNAL_ERROR', 'Gateway execution failed', 500);
       const callerId = context?.caller_id || 'unknown';
       await this.store.appendAudit({ requestId, callerId, workspaceId: context?.workspace_id || 'unknown', tool: tool || 'unknown', isWrite: Boolean(descriptor?.write), success: false, errorCode: normalized.code });
       return this.response(false, { code: normalized.code, message: normalized.message, status: normalized.status }, requestId, timestamp, startedAt);
@@ -97,6 +106,7 @@ export class BrandGateway {
     if (!request.context || typeof request.context !== 'object') throw new GatewayError('INVALID_REQUEST', 'Request context is required', 400);
     if (request.context.workspace_id !== WORKSPACE_ID) throw new GatewayError('INVALID_REQUEST', 'Invalid workspace context', 400);
     if (request.params.workspace_id && request.params.workspace_id !== request.context.workspace_id) throw new GatewayError('INVALID_REQUEST', 'Workspace mismatch between context and params', 400);
+    if (['radar.list_agents', 'radar.plan_task'].includes(request.tool) && request.params.workspace_id !== request.context.workspace_id) throw new GatewayError('INVALID_REQUEST', 'Workspace-scoped agent requests must include the authenticated workspace_id', 400);
   }
 
   consumeRate(callerId, workspaceId, tool) {
@@ -115,6 +125,8 @@ export class BrandGateway {
     const workspaceId = authenticated.workspace_id;
     if (tool === 'radar.get_context') return { workspace: this.store.getWorkspace(workspaceId), workspace_id: workspaceId };
     if (tool === 'radar.search') return { results: [], total: 0, query: params.query || '' };
+    if (tool === 'radar.list_agents') return getAgentDirectory(params.category);
+    if (tool === 'radar.plan_task') return planTask(params.goal, params.category);
     if (tool === 'radar.remember') {
       if (params.asset) return { asset: await this.store.addAsset(workspaceId, params.asset), approval: request.approval };
       if (params.content) return { content: await this.store.createContent(workspaceId, params.content), approval: request.approval };

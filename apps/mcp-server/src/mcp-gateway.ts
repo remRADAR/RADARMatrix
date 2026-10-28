@@ -95,6 +95,11 @@ const {
   TOOL_REGISTRY,
 } = require("./chatgpt-app-contract");
 
+const {
+  getAgentDirectory,
+  planTask,
+} = require("./runtime/agent-routing.cjs");
+
 const authProvider =
   new DevelopmentAuthenticationProvider();
 
@@ -414,6 +419,18 @@ function executeTool(
           request.workspace_id,
         config: {},
         entities: [],
+      };
+
+    case "radar.list_agents":
+      return {
+        ...getAgentDirectory(request.params.category),
+        workspace_id: request.workspace_id,
+      };
+
+    case "radar.plan_task":
+      return {
+        ...planTask(request.params.goal, request.params.category),
+        workspace_id: request.workspace_id,
       };
 
     case "radar.get_project":
@@ -816,6 +833,21 @@ function normalizeError(
       code: error.code,
       message: error.message,
       status: error.status,
+    };
+  }
+
+  if (
+    error &&
+    typeof error === "object" &&
+    "name" in error &&
+    error.name === "TaskRoutingError" &&
+    "code" in error &&
+    "status" in error
+  ) {
+    return {
+      code: String(error.code),
+      message: error instanceof Error ? error.message : "Invalid routing request",
+      status: Number(error.status),
     };
   }
 
