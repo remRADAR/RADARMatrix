@@ -5,3 +5,7 @@
 *.log
 *.tmp
 .DS_Store
+
+# Local environment files (secrets must never be committed)
+.env
+.env.*
