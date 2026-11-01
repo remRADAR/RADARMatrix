@@ -12,6 +12,11 @@ name: CI
 #   output (defense in depth for legacy suites).
 # - actions/upload-artifact is free for public repositories. No paid
 #   services, no dependencies.
+#
+# M2 (P0): type-checking added. typescript + @types/node are DEV-ONLY
+# dependencies (the runtime keeps ZERO npm dependencies). The typecheck
+# step runs "tsc --noEmit" over the contracts package and the M2 auth
+# modules. The claim "contracts are type-checked" begins here.
 
 on:
   push:
@@ -30,7 +35,17 @@ jobs:
         with:
           node-version: 24
 
-      # Repository has zero npm dependencies; no install step needed.
+      # Dev-only install (typescript + @types/node). Runtime has zero
+      # npm dependencies; this install does not affect the test suites.
+      - name: Install dev dependencies (typescript + @types/node)
+        run: npm install --no-audit --no-fund
+
+      # M2 P0: compiler-based verification of the contracts package and
+      # the M2 auth modules. No runtime code is emitted (noEmit).
+      - name: Type-check (tsc --noEmit)
+        run: npm run typecheck
+
+      # Repository has zero RUNTIME npm dependencies.
       # Node >= 22.18 loads the TypeScript gateway/contract sources via
       # built-in type stripping (erasable syntax only).
       - name: Run test suites (npm test — exit code enforced, output captured)

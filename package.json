@@ -10,6 +10,7 @@
     "test:security": "node tests/gateway-integration-security.test.mjs",
     "test:contract": "node tests/v0.8-chatgpt-contract.test.mjs",
     "test:agents": "node tests/agent-routing.test.mjs && node tests/brand-gateway-routing.test.mjs",
+    "typecheck": "tsc -p tsconfig.json",
     "brand:dev": "node apps/brand-studio/server.mjs",
     "brand:start": "node apps/brand-studio/server.mjs",
     "test:deployment": "RADARMATRIX_RUNTIME_MODE=production RADARMATRIX_NO_LISTEN=1 node tests/deployment-smoke.mjs"
@@ -22,7 +23,10 @@
   ],
   "author": "remRADAR",
   "license": "MIT",
-  "devDependencies": {},
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  },
   "dependencies": {},
   "engines": {
     "node": ">=22.18"

@@ -31,3 +31,8 @@ Statuses follow the implemented / connected / simulated / planned / unavailable 
 ## Verification status
 
 These contracts have **not** been type-checked: no TypeScript compiler step exists in CI yet (zero-budget toolchain decision, M2). The interfaces are exercised indirectly at runtime through the gateway imports via Node type stripping. Do not treat them as compiler-verified.
+### Verification update (M2 P0, 2026-11-01)
+
+**These contracts are now type-checked.** CI runs `tsc --noEmit` (strict) over this package and the M2 auth modules (`tsconfig.json` at the repository root; `typescript` + `@types/node` are dev-only dependencies — the runtime still has zero npm dependencies). The M1a statement above remains for the historical record.
+
+**Type-checked does not mean runtime-verified:** type-level brands (VerifiedPrincipal and the rest of the ladder) prevent structural misuse in type-checked code; they add no runtime checks. Runtime enforcement remains the gateway's fail-closed pipeline, proven by the integration suites.
