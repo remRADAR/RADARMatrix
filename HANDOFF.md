@@ -1,59 +1,60 @@
 # HANDOFF — RADARMatrix
 
 ## CURRENT STATE
-- Last updated: 2026-11-01 — Mistral Vibe (Lead Architect session, operating under the RADARMatrix master directive)
-- Phase: Phase 0 complete (discovery + architecture); **M1 pre-implementation review complete** (`docs/M1-PRE-IMPLEMENTATION-REVIEW.md`)
-- Branch: `phase1/discovery-and-foundation` (cut from `main` @ `93c1dc1`; adds docs, HANDOFF, CI workflow). Draft **PR #1**.
-- Uncommitted changes: none. No merges, branch deletions, production actions, Cloudflare resource changes, or RADARSite modifications have been performed.
+- Last updated: 2026-11-01 — Mistral Vibe (Lead Architect session, operating under the RADARMatrix master directive and the owner's M1a implementation authorization)
+- Phase: Phase 0 complete; M1 pre-implementation review complete; **M1a foundation consolidation IMPLEMENTED and CI-verified** (see docs/M1A-IMPLEMENTATION-NOTES.md)
+- Branch: `phase1/discovery-and-foundation` (head `cb7b082` = M1a implementation). Draft **PR #1** (updated with the M1a summary).
+- Uncommitted changes: none. **No merges, no branch deletions, no production actions, no Cloudflare resources, no RADARSite modifications, no paid services.** The owner's M1a directive explicitly forbade deleting/retiring the v0.9 branches — both remain untouched.
 
-## M1 REVIEW OUTCOME (2026-11-01)
-- **`v0.9-production-hardening` (@ `38f66f1`)** → recommend **RETIRE**: loose-provider semantics (unknown caller → viewer; membership dev-fallback) are a security regression vs main's strict fail-closed providers; gateway refactor conflicts with main's evolution. Salvage the interface-abstraction concept into `packages/contracts/` as new code. **Awaiting owner approval — no action taken.**
-- **`v0.9-security-gate` (@ `e121c11`)** → recommend **REWRITE then RETIRE**: its 326-line integration test is unrunnable as authored (imports nonexistent `DevelopmentAuthorizationProvider`, 2-arg `isAuthorized` vs main's 3-arg, branch lacks `authorization.js`). Treat as spec; rewrite against main's real API in M1a. **Awaiting owner approval — no action taken.**
-- **Tests executed for real** via GitHub Actions CI (public-repo free tier): `npm test` (all 4 suites) + `npm run test:deployment` on Node 22 — **zero `✗` failures**, check-run conclusion success (runs `41266101789`, `41266105344` @ `2fec44d`). Local Node execution impossible in the authoring sandbox (no node/npm).
-- **CI workflow added** (`.github/workflows/ci.yml`): Node 22, `npm test` + deployment smoke, **fails on any `✗` line** — required because the legacy runner calls `process.exit(0)` unconditionally.
+## M1a OUTCOME (2026-11-01)
+- **Gateway is now runtime-executable and executed by tests.** Converted `mcp-gateway.ts` from `require`/`module.exports` (broken under `"type": "module"`) to ESM; providers keep `.cjs` as the single source of truth; the `.js` provider files are now ESM re-export wrappers; `chatgpt-app-contract.ts` type-only exports moved to `export type` (Node type stripping requirement).
+- **Latent defect found & fixed:** the gateway wired the membership provider with NO members — with the (correct) fail-closed model, EVERY request would have been WORKSPACE_FORBIDDEN. Fixed with `defaultDevelopmentMembership()` — an explicit fail-closed dev fixture (4 principals → w_dev only). No permissive fallback added.
+- **Fail-fast testing:** v0.7/v0.8 suites now count failures (8 + 9 sites instrumented) and return `{ failed }`; runner (rewritten) aggregates 5 suites and exits 1 on any failure; standalone suite runs exit non-zero; CI primary signal = exit codes, secondary guard rejects swallowed ✗ lines.
+- **Real security integration suite:** `tests/gateway-integration-security.test.mjs` — 15 tests importing the REAL gateway: authorized read/write, role enforcement (viewer/contributor/editor), unknown principal rejection, workspace mismatch rejection, fail-closed membership, invalid tool/missing field/missing context rejection, audit SUCCESS and FAILED(FORBIDDEN) event generation, plan-only routing invariants, defensive response validation with internal-leak detection.
+- **Contracts package:** `packages/contracts/` — type-only interfaces (AuthenticationProvider, MembershipProvider, AuthorizationProvider, AuditSink, StorageAdapter, RuntimeAdapter, AgentAdapter, RateLimiter) + binding contract law + honest status table.
+- **package.json:** version 0.9.0; `engines.node >= 22.18`; `test:security` script.
 
-## VERIFIED FACTS
-- `remRADAR/RADARMatrix` `main` @ `93c1dc1` (2026-10-28): MCP gateway pipeline (auth → RBAC → workspace isolation → audit → execute), 9 JSON-schema-validated MCP tool contracts, agent registry + deterministic plan-only router, Brand Studio (vanilla HTML/JS/CSS + Node `server.mjs`), sandboxed live-preview iframe, JSON WorkspaceStore, Supabase migration (project retired/deleted; local JSON store is the dev runtime), Vercel config. Zero npm runtime dependencies.
-- `apps/agent-skills/registry.json`: **9 agent profiles** (`radar_orchestrator` coordinator + 8 specialists), **11 skills**, 8 routes; plan-only limits (≤2 specialists, ≤4,000 chars). (Earlier docs said "13 specialists" — corrected in this branch.)
-- Branch topology: common base `57575f3` (v0.8, 2026-08-18 09:52); main hardening commits `fea32ae`/`9d0e2bd`/`94be71c`/`60f9a32`/`0b7f3be` (10:20–10:32); prod-hardening forked from base (10:10–10:11); security-gate forked from main @ `94be71c` (10:38).
-- Main's providers are **strict/fail-closed** (4 allowlisted principals: `admin_123`, `editor_456`, `contributor_789`, `viewer_000`; explicit membership map). Prod-hardening's are **loose** (fail-open).
-- Cloudflare D1 Workers Free (verified 2026-10-30): 5M rows read/day, 100k rows written/day, 5 GB storage, 10 databases. Workers Free: 100k requests/day, 10 ms CPU/invocation; static assets free.
-- GitHub Codespaces free quota is personal-account only: 120 hrs compute/month + 15 GB-month storage; organizations get NO free quota; usage is blocked (not billed) without a payment method.
-- GitHub Actions: free for public repositories (used for CI — no cost introduced).
+## VERIFIED FACTS (all machine-verified unless noted)
+- CI on M1a commit `cb7b082`: runs `41266518476` (push) + `41266514467` (PR), ubuntu-latest / Node 24 — **conclusion: success** (2026-11-01 02:46 UTC). Mechanically: all 5 suites reported zero failures and none threw; deployment smoke passed (503 fail-closed); zero swallowed ✗ lines.
+- The real gateway executed in CI for the first time: ESM load via Node type stripping, CJS named-import interop for `.cjs` providers (cjs-module-lexer), full 8-stage pipeline per request.
+- Registry: 9 agent profiles (`radar_orchestrator` + 8 specialists), 11 skills, 8 routes; plan-only limits (≤2 specialists, ≤4,000 chars) — verified through the real gateway (test 12: executionMode=plan_only, execution.started=false, providerConfigured=false).
+- Prior verified facts (branch topology, provider semantics, free-tier quotas) remain as recorded in docs/M1-PRE-IMPLEMENTATION-REVIEW.md and docs/PHASE0-DISCOVERY-REPORT.md.
 
-## M1 DEFECTS DISCOVERED (details in docs/M1-PRE-IMPLEMENTATION-REVIEW.md §B)
-1. Provider module-format debt: `providers/*.js` use `module.exports` while `package.json` is `"type": "module"` — `.js` copies break under ESM import (`.cjs` duplicates exist). The gateway has never been exercised at runtime.
-2. `tests/v0.7-gateway.test.mjs` re-implements gateway logic inline instead of importing `mcp-gateway.ts` — the security pipeline is untested at runtime.
-3. `tests/test-runner.mjs` calls `process.exit(0)` unconditionally; suites swallow assertion errors as `✗` log lines — green CI alone did not prove passing tests (CI now fails on `✗` as a workaround; permanent fix in M1a).
-4. Audit logging is console-only (production needs a durable append-only sink).
-5. No `engines` field; no TS type-check step anywhere (acceptable for now; revisit at M2).
+## NOT VERIFIED / UNTESTED
+- Per-test pass counts inside suite logs were not individually readable from the authoring environment; the CI success is exit-code-enforced (runner exits 1 on any failure). Logs viewable at the Actions run URLs.
+- `.ts` sources are NOT type-checked in CI (executed via type stripping only). No `tsc` step exists yet.
+- Tool execution remains deterministic dev stubs (no persistence). The security pipeline is real; storage is not.
+
+## KNOWN DEFECTS & PROPOSED FIXES
+1. ~~Gateway never executed at runtime~~ — **fixed (verified in CI)**.
+2. ~~Provider .js/.cjs module-format debt~~ — **fixed** (.cjs source of truth + ESM wrappers; verified via import in CI).
+3. ~~Test runner unconditional process.exit(0)~~ — **fixed** (exit-code-enforced, CI green).
+4. ~~Empty default membership wiring (all requests would be WORKSPACE_FORBIDDEN)~~ — **fixed** with explicit dev fixture.
+5. Audit console-only — open (production: durable append-only AuditSink per packages/contracts).
+6. No type-check step — open (M2 decision).
+7. Dev principals/membership are fixtures — open (production providers per contracts; M2+).
 
 ## DECISIONS & CONVENTIONS
-- Extend, do not replace, the v0.8 foundation. No duplicate repositories; RADARMatrix evolves in place in `remRADAR/RADARMatrix`.
-- `remRADAR/RADARSite` is untouchable. `remRADAR/remradar` is a separate product, not Matrix code.
-- Execution/terminal capabilities must come from real runtime adapters (`github-readonly` → `codespaces` → `local-bridge`). Never simulate command execution.
-- Hosting stays portable; the Cloudflare D1 adapter lands at milestone M7. Vercel config remains valid until then.
-- First agent is a deterministic Repo Inspector over the read-only GitHub adapter. LLM-backed agents deferred until a verified free model provider is authorized by the owner.
-- Status vocabulary everywhere: implemented / connected / simulated / planned / unavailable.
-- All agent writes are approval-gated; `main` is human-merged; substantial changes land on isolated branches with draft PRs.
-- CI is the test-execution environment of record; a green check must mean "no `✗` lines" until the runner is fail-fast.
+- Extend, do not replace, the v0.8 foundation. `remRADAR/RADARMatrix` is canonical; `remRADAR/RADARSite` is untouchable.
+- Module format law: `.cjs` = provider implementation source of truth; `.js` = ESM re-export wrapper only; `.ts` under `"type": "module"` = ESM, erasable syntax only (no enums/namespaces/parameter properties) until a TS toolchain exists; type-only exports MUST use `export type`.
+- Membership law: explicit map only, fail closed, no wildcard/fallback. New workspaces/callers require explicit fixture/config entries.
+- Test law: every suite must propagate failures to exit codes. CI green must mean "no failures", enforced by exit codes first, output guard second.
+- Execution/terminal capabilities only via real runtime adapters (`github-readonly` → `codespaces` → `local-bridge`). Never simulate command execution.
+- Status vocabulary: implemented / connected / simulated / planned / unavailable.
+- All agent writes approval-gated; `main` is human-merged; substantial changes land on isolated branches with draft PRs.
 
 ## DO NOT TOUCH
-- `apps/brand-studio/` — keep working until `apps/matrix-ide/` reaches parity, then retire via reviewed PR.
-- `apps/mcp-server/` security pipeline semantics — extend, never weaken.
-- `remRADAR/RADARSite`, all production deployments, DNS, and the shared Cloudflare account's existing projects.
-- The two v0.9 branches — no merge/delete until the owner approves the §E strategy.
+- The two v0.9 branches (`v0.9-production-hardening`, `v0.9-security-gate`) — no merge/delete until the owner approves the M1 review §E strategy (M1a directive explicitly deferred this).
+- `apps/brand-studio/` until `apps/matrix-ide/` reaches parity; `apps/mcp-server/` security pipeline semantics (extend, never weaken); `remRADAR/RADARSite`; production deployments, DNS, the shared Cloudflare account.
+- `packages/contracts` contract law — future adapters must satisfy it without weakening the fail-closed model.
 
 ## PENDING OWNER APPROVALS
-1. Branch-retirement strategy (M1 review §E): retire `v0.9-production-hardening`; rewrite-then-retire `v0.9-security-gate`.
-2. Confirmation that `remRADAR/RADARMatrix` is the canonical repo.
-3. Permanent retention of the CI workflow (and its strict `✗` behavior).
-4. Authorization to begin M1a (see NEXT STEPS).
-5. Later (M3): fine-grained read-only GitHub token, stored server-side.
-6. Later (M7): Cloudflare D1 database creation.
+1. v0.9 branch retirement strategy (M1 review §E) — deferred by the M1a directive, still awaiting decision.
+2. PR #1 merge (human-gated owner review of Phase 0 docs + M1 review + M1a implementation).
+3. Production auth/membership provider work (M2); runtime adapter + read-only GitHub token (M3); D1 database (M7).
 
 ## NEXT STEPS (ordered)
-1. Owner approves the branch strategy → retire both v0.9 branches; record the action here.
-2. **M1a — Foundation consolidation** (smallest safe coding milestone, on this branch): `packages/contracts/` (RuntimeAdapter / StorageAdapter / AgentAdapter + honest `unavailable` stubs); fix provider module-format debt so the gateway is runtime-executable; fail-fast test runner; new `tests/v0.9-integration-security.test.mjs` against main's real API (porting the security-gate branch's intent).
-3. Then M2 control plane (`apps/control-plane/`) per `docs/PHASE1-BUILD-PLAN.md`.
-4. Then M3 `github-readonly` adapter; M4 IDE shell — every panel backed by a real API or an explicit honest empty state.
+1. Owner reviews PR #1 (Phase 0 docs + M1 review + M1a implementation, CI green).
+2. Owner decides the v0.9 branch strategy; then retire branches per approved strategy (record here).
+3. M2: control plane (`apps/control-plane/`) + production auth/membership provider design against `packages/contracts`; add TS type-check toolchain decision.
+4. M3: `github-readonly` runtime adapter (first real execution capability).
