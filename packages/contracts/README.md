@@ -27,3 +27,7 @@ These interfaces are the stable seams between Matrix Core and its providers. The
 | RateLimiter | none | **planned** |
 
 Statuses follow the implemented / connected / simulated / planned / unavailable vocabulary. Nothing in this package claims a capability that does not exist.
+
+## Verification status
+
+These contracts have **not** been type-checked: no TypeScript compiler step exists in CI yet (zero-budget toolchain decision, M2). The interfaces are exercised indirectly at runtime through the gateway imports via Node type stripping. Do not treat them as compiler-verified.

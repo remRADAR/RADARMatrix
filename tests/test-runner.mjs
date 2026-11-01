@@ -16,6 +16,8 @@
  * - brand-gateway-routing.test.mjs (brand gateway read-only routing)
  * - gateway-integration-security.test.mjs (M1a: exercises the REAL
  *   gateway implementation end-to-end)
+ * - provider-esm-wrappers.test.mjs (M1a follow-up: ESM re-export
+ *   wrappers verified against the .cjs implementations)
  */
 
 import { runAllTests as runGatewayTests } from "./v0.7-gateway.test.mjs";
@@ -23,6 +25,7 @@ import { runAllTests as runContractTests } from "./v0.8-chatgpt-contract.test.mj
 import { runAllTests as runAgentRoutingTests } from "./agent-routing.test.mjs";
 import { runAllTests as runBrandGatewayRoutingTests } from "./brand-gateway-routing.test.mjs";
 import { runAllTests as runGatewayIntegrationTests } from "./gateway-integration-security.test.mjs";
+import { runAllTests as runProviderEsmWrapperTests } from "./provider-esm-wrappers.test.mjs";
 
 console.log("\n");
 console.log("╔═══════════════════════════════════════╗");
@@ -38,6 +41,7 @@ const suites = [
   { name: "▶ RADAR Agent Routing Tests", run: runAgentRoutingTests },
   { name: "▶ Brand Gateway Routing Tests", run: runBrandGatewayRoutingTests },
   { name: "▶ Gateway Integration Security Tests (M1a — real implementation)", run: runGatewayIntegrationTests },
+  { name: "▶ Provider ESM Wrapper Tests (M1a follow-up)", run: runProviderEsmWrapperTests },
 ];
 
 const results = [];

@@ -33,6 +33,10 @@
  *   unchanged: strict, fail-closed, allowlist-only.
  * - The development membership provider is now wired with an
  *   explicit development membership fixture. Still fail-closed.
+ * - M1a follow-up (Finding A): RADARMATRIX_RUNTIME_MODE=production
+ *   fails closed — development providers are wired with EMPTY
+ *   registries, so development identities can never authenticate
+ *   production requests.
  */
 
 interface MCPRequest {
@@ -109,8 +113,40 @@ import {
   planTask,
 } from "./runtime/agent-routing.cjs";
 
+/**
+ * Runtime mode (M1a follow-up — Finding A: production fails closed).
+ *
+ * Uses the existing RADARMATRIX_RUNTIME_MODE convention:
+ * - "production": the gateway FAILS CLOSED. No production
+ *   authentication or membership provider exists yet (that is M2
+ *   work), so the development principal registry and the development
+ *   membership fixture are NEVER wired. No request can authenticate,
+ *   and no request can be a member of any workspace.
+ * - Any other value (including unset): development mode with the
+ *   deterministic development fixtures.
+ */
+const runtimeMode =
+  process.env.RADARMATRIX_RUNTIME_MODE === "production"
+    ? "production"
+    : "development";
+
+function getRuntimeMode(): string {
+  return runtimeMode;
+}
+
+/**
+ * Defense in depth: in production mode BOTH gates are constructed
+ * with EMPTY explicit registries:
+ * - authentication recognizes no identity at all, and
+ * - membership contains no entry at all, so even a forged
+ *   authenticated request could not pass workspace isolation.
+ */
 const authProvider =
-  new DevelopmentAuthenticationProvider();
+  runtimeMode === "production"
+    ? new DevelopmentAuthenticationProvider({
+        principals: {},
+      })
+    : new DevelopmentAuthenticationProvider();
 
 const authorizationProvider =
   new DefaultAuthorizationProvider();
@@ -133,9 +169,13 @@ const authorizationProvider =
  * - No wildcard or fallback membership exists.
  */
 const membershipProvider =
-  new DevelopmentMembershipProvider({
-    members: defaultDevelopmentMembership(),
-  });
+  runtimeMode === "production"
+    ? new DevelopmentMembershipProvider({
+        members: {},
+      })
+    : new DevelopmentMembershipProvider({
+        members: defaultDevelopmentMembership(),
+      });
 
 /**
  * --------------------------------------------------------------------------
@@ -909,4 +949,5 @@ export {
   generateRequestId,
   generateId,
   GatewayError,
+  getRuntimeMode,
 };

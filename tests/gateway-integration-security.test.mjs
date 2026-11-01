@@ -22,6 +22,7 @@
  */
 
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 
 let gateway = null;
 let gatewayImportError = null;
@@ -288,6 +289,44 @@ test("defensive response handling: all responses structurally valid, no internal
       assert.ok(!leak.test(response.error.message), "possible internal leak in error message: " + response.error.message);
     }
   }
+});
+
+// ---------------------------------------------------------------------------
+// 15. Production-mode lockdown (M1a follow-up, Finding A):
+// development identities must NEVER authenticate production requests.
+// Runs the real gateway in a child process with
+// RADARMATRIX_RUNTIME_MODE=production, then attempts dev-identity
+// requests through the full pipeline. No bypass: handleRequest only.
+// ---------------------------------------------------------------------------
+test("production mode fails closed: development identities can never authenticate production requests", () => {
+  const gatewayUrl = new URL("../apps/mcp-server/src/mcp-gateway.ts", import.meta.url).href;
+  const childScript = [
+    "const g = await import(process.env.GATEWAY_URL);",
+    "const out = { mode: typeof g.getRuntimeMode === \"function\" ? g.getRuntimeMode() : null };",
+    "const read = g.handleRequest({ tool: \"radar.search\", params: { workspace_id: \"w_dev\", query: \"x\" }, context: { caller_id: \"admin_123\", workspace_id: \"w_dev\" } });",
+    "out.read = { success: read.success, code: read.error ? read.error.code : null, status: read.error ? read.error.status : null };",
+    "const write = g.handleRequest({ tool: \"radar.remember\", params: { workspace_id: \"w_dev\", content: \"x\" }, context: { caller_id: \"admin_123\", workspace_id: \"w_dev\" } });",
+    "out.write = { success: write.success, code: write.error ? write.error.code : null, status: write.error ? write.error.status : null };",
+    "out.isolation = g.validateWorkspaceIsolation({ caller_id: \"admin_123\", caller_roles: [\"admin\"], workspace_id: \"w_dev\", request_id: \"r\", timestamp: new Date().toISOString(), tool: \"radar.search\", params: {} });",
+    "console.log(JSON.stringify(out));",
+  ].join("\n");
+  const result = spawnSync(process.execPath, ["--input-type=module", "-e", childScript], {
+    env: Object.assign({}, process.env, {
+      RADARMATRIX_RUNTIME_MODE: "production",
+      GATEWAY_URL: gatewayUrl,
+    }),
+    encoding: "utf8",
+  });
+  assert.equal(result.status, 0, "production-mode gateway child process failed: " + String(result.stderr || "").slice(0, 800));
+  const parsed = JSON.parse(result.stdout.trim().split("\n").pop());
+  assert.equal(parsed.mode, "production", "gateway must report production runtime mode");
+  assert.equal(parsed.read.success, false, "dev identity must not read in production");
+  assert.equal(parsed.read.code, "UNAUTHENTICATED");
+  assert.equal(parsed.read.status, 401);
+  assert.equal(parsed.write.success, false, "dev identity must not write in production");
+  assert.equal(parsed.write.code, "UNAUTHENTICATED");
+  assert.equal(parsed.write.status, 401);
+  assert.equal(parsed.isolation, false, "even a forged authenticated request must fail workspace isolation in production mode");
 });
 
 // ---------------------------------------------------------------------------

@@ -30,9 +30,24 @@ export type WorkspaceId = string;
 export type ToolName = string;
 export type ISO8601Timestamp = string;
 
+/**
+ * The principal emitted by an AuthenticationProvider.
+ *
+ * M1a follow-up (Finding B): roles is string[], NOT Role[]. The
+ * development authentication provider accepts arbitrary non-empty
+ * role strings from configuration (normalizePrincipals), and the
+ * authorization provider correctly filters unknown roles
+ * (getHighestRole). The contract describes the implementation
+ * accurately; the Role union remains the type of validated role
+ * definitions (tool registry, role hierarchy).
+ *
+ * Note: the gateway maps principal.roles to caller_roles on its
+ * internal authenticated request; the authorization provider
+ * accepts either field.
+ */
 export interface Principal {
   caller_id: CallerId;
-  roles: readonly Role[];
+  roles: readonly string[];
   workspace_id: WorkspaceId;
   request_id: string;
   timestamp: ISO8601Timestamp;
@@ -42,8 +57,8 @@ export interface Principal {
 export interface AuthenticationProvider {
   authenticate(request: unknown): Principal | null;
   hasPrincipal(callerId: CallerId): boolean;
-  getPrincipal(callerId: CallerId): { caller_id: CallerId; roles: Role[] } | null;
-  snapshot(): Record<CallerId, { caller_id: CallerId; roles: Role[] }>;
+  getPrincipal(callerId: CallerId): { caller_id: CallerId; roles: string[] } | null;
+  snapshot(): Record<CallerId, { caller_id: CallerId; roles: string[] }>;
 }
 
 /** Mirrors providers/membership.cjs (explicit, fail-closed map). */

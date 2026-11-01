@@ -2,11 +2,16 @@ name: CI
 
 # Zero-budget test execution: GitHub Actions is free for public repositories.
 #
-# M1a: the test runner is now fail-fast — suites report failures via
-# return values or throwing, and the runner exits non-zero on any
-# failure. The PRIMARY CI signal is therefore the process exit code.
-# A secondary guard re-runs the suites and rejects any swallowed
-# failure lines in the output (defense in depth for legacy suites).
+# M1a follow-up (Finding E): single-run design.
+# - Primary signal: the test runner's exit code, preserved through the
+#   tee pipe by "set -o pipefail" — a failed test run fails the step.
+# - Captured output is always available: streamed to the step log and
+#   kept in /tmp/suite-output.log; uploaded as an artifact if the job
+#   fails.
+# - The guard step rejects any swallowed failure-marker line in the
+#   output (defense in depth for legacy suites).
+# - actions/upload-artifact is free for public repositories. No paid
+#   services, no dependencies.
 
 on:
   push:
@@ -28,17 +33,25 @@ jobs:
       # Repository has zero npm dependencies; no install step needed.
       # Node >= 22.18 loads the TypeScript gateway/contract sources via
       # built-in type stripping (erasable syntax only).
-      - name: Run test suites (npm test — exit code enforced)
-        run: npm test
+      - name: Run test suites (npm test — exit code enforced, output captured)
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee /tmp/suite-output.log
+
+      - name: Guard — no swallowed failure markers in suite output
+        run: |
+          if grep -n '✗' /tmp/suite-output.log; then
+            echo "::error::Failure markers (✗) present in suite output despite exit-code checks"
+            exit 1
+          fi
 
       - name: Deployment smoke test
         run: npm run test:deployment
 
-      - name: Secondary guard — no swallowed failure lines in output
-        run: |
-          set +e
-          npm test > /tmp/suite-output.log 2>&1
-          if grep -n '✗' /tmp/suite-output.log; then
-            echo "::error::Failure lines present in suite output despite exit-code checks"
-            exit 1
-          fi
+      - name: Upload test output (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output
+          path: /tmp/suite-output.log
+          if-no-files-found: ignore
