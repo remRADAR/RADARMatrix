@@ -18,6 +18,9 @@
  *   gateway implementation end-to-end)
  * - provider-esm-wrappers.test.mjs (M1a follow-up: ESM re-export
  *   wrappers verified against the .cjs implementations)
+ * - production-auth-negative.test.mjs (M2: production authentication
+ *   chain — token matrix, provider fail-closed paths, durable
+ *   membership, gateway integration in production mode)
  */
 
 import { runAllTests as runGatewayTests } from "./v0.7-gateway.test.mjs";
@@ -26,11 +29,12 @@ import { runAllTests as runAgentRoutingTests } from "./agent-routing.test.mjs";
 import { runAllTests as runBrandGatewayRoutingTests } from "./brand-gateway-routing.test.mjs";
 import { runAllTests as runGatewayIntegrationTests } from "./gateway-integration-security.test.mjs";
 import { runAllTests as runProviderEsmWrapperTests } from "./provider-esm-wrappers.test.mjs";
+import { runAllTests as runProductionAuthTests } from "./production-auth-negative.test.mjs";
 
 console.log("\n");
 console.log("╔═══════════════════════════════════════╗");
-console.log("║   RADARMatrix Test Suite (v0.9 M1a)     ║");
-console.log("║   Foundation + Integration Tests        ║");
+console.log("║   RADARMatrix Test Suite (v0.9 M2)     ║");
+console.log("║   Foundation + Integration Tests       ║");
 console.log("╚═══════════════════════════════════════╝");
 
 const startTime = Date.now();
@@ -42,6 +46,7 @@ const suites = [
   { name: "▶ Brand Gateway Routing Tests", run: runBrandGatewayRoutingTests },
   { name: "▶ Gateway Integration Security Tests (M1a — real implementation)", run: runGatewayIntegrationTests },
   { name: "▶ Provider ESM Wrapper Tests (M1a follow-up)", run: runProviderEsmWrapperTests },
+  { name: "▶ Production Authentication & Membership Tests (M2 — real implementation)", run: runProductionAuthTests },
 ];
 
 const results = [];

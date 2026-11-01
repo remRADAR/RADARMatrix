@@ -37,6 +37,20 @@
  *   fails closed — development providers are wired with EMPTY
  *   registries, so development identities can never authenticate
  *   production requests.
+ *
+ * M2 (owner-approved, 2026-11-01):
+ * - RADARMATRIX_RUNTIME_MODE=production now wires REAL production
+ *   authentication when the complete production auth configuration
+ *   is present: Ed25519-signed gateway tokens verified by
+ *   ProductionAuthenticationProvider, plus a durable, explicit
+ *   FileMembershipProvider. Identity comes ONLY from a verified
+ *   token subject; roles come ONLY from the membership record.
+ * - ANY incomplete production configuration still fails closed
+ *   (empty registries — nothing authenticates). There is no
+ *   permissive fallback in any mode.
+ * - OAuth/OIDC issuer integration (external identity provider)
+ *   remains M3 work; this gateway trusts only tokens signed by the
+ *   configured control-plane key.
  */
 
 interface MCPRequest {
@@ -47,6 +61,7 @@ interface MCPRequest {
     workspace_id?: string;
     request_id?: string;
     timestamp?: string;
+    token?: string;
   };
 }
 
@@ -104,6 +119,18 @@ import {
   defaultDevelopmentMembership,
 } from "./providers/membership.cjs";
 
+/**
+ * M2 production authentication chain (owner-approved architecture).
+ */
+import {
+  ProductionAuthenticationProvider,
+  isProductionAuthConfigured,
+} from "./auth/production-authentication.ts";
+
+import {
+  FileMembershipProvider,
+} from "./providers/membership-file.js";
+
 import {
   TOOL_REGISTRY,
 } from "./chatgpt-app-contract.ts";
@@ -117,9 +144,11 @@ import {
  * Runtime mode (M1a follow-up — Finding A: production fails closed).
  *
  * Uses the existing RADARMATRIX_RUNTIME_MODE convention:
- * - "production": the gateway FAILS CLOSED. No production
- *   authentication or membership provider exists yet (that is M2
- *   work), so the development principal registry and the development
+ * - "production": the gateway enforces production identity. When
+ *   the complete production auth configuration is present, the M2
+ *   chain (token verification + durable membership) is wired.
+ *   With ANY incomplete configuration the gateway FAILS CLOSED:
+ *   the development principal registry and the development
  *   membership fixture are NEVER wired. No request can authenticate,
  *   and no request can be a member of any workspace.
  * - Any other value (including unset): development mode with the
@@ -135,14 +164,47 @@ function getRuntimeMode(): string {
 }
 
 /**
- * Defense in depth: in production mode BOTH gates are constructed
- * with EMPTY explicit registries:
+ * M2 production wiring (owner-approved).
+ *
+ * The production chain is armed ONLY when BOTH hold:
+ * 1. RADARMATRIX_RUNTIME_MODE=production, and
+ * 2. isProductionAuthConfigured confirms the COMPLETE set:
+ *    RADARMATRIX_AUTH_PUBLIC_KEY, RADARMATRIX_TOKEN_ISSUER,
+ *    RADARMATRIX_AUDIENCE, RADARMATRIX_MEMBERSHIP_FILE.
+ *
+ * ProductionAuthenticationProvider derives identity ONLY from the
+ * verified Ed25519 token subject (matched against the request
+ * context) and derives roles ONLY from the membership record.
+ * FileMembershipProvider is an explicit, fail-closed map — no
+ * wildcard membership, no fallback.
+ */
+const productionAuthConfigured =
+  runtimeMode === "production" &&
+  isProductionAuthConfigured(process.env);
+
+const productionMembershipProvider = productionAuthConfigured
+  ? new FileMembershipProvider({
+      path: process.env.RADARMATRIX_MEMBERSHIP_FILE,
+    })
+  : null;
+
+/**
+ * Defense in depth: in any production state that is not fully
+ * configured, BOTH gates are constructed with EMPTY explicit
+ * registries:
  * - authentication recognizes no identity at all, and
  * - membership contains no entry at all, so even a forged
  *   authenticated request could not pass workspace isolation.
+ * Development mode keeps the deterministic development fixtures.
  */
-const authProvider =
-  runtimeMode === "production"
+const authProvider = productionAuthConfigured
+  ? new ProductionAuthenticationProvider({
+      publicKeyPem: process.env.RADARMATRIX_AUTH_PUBLIC_KEY,
+      issuer: process.env.RADARMATRIX_TOKEN_ISSUER,
+      audience: process.env.RADARMATRIX_AUDIENCE,
+      membership: productionMembershipProvider,
+    })
+  : runtimeMode === "production"
     ? new DevelopmentAuthenticationProvider({
         principals: {},
       })
@@ -152,24 +214,26 @@ const authorizationProvider =
   new DefaultAuthorizationProvider();
 
 /**
- * Development membership fixture.
+ * Membership fixture.
  *
- * Mirrors defaultDevelopmentPrincipals(): the four development
- * principals are explicit members of the development workspace.
+ * Production (fully configured): FileMembershipProvider — the
+ * durable, explicit membership record. Unknown callers are members
+ * of nothing; unknown workspaces are accessible to no one; unknown
+ * roles are rejected at grant time.
  *
- * M1a fix: the previous default wiring constructed the membership
- * provider with NO members, which (given the fail-closed explicit
- * map) would have rejected every request with WORKSPACE_FORBIDDEN.
- * The gateway had never been executed at runtime, so this latent
- * defect went unnoticed until M1a.
+ * Production (incompletely configured): empty explicit map —
+ * nothing is a member of anything (fail closed).
  *
- * This remains a strict, fail-closed, explicit map:
- * - Unknown callers are members of nothing.
- * - Unknown workspaces are accessible to no one.
- * - No wildcard or fallback membership exists.
+ * Development mode: mirrors defaultDevelopmentPrincipals() — the
+ * four development principals are explicit members of the
+ * development workspace.
+ *
+ * In every mode this is a strict, fail-closed, explicit map.
+ * No wildcard or fallback membership exists.
  */
-const membershipProvider =
-  runtimeMode === "production"
+const membershipProvider = productionAuthConfigured
+  ? productionMembershipProvider
+  : runtimeMode === "production"
     ? new DevelopmentMembershipProvider({
         members: {},
       })
