@@ -1,5 +1,5 @@
 /**
- * RADARMatrix Control-Plane Token Service (M2, Phase P2)
+ * RADARMatrix Control-Plane Token Service (M2, Phase P2; hardened M2.1)
  *
  * Zero-runtime-dependency issue/verify of control-plane-issued gateway
  * tokens. Compact JWT format, Ed25519 (EdDSA) signatures via node:crypto.
@@ -8,7 +8,26 @@
  * - Signature verification is ALWAYS required. An unsigned or
  *   decoded-but-unverified payload is NEVER an identity.
  * - Issuer and audience are exact-match: no prefix, no wildcard.
- * - Expiry is enforced (small clock-skew allowance); not-before too.
+ * - Temporal validation (M2.1 hardening):
+ *   * exp and iat MUST be finite numbers. NaN, Infinity, and
+ *     non-numeric values are rejected. (JSON cannot carry NaN/Infinity
+ *     literals through JSON.stringify, but a hand-crafted payload can
+ *     carry `1e999`, which JSON.parse yields as Infinity — the verifier
+ *     must not be tricked by it.)
+ *   * Expired tokens are rejected; tokens issued in the future beyond
+ *     the documented clock-skew allowance are rejected.
+ *   * exp MUST be strictly later than iat (exp == iat is rejected).
+ *   * The token lifetime (exp - iat) MUST NOT exceed the configured
+ *     maximum (default: MAX_TOKEN_LIFETIME_SECONDS = 1 hour).
+ *   * nbf, when present, MUST be a finite number. A malformed nbf is
+ *     NEVER silently ignored — the token is rejected. nbf in the future
+ *     beyond the skew allowance is rejected.
+ * - Token purpose (M2.1 hardening):
+ *   * Claims carry a token_use ("access" | "service"). A caller that
+ *     requires a specific purpose passes requiredTokenUse; a token
+ *     whose token_use is missing, unsupported, or arbitrary then
+ *     fails closed. Interactive user authentication accepts ONLY
+ *     token_use === "access".
  * - jti denylist support: a revoked token never verifies again.
  * - Claims carry IDENTITY only. Roles and workspace access are NOT
  *   token claims and are NEVER trusted from tokens.
@@ -39,8 +58,23 @@ export interface GatewayTokenClaims {
   token_use?: "access" | "service";
 }
 
-/** Clock-skew tolerance for exp/nbf checks (seconds). */
+/**
+ * Clock-skew tolerance for exp/nbf/iat checks (seconds).
+ * M2 policy: 30 seconds — unchanged by M2.1 (not weakened, not
+ * broadened). Future-issued tokens are tolerated ONLY within this
+ * window; beyond it, the token is rejected.
+ */
 const CLOCK_SKEW_SECONDS = 30;
+
+/**
+ * Maximum access-token lifetime (seconds), measured as exp - iat.
+ * M2.1 policy: 1 hour. Tokens with a longer validity window are
+ * rejected outright — a stolen token must not live longer than the
+ * documented bound. Callers may tighten this via
+ * VerifyTokenOptions.maxLifetimeSeconds; they may NOT loosen it past
+ * the documented default without an explicit owner decision.
+ */
+const MAX_TOKEN_LIFETIME_SECONDS = 60 * 60;
 
 function toB64url(input: string | Buffer): string {
   const buffer: Buffer =
@@ -115,6 +149,19 @@ export interface VerifyTokenOptions {
   audience: string;
   /** Optional revocation check (jti denylist). */
   isDenied?: (jti: string) => boolean;
+  /**
+   * Token-purpose policy (M2.1): when set, the token's token_use must
+   * be EXACTLY this value. Missing, unsupported, or arbitrary
+   * token_use values fail closed. Interactive user authentication
+   * MUST pass "access" here.
+   */
+  requiredTokenUse?: "access" | "service";
+  /**
+   * Optional stricter maximum lifetime in seconds (exp - iat).
+   * Invalid values are ignored and the documented default
+   * (MAX_TOKEN_LIFETIME_SECONDS = 1 hour) applies.
+   */
+  maxLifetimeSeconds?: number;
   /** Test/clock override: now in epoch seconds. */
   now?: number;
 }
@@ -129,8 +176,13 @@ export interface VerifyTokenOptions {
  * 3. Ed25519 signature verification (always required)
  * 4. sub and jti present and non-empty
  * 5. exact issuer match, exact audience match
- * 6. expiry honored (with bounded skew); not-before honored
- * 7. jti not on the denylist
+ * 6. temporal validation (M2.1): exp/iat/nbf must be finite numbers;
+ *    expiry honored (bounded skew); future issuance beyond skew
+ *    rejected; exp strictly after iat; lifetime within the documented
+ *    maximum; malformed nbf rejected (never silently accepted)
+ * 7. token-purpose check (M2.1): when requiredTokenUse is set, an
+ *    exact token_use match is mandatory
+ * 8. jti not on the denylist
  */
 export function verifyGatewayToken(
   token: string,
@@ -197,20 +249,73 @@ export function verifyGatewayToken(
   if (c.aud !== options.audience) {
     return null;
   }
+
+  const nowOption: unknown = options.now;
   const now: number =
-    options.now !== undefined ? options.now : Math.floor(Date.now() / 1000);
-  if (typeof c.exp !== "number" || now >= c.exp + CLOCK_SKEW_SECONDS) {
+    typeof nowOption === "number" && Number.isFinite(nowOption)
+      ? nowOption
+      : Math.floor(Date.now() / 1000);
+
+  /**
+   * Temporal validation (M2.1 hardening).
+   *
+   * NaN/Infinity defense: JSON.stringify cannot produce NaN/Infinity
+   * (they serialize to null, which fails the typeof checks below),
+   * but a hand-crafted payload can carry 1e999, which JSON.parse
+   * evaluates to Infinity. Number.isFinite rejects all of it.
+   */
+  if (typeof c.exp !== "number" || !Number.isFinite(c.exp)) {
     return null;
   }
-  if (typeof c.iat !== "number") {
+  if (typeof c.iat !== "number" || !Number.isFinite(c.iat)) {
     return null;
   }
-  if (
-    typeof c.nbf === "number" &&
-    now + CLOCK_SKEW_SECONDS < c.nbf
-  ) {
+  // Expired (bounded skew — unchanged M2 policy of 30 seconds).
+  if (now >= c.exp + CLOCK_SKEW_SECONDS) {
     return null;
   }
+  // Future-issued beyond the documented skew allowance.
+  if (c.iat > now + CLOCK_SKEW_SECONDS) {
+    return null;
+  }
+  // Expiration must be strictly later than issuance.
+  if (c.exp <= c.iat) {
+    return null;
+  }
+  // Documented maximum lifetime (exp - iat). Note: this cannot be
+  // bypassed by extreme values — exp - iat overflows to Infinity,
+  // which exceeds any finite bound.
+  const maxLifetimeOption: unknown = options.maxLifetimeSeconds;
+  const maxLifetime: number =
+    typeof maxLifetimeOption === "number" &&
+    Number.isFinite(maxLifetimeOption) &&
+    maxLifetimeOption > 0
+      ? maxLifetimeOption
+      : MAX_TOKEN_LIFETIME_SECONDS;
+  if (c.exp - c.iat > maxLifetime) {
+    return null;
+  }
+  // Not-before: present means validated. A malformed nbf is NEVER
+  // silently accepted — invalid nbf rejects the token.
+  if (c.nbf !== undefined) {
+    if (typeof c.nbf !== "number" || !Number.isFinite(c.nbf)) {
+      return null;
+    }
+    if (now + CLOCK_SKEW_SECONDS < c.nbf) {
+      return null;
+    }
+  }
+  /**
+   * Token-purpose policy (M2.1): when a caller requires a purpose,
+   * the claim must match EXACTLY. A missing token_use, an unsupported
+   * purpose, or an arbitrary purpose string fails closed here.
+   */
+  if (options.requiredTokenUse !== undefined) {
+    if (c.token_use !== options.requiredTokenUse) {
+      return null;
+    }
+  }
+
   if (options.isDenied && options.isDenied(c.jti)) {
     return null;
   }

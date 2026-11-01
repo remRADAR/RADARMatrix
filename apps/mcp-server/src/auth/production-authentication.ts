@@ -1,5 +1,5 @@
 /**
- * RADARMatrix Production Authentication Provider (M2, Phase P2)
+ * RADARMatrix Production Authentication Provider (M2, Phase P2; hardened M2.1)
  *
  * Replaces the development identity fixture in production mode when the
  * complete production auth configuration is present. Implements the same
@@ -17,6 +17,21 @@
  *   (defense in depth).
  * - Fail closed: every failure path returns null and emits a structured
  *   authentication-failure event (P1 denial monitoring).
+ *
+ * Token-purpose policy (M2.1 hardening):
+ * - This provider implements INTERACTIVE USER authentication. It accepts
+ *   ONLY tokens whose token_use is exactly "access". A token of any other
+ *   purpose (including "service"), a token with a missing purpose, or a
+ *   token with an arbitrary token_use string fails closed as an
+ *   invalid token.
+ * - Service identities (RADAR orchestration, agents) require a SEPARATE,
+ *   EXPLICIT authentication path with its own purpose enforcement and
+ *   its own tests. That path is PLANNED, not implemented in M2.1 — no
+ *   service-authentication implementation exists yet, and this provider
+ *   deliberately does not improvise one.
+ * - Service privileges are NEVER inferred from the token subject. The
+ *   subject string carries identity only; authority comes from the
+ *   membership record.
  *
  * Erasable-syntax TypeScript only (Node >= 22.18 type stripping).
  */
@@ -131,6 +146,10 @@ export class ProductionAuthenticationProvider {
    * Authenticate a request. Returns a principal ONLY when the token
    * verifies AND the verified subject is a member of the requested
    * workspace with a known role. Every other path fails closed.
+   *
+   * Token-purpose enforcement (M2.1): interactive user authentication
+   * accepts ONLY token_use === "access". Service-purpose, missing, or
+   * arbitrary purposes fail closed (invalid_or_expired_token event).
    */
   authenticate(request: unknown): ProductionPrincipal | null {
     const req: RequestShape | null =
@@ -150,6 +169,7 @@ export class ProductionAuthenticationProvider {
       issuer: this.issuer,
       audience: this.audience,
       isDenied: (jti: string): boolean => this.denylist.has(jti),
+      requiredTokenUse: "access",
     });
     if (!claims) {
       this.onAuthFailure("invalid_or_expired_token", "unknown");

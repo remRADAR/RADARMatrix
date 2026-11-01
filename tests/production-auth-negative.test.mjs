@@ -1,8 +1,9 @@
 /**
- * RADARMatrix Production Authentication & Membership Tests (M2)
+ * RADARMatrix Production Authentication & Membership Tests (M2, hardened M2.1)
  *
  * Implements the negative-JWT matrix and the production authentication
- * chain verification from the owner-approved M2 assessment:
+ * chain verification from the owner-approved M2 assessment, extended in
+ * M2.1 with the full temporal-validation and token-purpose matrix:
  *   apps/mcp-server/src/auth/token-service.ts          (control-plane tokens)
  *   apps/mcp-server/src/auth/production-authentication.ts
  *   apps/mcp-server/src/providers/membership-file.cjs   (durable membership)
@@ -12,6 +13,13 @@
  * - Signature verification is ALWAYS required. An unsigned or decoded
  *   payload is never an identity.
  * - Issuer/audience are exact-match. Expiry and not-before enforced.
+ * - M2.1: exp/iat/nbf must be FINITE numbers (NaN, Infinity, and JSON
+ *   1e999 tricks are rejected); future iat beyond the 30s skew and
+ *   exp <= iat are rejected; lifetime is bounded by the documented
+ *   1-hour maximum; malformed nbf is never silently accepted.
+ * - M2.1: token purpose is enforced — interactive user authentication
+ *   accepts ONLY token_use === "access"; service/missing/arbitrary
+ *   purposes fail closed.
  * - Roles and workspace access are NEVER token claims — they come from
  *   the durable membership record only.
  * - Production mode fails closed on ANY incomplete configuration, even
@@ -24,12 +32,17 @@
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import {
+  sign as cryptoSign,
+  createPrivateKey,
+} from "node:crypto";
 
 import {
   generateEd25519KeyPair,
+  issueGatewayToken,
   mintGatewayToken,
   verifyGatewayToken,
   createTokenDenylist,
@@ -53,7 +66,7 @@ const attackerKeyPair = generateEd25519KeyPair();
 function mintFor(sub, overrides) {
   return mintGatewayToken(
     Object.assign(
-      { sub, issuer: ISSUER, audience: AUDIENCE, ttlSeconds: 900 },
+      { sub, issuer: ISSUER, audience: AUDIENCE, ttlSeconds: 900, tokenUse: "access" },
       overrides || {},
     ),
     gatewayKeyPair.privateKeyPem,
@@ -222,6 +235,203 @@ test("revoked jti is rejected (denylist replay prevention)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// M2.1 hardening: deterministic-clock temporal + purpose matrix.
+// All temporal tests run against a fixed NOW via the verify() clock
+// override — no wall-clock dependence, no sleeps.
+// ---------------------------------------------------------------------------
+const NOW = 2_000_000_000;
+let jtiCounter = 0;
+
+function baseClaims(overrides) {
+  jtiCounter += 1;
+  return Object.assign(
+    {
+      sub: "user_editor",
+      iss: ISSUER,
+      aud: AUDIENCE,
+      iat: NOW,
+      exp: NOW + 900,
+      jti: "jti_det_" + jtiCounter,
+      token_use: "access",
+    },
+    overrides || {},
+  );
+}
+
+function signDet(claims, keys) {
+  return issueGatewayToken(claims, (keys || gatewayKeyPair).privateKeyPem);
+}
+
+function verifyDet(token, opts) {
+  return verifyGatewayToken(
+    token,
+    gatewayKeyPair.publicKeyPem,
+    Object.assign({ issuer: ISSUER, audience: AUDIENCE, now: NOW }, opts || {}),
+  );
+}
+
+/**
+ * Hand-signs a raw JSON payload. Unlike JSON.stringify (which turns
+ * NaN/Infinity into null), this lets tests place numeric literals
+ * like 1e999 in the payload — JSON.parse evaluates 1e999 to Infinity,
+ * so the verifier must reject it via Number.isFinite.
+ */
+function handSignedToken(payloadJson, keys) {
+  const header = Buffer.from(JSON.stringify({ alg: "EdDSA", typ: "JWT" })).toString("base64url");
+  const payload = Buffer.from(payloadJson, "utf8").toString("base64url");
+  const signingInput = header + "." + payload;
+  const signature = cryptoSign(
+    null,
+    Buffer.from(signingInput, "utf8"),
+    createPrivateKey((keys || gatewayKeyPair).privateKeyPem),
+  );
+  return signingInput + "." + signature.toString("base64url");
+}
+
+test("M2.1: deterministic baseline — valid access token verifies at the fixed clock", () => {
+  const claims = verifyDet(signDet(baseClaims()));
+  assert.ok(claims, "valid deterministic token must verify");
+  assert.equal(claims.sub, "user_editor");
+  assert.equal(claims.token_use, "access");
+});
+
+test("M2.1: future iat far beyond skew is rejected", () => {
+  assert.equal(verifyDet(signDet(baseClaims({ iat: NOW + 3600 }))), null);
+});
+
+test("M2.1: iat within the 30s clock-skew allowance is accepted (skew policy unchanged)", () => {
+  assert.ok(verifyDet(signDet(baseClaims({ iat: NOW + 10 }))), "iat +10s must verify");
+});
+
+test("M2.1: exp earlier than iat is rejected", () => {
+  assert.equal(verifyDet(signDet(baseClaims({ exp: NOW - 1 }))), null);
+});
+
+test("M2.1: exp equal to iat is rejected", () => {
+  assert.equal(verifyDet(signDet(baseClaims({ exp: NOW }))), null);
+});
+
+test("M2.1: token lifetime beyond the documented 1-hour maximum is rejected", () => {
+  assert.equal(verifyDet(signDet(baseClaims({ exp: NOW + 3601 }))), null);
+});
+
+test("M2.1: token lifetime at exactly the documented maximum is accepted (boundary)", () => {
+  assert.ok(verifyDet(signDet(baseClaims({ exp: NOW + 3600 }))), "exp-iat = 3600s must verify");
+});
+
+test("M2.1: expired token is rejected at the deterministic clock (exp > iat, but in the past)", () => {
+  assert.equal(verifyDet(signDet(baseClaims({ iat: NOW - 1000, exp: NOW - 60 }))), null);
+});
+
+test("M2.1: future nbf beyond skew is rejected", () => {
+  assert.equal(verifyDet(signDet(baseClaims({ nbf: NOW + 3600 }))), null);
+});
+
+test("M2.1: nbf within the 30s skew allowance is accepted", () => {
+  assert.ok(verifyDet(signDet(baseClaims({ nbf: NOW + 10 }))), "nbf +10s must verify");
+});
+
+test("M2.1: malformed nbf (string) is rejected — invalid optional claims are never silently accepted", () => {
+  assert.equal(verifyDet(signDet(baseClaims({ nbf: "tomorrow" }))), null);
+});
+
+test("M2.1: malformed nbf (null) is rejected", () => {
+  assert.equal(verifyDet(signDet(baseClaims({ nbf: null }))), null);
+});
+
+test("M2.1: non-finite exp (1e999 payload trick) is rejected", () => {
+  const token = handSignedToken(
+    '{"sub":"user_editor","iss":"' + ISSUER + '","aud":"' + AUDIENCE +
+      '","iat":' + NOW + ',"exp":1e999,"jti":"jti_inf_exp"}',
+  );
+  assert.equal(verifyDet(token), null);
+});
+
+test("M2.1: non-finite iat (1e999 payload trick) is rejected", () => {
+  const token = handSignedToken(
+    '{"sub":"user_editor","iss":"' + ISSUER + '","aud":"' + AUDIENCE +
+      '","iat":1e999,"exp":' + (NOW + 900) + ',"jti":"jti_inf_iat"}',
+  );
+  assert.equal(verifyDet(token), null);
+});
+
+test("M2.1: minting with a non-finite expiresAt serializes to null and is rejected", () => {
+  // JSON.stringify(Infinity) === "null" — the verifier must reject exp:null.
+  const token = mintGatewayToken(
+    { sub: "user_editor", issuer: ISSUER, audience: AUDIENCE, ttlSeconds: 900, expiresAt: Infinity, tokenUse: "access" },
+    gatewayKeyPair.privateKeyPem,
+  );
+  assert.equal(verifyDet(token), null);
+});
+
+test("M2.1: missing jti is rejected", () => {
+  assert.equal(verifyDet(signDet(baseClaims({ jti: undefined }))), null);
+});
+
+test("M2.1: empty sub is rejected", () => {
+  assert.equal(verifyDet(signDet(baseClaims({ sub: "" }))), null);
+});
+
+test("M2.1: wrong signing algorithm (HS256 header) is rejected before signature handling", () => {
+  const payload = Buffer.from(JSON.stringify(baseClaims()), "utf8").toString("base64url");
+  const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
+  const forged = header + "." + payload + "." + Buffer.from("not-a-valid-signature").toString("base64url");
+  assert.equal(verifyDet(forged), null);
+});
+
+test("M2.1: wrong token purpose (service) is rejected where the access purpose is required", () => {
+  assert.equal(
+    verifyDet(signDet(baseClaims({ token_use: "service" })), { requiredTokenUse: "access" }),
+    null,
+  );
+});
+
+test("M2.1: arbitrary token purpose string is rejected — only enumerated purposes exist", () => {
+  assert.equal(
+    verifyDet(signDet(baseClaims({ token_use: "admin" })), { requiredTokenUse: "access" }),
+    null,
+  );
+});
+
+test("M2.1: missing token purpose fails closed where a purpose is required", () => {
+  assert.equal(
+    verifyDet(signDet(baseClaims({ token_use: undefined })), { requiredTokenUse: "access" }),
+    null,
+  );
+});
+
+test("M2.1: documented compatibility — standalone verify without a required purpose accepts a purpose-less token", () => {
+  // Standalone callers (e.g. a future service-auth path) may not require
+  // a purpose; the PURPOSE POLICY is applied by the caller that needs it.
+  assert.ok(verifyDet(signDet(baseClaims({ token_use: undefined }))));
+});
+
+// ---------------------------------------------------------------------------
+// M2.1 hardening: token-purpose policy on the production provider.
+// ---------------------------------------------------------------------------
+test("M2.1: provider accepts a valid access-purpose token end-to-end", () => {
+  const provider = buildProvider(buildMembershipRecord());
+  const principal = provider.authenticate(makeRequest("user_editor", W_PROD, mintFor("user_editor")));
+  assert.ok(principal, "access-purpose token of a workspace member must authenticate");
+  assert.equal(principal.caller_id, "user_editor");
+});
+
+test("M2.1: provider rejects a service-purpose token on the interactive user path", () => {
+  const provider = buildProvider(buildMembershipRecord());
+  const serviceToken = mintFor("user_editor", { tokenUse: "service" });
+  assert.equal(provider.authenticate(makeRequest("user_editor", W_PROD, serviceToken)), null);
+});
+
+test("M2.1: provider rejects a token with no token purpose (fail closed)", () => {
+  const provider = buildProvider(buildMembershipRecord());
+  const purposeless = mintGatewayToken(
+    { sub: "user_editor", issuer: ISSUER, audience: AUDIENCE, ttlSeconds: 900 },
+    gatewayKeyPair.privateKeyPem,
+  );
+  assert.equal(provider.authenticate(makeRequest("user_editor", W_PROD, purposeless)), null);
+});
+
+// ---------------------------------------------------------------------------
 // Configuration gate (threat model row 16: misconfigured production mode).
 // ---------------------------------------------------------------------------
 test("isProductionAuthConfigured: complete config true, any partial config false", () => {
@@ -284,7 +494,7 @@ test("revoked membership takes effect on the very next authenticate", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Durable membership record semantics (M2 §5).
+// Durable membership record semantics (M2 §5; M2.1 operational boundary).
 // ---------------------------------------------------------------------------
 test("FileMembershipProvider rejects unknown roles at grant time", () => {
   const membership = new FileMembershipProvider({ members: {} });
@@ -299,6 +509,30 @@ test("FileMembershipProvider: corrupt or missing file yields an empty fail-close
   const membership = new FileMembershipProvider({ path: badPath });
   assert.equal(membership.hasCaller("anyone"), false);
   assert.equal(membership.isMember("anyone", "w_any"), false);
+});
+
+test("M2.1: FileMembershipProvider: a MISSING membership file yields an empty fail-closed registry", () => {
+  const dir = mkdtempSync(join(tmpdir(), "m2-missing-"));
+  const missingPath = join(dir, "does-not-exist.json");
+  assert.equal(existsSync(missingPath), false, "precondition: file must not exist");
+  const membership = new FileMembershipProvider({ path: missingPath });
+  assert.equal(membership.hasCaller("anyone"), false);
+  assert.equal(membership.isMember("anyone", "w_any"), false);
+  assert.equal(membership.getRole("anyone", "w_any"), null);
+});
+
+test("M2.1: FileMembershipProvider: valid JSON with the wrong shape yields an empty fail-closed registry", () => {
+  const dir = mkdtempSync(join(tmpdir(), "m2-shape-"));
+  const badShapePath = join(dir, "membership.json");
+  writeFileSync(badShapePath, JSON.stringify({
+    not_an_array: "just a string",
+    user_x: [{ workspace: "w_x", role: "not-a-known-role" }],
+    user_y: { workspace: "w_y", role: "viewer" },
+  }));
+  const membership = new FileMembershipProvider({ path: badShapePath });
+  assert.equal(membership.hasCaller("user_x"), false, "unknown roles must not load");
+  assert.equal(membership.hasCaller("user_y"), false, "non-array entries must not load");
+  assert.equal(membership.isMember("user_x", "w_x"), false);
 });
 
 test("FileMembershipProvider supports explicit multi-workspace membership (no wildcard, rows only)", () => {
