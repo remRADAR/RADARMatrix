@@ -3,17 +3,18 @@
 Branch: `chat/m2-production-auth-v2` (base: `fcfce1d478360cf0a957cde2658f0a4d01f65006`, the M1a follow-up final head)
 Owner: CZA OF REM — RADARCharts by REM. Master intelligence: RADAR.
 Authorization: the owner reviewed the M2 architecture assessment and approved it ("Approved. Proceed"). This document reports what was implemented under that approval, with the honest status vocabulary (implemented / tested / verified-in-CI / connected / simulated / planned / blocked / unavailable).
+M2.1 addendum: see the final section of this file and docs/M2-1-AUTH-HARDENING.md.
 
 ## Scope actually implemented (vs. the full M2 assessment)
 
 | Phase | Item | Status |
 |---|---|---|
 | P0 | Strict `tsc --noEmit` type-check in CI; M2 contract types + branded type ladder | implemented, verified-in-CI (commit `4208bd8`) |
-| P2 | Ed25519 control-plane token service (`auth/token-service.ts`) | implemented, verified-in-CI (commit `775b437`, tests green at `9d6fa59`) |
-| P2 | ProductionAuthenticationProvider (`auth/production-authentication.ts`) | implemented, verified-in-CI (commit `775b437`, tests green at `9d6fa59`) |
+| P2 | Ed25519 control-plane token service (`auth/token-service.ts`) | implemented, verified-in-CI (commit `775b437`, tests green at `9d6fa59`; hardened in M2.1) |
+| P2 | ProductionAuthenticationProvider (`auth/production-authentication.ts`) | implemented, verified-in-CI (commit `775b437`, tests green at `9d6fa59`; hardened in M2.1) |
 | P3 | Durable membership record (`providers/membership-file.cjs` + ESM wrapper) | implemented, verified-in-CI (commit `775b437`, tests green at `9d6fa59`) |
 | P3 | Gateway wiring behind a fail-closed configuration gate | implemented, verified-in-CI (commit `775b437`, tests green at `9d6fa59`) |
-| P2/P3 | 26-test production authentication negative matrix + gateway integration tests | implemented, verified-in-CI (green at `9d6fa59`) |
+| P2/P3 | 26-test production authentication negative matrix + gateway integration tests | implemented, verified-in-CI (green at `9d6fa59`; extended to 53 tests in M2.1) |
 | P4 | Delegated authority (`auth/delegation.ts`) — subset-enforced grants | implemented, tested, verified-in-CI (commit `9d6fa59`) |
 | P4 | Approval tokens (`auth/approvals.ts`) — signed, scoped, single-use | implemented, tested, verified-in-CI (commit `9d6fa59`) |
 | P4 | Delegation/approval unit suite (`tests/delegation-approval.test.mjs`, 21 tests) | implemented, verified-in-CI (commit `9d6fa59`) |
@@ -53,7 +54,7 @@ Delegation & approvals (21-test suite): subset rule (agent never exceeds actor a
 | A `4208bd8` | `41306359238` (push) | success — typecheck + 6 M1a suites green |
 | B `775b437` | `41306716485` (push) | **failure** — typecheck green; test step red. Diagnosed: one wrong test expectation (the verified-non-member child test expected the gateway's 403 WORKSPACE_FORBIDDEN, but the production provider checks membership itself — defense in depth — so the correct result is 401 UNAUTHENTICATED at the authentication gate). Fixed by correcting the test expectation, not the implementation. |
 | C `9d6fa59` (B-fix + P4) | `41307014908` (push) + `41333689388` (PR #3 check) | **success** — 8 suites green, incl. the 26-test production matrix and the 21 delegation/approval tests |
-| D (this docs commit) | see Actions / HANDOFF.md | recorded in HANDOFF.md |
+| D (docs) | push runs on `chat/m2-production-auth-v2` head `7082478` | success (both test runs green; recorded in the M2 owner report) |
 
 Verification method: GitHub REST API `actions/runs?head_sha=…` while quota allowed; after the anonymous egress IP exhausted GitHub's 60/hour limit, CI conclusions were read through the GitHub App connector via `pull_request_read.get_check_runs` on draft PR #3 — which CZA OF REM explicitly authorized opening for CI visibility (not for merge). The authoring environment has no git and no node; all tests ran in Actions only. No test was executed locally.
 
@@ -82,3 +83,19 @@ Verification method: GitHub REST API `actions/runs?head_sha=…` while quota all
 3. Choose the external IdP strategy (OAuth2/OIDC + PKCE + JWKS) when staging identities are needed.
 4. Approve the allowlisted RuntimeExecutionRequest model before M3 real execution (github-readonly adapter first).
 5. Timing for durable storage (D1) of memberships, grants, approvals, redemption records, and audit events.
+
+---
+
+# M2.1 Addendum — Authentication Security Hardening (branch `security/m2-1-auth-hardening`)
+
+Owner assignment dated 2026-11-01: harden the M2 JWT validation gaps, enforce token purpose, extend the negative matrix, and document the membership provider's operational boundary. Base verified exactly: `70824784b25c1dc04ea8c2bdedf7ed88e8c74986` (the M2 head). Production authorization NOT granted — no production changes made.
+
+**Commit `bf49aa0`** (CI run `41337292376`, push, **success** — typecheck + 8 suites + deployment smoke):
+
+- `token-service.ts` — `exp`/`iat` must be finite numbers (NaN, Infinity, and the JSON `1e999` trick are all rejected; `JSON.parse("1e999")` yields `Infinity`, so the verifier gates on `Number.isFinite`); future `iat` beyond the documented 30-second clock skew is rejected (skew policy itself unchanged); `exp` must be strictly later than `iat`; token lifetime (`exp - iat`) is bounded by the documented 1-hour maximum (`MAX_TOKEN_LIFETIME_SECONDS = 3600`, tightenable via option, loosenable only by owner decision); a present-but-malformed `nbf` is rejected — never silently accepted; `requiredTokenUse` option enforces exact token-purpose matching.
+- `production-authentication.ts` — interactive user authentication accepts ONLY `token_use === "access"`. Service-purpose, missing-purpose, and arbitrary-purpose tokens fail closed. Service identities require a separate explicit authentication path — PLANNED, deliberately not improvised in M2.1; service privileges are never inferred from `sub`.
+- `membership-file.cjs` — operational boundary documented in source: file-backed, non-transactional, single-instance interim; concurrent writers race (last-writer-wins); multi-process/scaled deployments require a stronger StorageAdapter (D1, M7); revocation IS effective for subsequent decisions; corrupt/missing data fails closed. Semantics unchanged; no database introduced.
+- `tests/production-auth-negative.test.mjs` — 26 existing tests retained; 27 new tests with a deterministic clock (fixed `NOW`, `now` override; no sleeps): the full temporal matrix (future iat, skew boundaries, exp≤iat, excessive lifetime, expiry, future/malformed nbf, non-finite values incl. hand-signed `1e999` payloads), the purpose matrix (wrong/arbitrary/missing purpose, provider-level service-token rejection), and membership file failures (missing file, valid-JSON wrong shape). Suite total: 53 tests.
+- Gateway NOT modified: hardening lives in the verifier and provider the gateway already wires, so dev fixtures, M1a fail-closed behavior, and all integration semantics are preserved by construction (proven by the unchanged child-process gateway tests in the same run).
+
+Full policy documentation: docs/M2-1-AUTH-HARDENING.md. Historical records above are unchanged.
