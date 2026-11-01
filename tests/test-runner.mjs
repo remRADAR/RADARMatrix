@@ -21,6 +21,9 @@
  * - production-auth-negative.test.mjs (M2: production authentication
  *   chain — token matrix, provider fail-closed paths, durable
  *   membership, gateway integration in production mode)
+ * - delegation-approval.test.mjs (M2: delegated authority subset
+ *   enforcement + single-use Ed25519 approval tokens — implemented,
+ *   not yet wired to the gateway)
  */
 
 import { runAllTests as runGatewayTests } from "./v0.7-gateway.test.mjs";
@@ -30,6 +33,7 @@ import { runAllTests as runBrandGatewayRoutingTests } from "./brand-gateway-rout
 import { runAllTests as runGatewayIntegrationTests } from "./gateway-integration-security.test.mjs";
 import { runAllTests as runProviderEsmWrapperTests } from "./provider-esm-wrappers.test.mjs";
 import { runAllTests as runProductionAuthTests } from "./production-auth-negative.test.mjs";
+import { runAllTests as runDelegationApprovalTests } from "./delegation-approval.test.mjs";
 
 console.log("\n");
 console.log("╔═══════════════════════════════════════╗");
@@ -47,6 +51,7 @@ const suites = [
   { name: "▶ Gateway Integration Security Tests (M1a — real implementation)", run: runGatewayIntegrationTests },
   { name: "▶ Provider ESM Wrapper Tests (M1a follow-up)", run: runProviderEsmWrapperTests },
   { name: "▶ Production Authentication & Membership Tests (M2 — real implementation)", run: runProductionAuthTests },
+  { name: "▶ Delegation & Approval Tests (M2 — implemented, not yet gateway-wired)", run: runDelegationApprovalTests },
 ];
 
 const results = [];

@@ -388,7 +388,11 @@ test("gateway: production mode with full config authenticates a verified member 
   assert.deepEqual(parsed.editorRead, { success: true, code: null, status: null }, "verified member read must succeed");
   assert.deepEqual(parsed.viewerRead, { success: true, code: null, status: null }, "verified viewer read must succeed");
   assert.deepEqual(parsed.viewerWrite, { success: false, code: "FORBIDDEN", status: 403 }, "viewer write must be forbidden — role comes from the membership record");
-  assert.deepEqual(parsed.outsider, { success: false, code: "WORKSPACE_FORBIDDEN", status: 403 }, "verified non-member must be isolated");
+  // Defense in depth: the production provider verifies membership itself,
+  // so a verified identity that is not a member of the requested
+  // workspace fails AUTHENTICATION (401) before the gateway's 403
+  // isolation gate. Cross-workspace isolation is enforced either way.
+  assert.deepEqual(parsed.outsider, { success: false, code: "UNAUTHENTICATED", status: 401 }, "verified non-member must never access the workspace");
   assert.deepEqual(parsed.expired, { success: false, code: "UNAUTHENTICATED", status: 401 }, "expired token must be rejected");
   assert.deepEqual(parsed.forged, { success: false, code: "UNAUTHENTICATED", status: 401 }, "forged token must be rejected");
 });
