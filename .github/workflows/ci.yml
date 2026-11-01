@@ -2,6 +2,12 @@ name: CI
 
 # Zero-budget test execution: GitHub Actions is free for public repositories.
 # Establishes a machine-verified baseline for the v0.8 test suites.
+#
+# Honesty note: the legacy test suites catch assertion errors internally and
+# print a "✗" line instead of failing, and tests/test-runner.mjs calls
+# process.exit(0) unconditionally. Until the runner is made fail-fast (M1),
+# this workflow greps the output for "✗" so a green check genuinely means
+# no assertion failed.
 
 on:
   push:
@@ -22,7 +28,17 @@ jobs:
 
       # Repository has zero npm dependencies; no install step needed.
       - name: Run test suites (npm test)
-        run: npm test
+        run: |
+          npm test 2>&1 | tee /tmp/test-output.log
+          if grep -n '✗' /tmp/test-output.log; then
+            echo "::error::Test failures detected — ✗ lines present in test output"
+            exit 1
+          fi
 
       - name: Deployment smoke test
-        run: npm run test:deployment
+        run: |
+          npm run test:deployment 2>&1 | tee /tmp/deploy-output.log
+          if grep -n '✗' /tmp/deploy-output.log; then
+            echo "::error::Smoke test failures detected — ✗ lines present in smoke output"
+            exit 1
+          fi
