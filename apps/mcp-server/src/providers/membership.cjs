@@ -165,7 +165,27 @@ function normalizeMembers(input) {
   return members;
 }
 
+/**
+ * Default development membership fixture.
+ *
+ * TEST FIXTURES ONLY — must never be used as production membership.
+ *
+ * Explicit, fail-closed map: the four development principals are
+ * members of the development workspace "w_dev" ONLY. Unknown callers
+ * and unknown workspaces are members of nothing. No wildcard or
+ * fallback membership exists.
+ */
+function defaultDevelopmentMembership() {
+  return {
+    admin_123: ["w_dev"],
+    editor_456: ["w_dev"],
+    contributor_789: ["w_dev"],
+    viewer_000: ["w_dev"],
+  };
+}
+
 module.exports = {
   DevelopmentMembershipProvider,
   normalizeMembers,
+  defaultDevelopmentMembership,
 };
