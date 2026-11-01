@@ -1,0 +1,19 @@
+{
+  "name": "@radarmatrix/contracts",
+  "version": "0.1.0",
+  "description": "Provider, storage, runtime, and agent adapter contracts for RADARMatrix (type-only)",
+  "type": "module",
+  "main": "./index.d.ts",
+  "types": "./index.d.ts",
+  "files": [
+    "index.d.ts",
+    "README.md"
+  ],
+  "keywords": [
+    "radarmatrix",
+    "contracts",
+    "adapters"
+  ],
+  "author": "remRADAR",
+  "license": "MIT"
+}
