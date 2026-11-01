@@ -1,5 +1,7 @@
 # RADARMatrix — Phase 1 Build Plan
 
+**Repository:** `remRADAR/RADARMatrix` · **Organization:** RADARCharts by REM · **Owner:** CZA OF REM
+
 Companion to `docs/PHASE0-DISCOVERY-REPORT.md`. Scope: turn the audited v0.8 foundation into the five-layer RADARMatrix development operating system under the strict zero-budget constraint. GitHub is the source of truth; every milestone ships with tests and honest status reporting.
 
 ## Working rules (binding for all agents)

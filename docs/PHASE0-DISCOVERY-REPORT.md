@@ -2,6 +2,7 @@
 
 **Product:** RADARMatrix — AI Development Operating System / Agent Orchestration Platform
 **Organization:** RADARCharts by REM · **Owner:** CZA OF REM
+**Repository:** `remRADAR/RADARMatrix` (canonical — independent of `remRADAR/RADARSite`)
 **Prepared:** 2026-11-01 · **Evidence basis:** direct inspection of `remRADAR/RADARMatrix` @ `93c1dc1` (main, 2026-10-28), `remRADAR/radar-vibe-queue`, and the remRADAR organization's 15 repositories; current Cloudflare and GitHub product documentation (verified 2026-10-30 / 2026-11-01).
 
 > **Directive inconsistency resolved:** §2 of the directive lists the repository as `remRADAR/RADARSite`, while §3 requires RADARMatrix to be independent of RADARSite. A real `remRADAR/RADARMatrix` repository already exists and §3 explicitly forbids assuming it should be replaced. Per the directive's own audit-first rule, **`remRADAR/RADARMatrix` is treated as the canonical home** and RADARSite is treated as untouchable.
@@ -26,7 +27,7 @@
 - **MCP Gateway** (`apps/mcp-server/src/mcp-gateway.ts`): full request pipeline — normalize → validate → authenticate → authorize (RBAC) → workspace isolation → audit → execute → validate response.
 - **RBAC hierarchy:** VIEWER → CONTRIBUTOR → EDITOR → ADMIN, with per-tool permission checks and workspace fallback.
 - **Nine MCP tool contracts** (`chatgpt-app-contract.ts`): 7 read tools (incl. `radar.list_agents`, `radar.plan_task`) + 2 write tools (`radar.remember`, `radar.record_decision`), all JSON-Schema validated.
-- **Agent registry + deterministic router** (`apps/agent-skills/registry.json` + `agent-routing.cjs`): 13 specialist profiles, bounded plan-only routing (≤2 specialists, ≤4,000 chars, clarification questions on no-match). **Plan-only — no model invocation, no execution.**
+- **Agent registry + deterministic router** (`apps/agent-skills/registry.json` + `agent-routing.cjs`): 9 agent profiles (1 coordinator + 8 specialists) across 11 skills, bounded plan-only routing (≤2 specialists, ≤4,000 chars, clarification questions on no-match). **Plan-only — no model invocation, no execution.**
 - **Brand Studio UI** (`apps/brand-studio/`, vanilla HTML/JS/CSS + Node `server.mjs`): workspace views, agent directory, task-plan preview, sandboxed live-preview iframe (no `allow-same-origin`, credentials-in-URL rejected). Browser-takeover honestly **disabled** — no transport implemented.
 - **WorkspaceStore / BrandGateway**: atomic JSON store for dev with an interface designed for pluggable persistence (Supabase adapter was sketched, project since retired).
 - **Supabase migration** `001_radarmatrix_workspace.sql`: RLS-enabled workspaces, memberships, brand assets, content, community items, safety state, rate events, audit events. Supabase project **retired/deleted**; local JSON store is the default runtime.
@@ -230,7 +231,7 @@ Indexes on every `workspace_id`, `project_id`, `task_id`; foreign keys enforced 
 
 ## G. Agent System
 
-**Registration.** Each agent is a row in `agents` + a declarative profile extending today's `registry.json`: id, name, role, description, capabilities, provider, tools, project access, adapter, permissions, status, history. The existing 13 RADAR specialist roles seed the directory.
+**Registration.** Each agent is a row in `agents` + a declarative profile extending today's `registry.json`: id, name, role, description, capabilities, provider, tools, project access, adapter, permissions, status, history. The existing 9 RADAR agent profiles (radar_orchestrator coordinator + 8 specialists, 11 shared skills) seed the directory.
 
 **Connection.** Agents are powered through **provider-independent adapters**. An agent profile declares its execution adapter (deterministic runtime, or model provider later). No agent gets ambient access — its permission set is checked by the same RBAC pipeline as humans.
 

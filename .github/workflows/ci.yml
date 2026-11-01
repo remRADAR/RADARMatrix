@@ -1,0 +1,28 @@
+name: CI
+
+# Zero-budget test execution: GitHub Actions is free for public repositories.
+# Establishes a machine-verified baseline for the v0.8 test suites.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Repository has zero npm dependencies; no install step needed.
+      - name: Run test suites (npm test)
+        run: npm test
+
+      - name: Deployment smoke test
+        run: npm run test:deployment
