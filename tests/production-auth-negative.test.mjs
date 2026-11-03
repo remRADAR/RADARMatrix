@@ -1,9 +1,10 @@
 /**
- * RADARMatrix Production Authentication & Membership Tests (M2, hardened M2.1)
+ * RADARMatrix Production Authentication & Membership Tests (M2, hardened M2.1, corrected M2.1.1)
  *
  * Implements the negative-JWT matrix and the production authentication
  * chain verification from the owner-approved M2 assessment, extended in
- * M2.1 with the full temporal-validation and token-purpose matrix:
+ * M2.1 with the full temporal-validation and token-purpose matrix, and in
+ * M2.1.1 with the absolute one-hour lifetime-ceiling regression matrix:
  *   apps/mcp-server/src/auth/token-service.ts          (control-plane tokens)
  *   apps/mcp-server/src/auth/production-authentication.ts
  *   apps/mcp-server/src/providers/membership-file.cjs   (durable membership)
@@ -17,6 +18,9 @@
  *   1e999 tricks are rejected); future iat beyond the 30s skew and
  *   exp <= iat are rejected; lifetime is bounded by the documented
  *   1-hour maximum; malformed nbf is never silently accepted.
+ * - M2.1.1: the 1-hour maximum is an ABSOLUTE verifier ceiling — a
+ *   caller-supplied maxLifetimeSeconds may only TIGHTEN it; no value
+ *   (including values above 3600 or extreme numerics) can loosen it.
  * - M2.1: token purpose is enforced — interactive user authentication
  *   accepts ONLY token_use === "access"; service/missing/arbitrary
  *   purposes fail closed.
@@ -404,6 +408,77 @@ test("M2.1: documented compatibility — standalone verify without a required pu
   // Standalone callers (e.g. a future service-auth path) may not require
   // a purpose; the PURPOSE POLICY is applied by the caller that needs it.
   assert.ok(verifyDet(signDet(baseClaims({ token_use: undefined }))));
+});
+
+// ---------------------------------------------------------------------------
+// M2.1.1: ABSOLUTE one-hour lifetime ceiling regression matrix.
+// The documented policy: max 3,600s; callers may tighten, never loosen.
+// The verifier enforces effectiveMaximum = min(configured, 3600).
+// ---------------------------------------------------------------------------
+test("M2.1.1: default maximum remains 3,600 seconds (3600 accepted, 3601 rejected, no option set)", () => {
+  assert.ok(verifyDet(signDet(baseClaims({ exp: NOW + 3600 }))), "default ceiling accepts exactly 3600s");
+  assert.equal(verifyDet(signDet(baseClaims({ exp: NOW + 3601 }))), null, "default ceiling rejects 3601s");
+});
+
+test("M2.1.1: a configured maximum of 1,800s rejects a token with a 1,801-second lifetime", () => {
+  assert.equal(
+    verifyDet(signDet(baseClaims({ exp: NOW + 1801 })), { maxLifetimeSeconds: 1800 }),
+    null,
+  );
+});
+
+test("M2.1.1: a configured maximum of 1,800s accepts a token with exactly 1,800 seconds", () => {
+  assert.ok(
+    verifyDet(signDet(baseClaims({ exp: NOW + 1800 })), { maxLifetimeSeconds: 1800 }),
+    "tightened bound accepts exactly 1800s",
+  );
+});
+
+test("M2.1.1: a configured maximum of 7,200s CANNOT permit a token with a 3,601-second lifetime", () => {
+  assert.equal(
+    verifyDet(signDet(baseClaims({ exp: NOW + 3601 })), { maxLifetimeSeconds: 7200 }),
+    null,
+    "values above the ceiling must be clamped down — never loosen the bound",
+  );
+});
+
+test("M2.1.1: a configured maximum of 7,200s still accepts a valid token with a 3,600-second lifetime", () => {
+  assert.ok(
+    verifyDet(signDet(baseClaims({ exp: NOW + 3600 })), { maxLifetimeSeconds: 7200 }),
+    "clamping must not reject tokens within the ceiling",
+  );
+});
+
+test("M2.1.1: extreme option values cannot bypass the ceiling through extreme numeric lifetimes", () => {
+  // A huge configured maximum clamps to 3600: a 7,200s lifetime is rejected.
+  assert.equal(
+    verifyDet(signDet(baseClaims({ exp: NOW + 7200 })), { maxLifetimeSeconds: 1e15 }),
+    null,
+  );
+  // A huge configured maximum clamps to 3600: an extreme lifetime
+  // (exp - iat = 1e9 seconds) is rejected outright.
+  assert.equal(
+    verifyDet(signDet(baseClaims({ iat: NOW - 1_000_000_000, exp: NOW + 900 })), { maxLifetimeSeconds: 1e15 }),
+    null,
+  );
+});
+
+test("M2.1.1: invalid option values fail safely to the default ceiling — they cannot loosen it", () => {
+  for (const bad of [NaN, Infinity, 0, -5, "7200", null]) {
+    assert.equal(
+      verifyDet(signDet(baseClaims({ exp: NOW + 3601 })), { maxLifetimeSeconds: bad }),
+      null,
+      "invalid option " + JSON.stringify(bad) + " must fall back to the 3600s default ceiling",
+    );
+  }
+  // The same invalid values must not accidentally reject valid tokens
+  // within the ceiling either — the default applies, so 3600s verifies.
+  for (const bad of [NaN, Infinity, 0, -5, "7200", null]) {
+    assert.ok(
+      verifyDet(signDet(baseClaims({ exp: NOW + 3600 })), { maxLifetimeSeconds: bad }),
+      "invalid option " + JSON.stringify(bad) + " must not tighten below the default either",
+    );
+  }
 });
 
 // ---------------------------------------------------------------------------

@@ -67,12 +67,13 @@ export interface GatewayTokenClaims {
 const CLOCK_SKEW_SECONDS = 30;
 
 /**
- * Maximum access-token lifetime (seconds), measured as exp - iat.
- * M2.1 policy: 1 hour. Tokens with a longer validity window are
- * rejected outright — a stolen token must not live longer than the
- * documented bound. Callers may tighten this via
- * VerifyTokenOptions.maxLifetimeSeconds; they may NOT loosen it past
- * the documented default without an explicit owner decision.
+ * ABSOLUTE maximum access-token lifetime (seconds), measured as
+ * exp - iat. M2.1.1 policy: 3,600 seconds (1 hour) is a VERIFIER-OWNED
+ * CEILING, not a caller-overridable maximum. VerifyTokenOptions
+ * .maxLifetimeSeconds may TIGHTEN the bound; it can NEVER loosen it —
+ * the verifier enforces min(configured, MAX_TOKEN_LIFETIME_SECONDS).
+ * Tokens with a longer validity window are rejected outright — a
+ * stolen token must not live longer than the documented bound.
  */
 const MAX_TOKEN_LIFETIME_SECONDS = 60 * 60;
 
@@ -157,9 +158,12 @@ export interface VerifyTokenOptions {
    */
   requiredTokenUse?: "access" | "service";
   /**
-   * Optional stricter maximum lifetime in seconds (exp - iat).
-   * Invalid values are ignored and the documented default
-   * (MAX_TOKEN_LIFETIME_SECONDS = 1 hour) applies.
+   * Optional STRICTER maximum lifetime in seconds (exp - iat).
+   * M2.1.1: the one-hour ceiling is an ABSOLUTE verifier policy. A
+   * valid, finite, positive value here may only TIGHTEN the bound —
+   * values above MAX_TOKEN_LIFETIME_SECONDS are clamped down to it
+   * and can never loosen the ceiling. Invalid, non-finite, zero, or
+   * negative values fail safely to the documented default.
    */
   maxLifetimeSeconds?: number;
   /** Test/clock override: now in epoch seconds. */
@@ -282,16 +286,23 @@ export function verifyGatewayToken(
   if (c.exp <= c.iat) {
     return null;
   }
-  // Documented maximum lifetime (exp - iat). Note: this cannot be
-  // bypassed by extreme values — exp - iat overflows to Infinity,
-  // which exceeds any finite bound.
+  // Documented maximum lifetime (exp - iat). M2.1.1 defect fix: the
+  // one-hour ceiling is an ABSOLUTE verifier policy — a caller-supplied
+  // option may only TIGHTEN it. effectiveMaximum = min(configured,
+  // MAX_TOKEN_LIFETIME_SECONDS); no caller can loosen the ceiling.
+  // Note: extreme values cannot bypass this — exp - iat overflows to
+  // Infinity, which exceeds any finite bound.
   const maxLifetimeOption: unknown = options.maxLifetimeSeconds;
-  const maxLifetime: number =
+  const configuredMaximum: number =
     typeof maxLifetimeOption === "number" &&
     Number.isFinite(maxLifetimeOption) &&
     maxLifetimeOption > 0
       ? maxLifetimeOption
       : MAX_TOKEN_LIFETIME_SECONDS;
+  const maxLifetime: number = Math.min(
+    configuredMaximum,
+    MAX_TOKEN_LIFETIME_SECONDS,
+  );
   if (c.exp - c.iat > maxLifetime) {
     return null;
   }
