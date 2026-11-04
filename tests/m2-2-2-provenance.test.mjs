@@ -135,7 +135,19 @@ test("A: the server authority is bound exactly ONCE — a mid-flight rebind atte
   assert.ok(ctx, "the original provider still mints");
   const authority = deriveActorAuthority(ctx, TEST_REGISTRY);
   assert.ok(authority);
-  assert.equal(authority.actor_roles.includes("admin"), false, "the failed rebind granted nothing");
+  // The viewer derived NOTHING from the malicious rebind attempt: it
+  // still cannot derive the editor-only write tool, and cannot mint
+  // a grant for it either.
+  assert.ok(!authority.actor_tools.includes("radar.record_decision"), "the failed rebind granted no editor authority");
+  assert.equal(
+    createDelegatedGrant(
+      baseGrantInput({ actor: trustedActor("viewer"), allowed_tools: ["radar.record_decision"] }),
+      NOW,
+      INTEGRITY,
+    ),
+    null,
+    "the failed rebind granted nothing",
+  );
 });
 
 test("A: UNAUTHENTICATED principals cannot mint trusted contexts", () => {
@@ -236,7 +248,20 @@ test("C: valid CONTRIBUTORS receive only the permitted authority", () => {
       assert.ok(!authority.actor_tools.includes(toolName), "contributor must not derive " + toolName);
     }
   }
-  assert.equal(authority.actor_can_write, false, "contributors cannot write");
+  // Contributor-level writes (radar.remember) are WITHIN the policy
+  // hierarchy (viewer < contributor < editor < admin); the boundary
+  // is the EDITOR-only write, which a contributor never derives:
+  assert.ok(authority.actor_tools.includes("radar.remember"), "contributor derives the contributor-level tool");
+  assert.ok(!authority.actor_tools.includes("radar.record_decision"), "contributor must not derive the editor-only write tool");
+  assert.equal(
+    createDelegatedGrant(
+      baseGrantInput({ actor: trustedActor("contributor"), allowed_tools: ["radar.record_decision"] }),
+      NOW,
+      INTEGRITY,
+    ),
+    null,
+    "a contributor cannot delegate the editor-only write tool",
+  );
 });
 
 test("C: valid ADMINS receive only policy-authorized authority (self-delegation bounded)", () => {
