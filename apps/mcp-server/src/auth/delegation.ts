@@ -390,7 +390,7 @@ export function createTrustedActorContext(
   if (isMember !== true) return null;
   const role = membership.getRole(callerId, workspaceId);
   if (typeof role !== "string") return null;
-  const level = (ROLE_LEVELS as Record<string, unknown>)[role];
+  const level = ROLE_LEVELS[role];
   if (level === undefined) return null; // unknown role fails closed
   return Object.freeze({
     [TRUSTED_ACTOR_BRAND]: true as const,
@@ -483,9 +483,9 @@ export function deriveActorAuthority(
   let highestLevel = 0;
   for (const role of actor.actor_roles) {
     if (typeof role !== "string") return null;
-    const level = (ROLE_LEVELS as Record<string, unknown>)[role];
+    const level = ROLE_LEVELS[role];
     if (level === undefined) return null; // unknown role => fail closed
-    if (level > highestLevel) highestLevel = level as number;
+    if (level > highestLevel) highestLevel = level;
   }
   if (highestLevel === 0) return null;
 
@@ -497,9 +497,9 @@ export function deriveActorAuthority(
     if (!entry || typeof entry !== "object") continue;
     const requiredRole = (entry as RegistryToolEntry).required_role;
     if (typeof requiredRole !== "string") continue;
-    const requiredLevel = (ROLE_LEVELS as Record<string, unknown>)[requiredRole];
+    const requiredLevel = ROLE_LEVELS[requiredRole];
     if (requiredLevel === undefined) continue;
-    if (highestLevel >= (requiredLevel as number)) {
+    if (highestLevel >= requiredLevel) {
       actorTools.push(toolName);
       if ((entry as RegistryToolEntry).is_write_operation === true) {
         canWrite = true;
