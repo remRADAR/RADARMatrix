@@ -7,9 +7,10 @@
  *
  *   A. Membership provider provenance: the trusted provider is bound
  *      ONCE per process by the server composition boundary
- *      (initializeServerAuthority); createTrustedActorContext accepts
- *      NO provider argument, and caller-fabricated providers are
- *      rejected outright.
+ *      (the trusted composition root — M2.2.3 moved it to
+ *      apps/mcp-server/src/auth/server-composition.ts);
+ *      createTrustedActorContext accepts NO provider argument, and
+ *      caller-fabricated providers are rejected outright.
  *   B. Tool registry provenance: the canonical registry is
  *      server-owned (bound once); grant inputs cannot carry a
  *      registry, and unknown tools fail closed.
@@ -17,10 +18,13 @@
  *      intact after the migration.
  *
  * The shared test composition lives in ./server-authority.helper.mjs:
- * it performs the ONE-TIME binding, exactly as gateway startup will
- * in production. Tests mutate the server-side membership STATE (test
- * fixtures), never the provider or the binding — the same rule that
- * applies to request handlers.
+ * it performs the ONE-TIME binding through the trusted composition
+ * root, exactly as gateway startup will in production. Tests mutate
+ * the server-side membership STATE (test fixtures), never the
+ * provider or the binding — the same rule that applies to request
+ * handlers. Post-binding immutability of the provider methods and
+ * the registry snapshot is proven separately, in
+ * ./m2-2-3-authority-hardening.test.mjs.
  *
  * Failures are counted and returned to tests/test-runner.mjs, which
  * exits non-zero when any test fails. Standalone runs exit non-zero.
@@ -36,9 +40,11 @@ import {
   deriveActorAuthority,
   createGrantIntegrityService,
   createTrustedActorContext,
-  initializeServerAuthority,
-  isServerAuthorityInitialized,
 } from "../apps/mcp-server/src/auth/delegation.ts";
+import {
+  composeServerAuthority,
+  isServerAuthorityComposed,
+} from "../apps/mcp-server/src/auth/server-composition.ts";
 import {
   TOOL_REGISTRY,
 } from "../apps/mcp-server/src/chatgpt-app-contract.ts";
@@ -119,26 +125,26 @@ test("A: a FABRICATED membership provider (returns true / admin) is rejected as 
   );
 });
 
-test("A: the server authority is bound exactly ONCE — a mid-flight rebind attempt fails closed", () => {
-  assert.ok(isServerAuthorityInitialized(), "the shared test composition bound the authority at import");
+test("A: the server authority is composed exactly ONCE — a mid-flight re-composition attempt fails closed", () => {
+  assert.ok(isServerAuthorityComposed(), "the shared test composition bound the authority at import");
   const maliciousProvider = {
     isMember: () => true,
     getRole: () => "admin",
   };
-  const rebound = initializeServerAuthority({
+  const rebound = composeServerAuthority({
     membershipProvider: maliciousProvider,
     toolRegistry: Object.assign({}, TEST_REGISTRY, { "made.up.tool": { required_role: "viewer", is_write_operation: true } }),
   });
-  assert.equal(rebound, false, "a second initializeServerAuthority call must be refused");
+  assert.equal(rebound, false, "a second composeServerAuthority call must be refused");
   // The ORIGINAL bound provider still serves — the malicious one has no effect:
   const ctx = trustedActor("viewer");
   assert.ok(ctx, "the original provider still mints");
   const authority = deriveActorAuthority(ctx, TEST_REGISTRY);
   assert.ok(authority);
-  // The viewer derived NOTHING from the malicious rebind attempt: it
+  // The viewer derived NOTHING from the malicious re-composition attempt: it
   // still cannot derive the editor-only write tool, and cannot mint
   // a grant for it either.
-  assert.ok(!authority.actor_tools.includes("radar.record_decision"), "the failed rebind granted no editor authority");
+  assert.ok(!authority.actor_tools.includes("radar.record_decision"), "the failed re-composition granted no editor authority");
   assert.equal(
     createDelegatedGrant(
       baseGrantInput({ actor: trustedActor("viewer"), allowed_tools: ["radar.record_decision"] }),
@@ -146,7 +152,7 @@ test("A: the server authority is bound exactly ONCE — a mid-flight rebind atte
       INTEGRITY,
     ),
     null,
-    "the failed rebind granted nothing",
+    "the failed re-composition granted nothing",
   );
 });
 

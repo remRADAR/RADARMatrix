@@ -1,6 +1,6 @@
 /**
  * RADARMatrix Delegated Authority (M2, Phase P4; hardened M2.2, corrected
- * M2.2.1, provenance-corrected M2.2.2)
+ * M2.2.1, provenance-corrected M2.2.2, authority-hardened M2.2.3)
  *
  * Owner-approved M2 architecture: a specialist agent must never
  * inherit every permission of the human (or RADAR orchestration
@@ -45,26 +45,54 @@
  *   provider as an ARGUMENT — a caller able to supply a fabricated
  *   provider ({isMember:()=>true, getRole:()=>"admin"}) could mint a
  *   runtime-branded admin context. The brand alone is not proof of
- *   authentic membership. The membership provider is now bound ONCE
- *   at the trusted server composition boundary via
- *   initializeServerAuthority({membershipProvider, toolRegistry}):
- *   a module-scoped, set-once, frozen binding. The mint function
- *   takes NO provider argument and reads ONLY the bound provider;
- *   a second argument is rejected outright (legacy caller-supplied
- *   providers fail LOUDLY, not silently). Uninitialized => every
- *   mint fails closed (null). Untrusted request payloads can
- *   neither supply nor replace the provider.
+ *   authentic membership. The mint function takes NO provider
+ *   argument and reads ONLY the bound provider; a second argument
+ *   is rejected outright (legacy caller-supplied providers fail
+ *   LOUDLY, not silently). Uninitialized => every mint fails closed
+ *   (null). Untrusted request payloads can neither supply nor
+ *   replace the provider.
  * - M2.2.2 PROVENANCE CORRECTION B (tool registry provenance):
  *   createDelegatedGrant previously accepted the tool registry
  *   through its input — a caller-controlled registry could redefine
  *   which tools exist or which roles they require, granting itself
- *   authority. The registry is now part of the SAME set-once server
- *   authority binding; an input that still carries a `registry`
- *   field is rejected outright, tool-permission checks use ONLY the
+ *   authority. An input that still carries a `registry` field is
+ *   rejected outright, tool-permission checks use ONLY the
  *   server-bound canonical registry, and unknown tools fail closed.
  *   Write permission remains strictly derived (a write grant
  *   requires the actor's derived write capability from the
  *   canonical registry).
+ * - M2.2.3 FINDING A (secure first initialization): the
+ *   initializeServerAuthority export is REMOVED from this
+ *   general-purpose auth module — set-once alone did not
+ *   authenticate the FIRST initializer, and any code importing this
+ *   module could previously establish the authority with
+ *   caller-chosen dependencies. The capability now lives ONLY in
+ *   the trusted composition root (./server-composition.ts), whose
+ *   sole legitimate consumers are trusted server startup code
+ *   (gateway boot, future wiring) and the shared test composition
+ *   helper (which plays the gateway-startup role in the test
+ *   process). THIS module — the one request-handling code and the
+ *   runtime adapters import — exports only fail-closed READ
+ *   consumers of the bound authority. Ordinary request handlers
+ *   cannot initialize or replace the server authority: the
+ *   capability is not on their import surface, and the bound state
+ *   (./authority-state.ts) is writable only through the internal
+ *   API the composition root uses. Request payloads can never
+ *   supply membership providers, registry definitions or
+ *   initialization capabilities — the composition root accepts only
+ *   live server-side objects, and functions do not survive JSON.
+ * - M2.2.3 FINDING B (immutable bound dependencies): the bound
+ *   membership provider is a PROTECTED ADAPTER whose method
+ *   references were captured ONCE at composition — replacing
+ *   provider.isMember / provider.getRole after binding has NO
+ *   effect, while legitimate updates to the underlying membership
+ *   records still flow through (the provider keeps reading its own
+ *   live data; it is never frozen). The bound registry is a
+ *   VALIDATED, COPIED, DEEP-FROZEN server-owned snapshot — retained
+ *   references to the original registry object cannot mutate
+ *   required roles, write permissions or tool identities after
+ *   binding. Both are established by the composition root; nothing
+ *   outside it can write the binding (set-once, frozen).
  * - The composition binding is dependency injection at a trusted
  *   server composition boundary — NOT global mutable state: it is
  *   set once per process, then frozen and read-only for the
@@ -94,12 +122,18 @@
  *   set-once server authority binding. This is a deliberate
  *   breaking correction of the trusted-authority boundary —
  *   callers passing them are rejected (fail-closed, loudly).
+ * - M2.2.3 CONTRACT NOTE: initializeServerAuthority is REMOVED from
+ *   this module's exports (replaced by composeServerAuthority in
+ *   ./server-composition.ts). isServerAuthorityInitialized() remains
+ *   as a read-only predicate. Tests and composition code import the
+ *   composition root, not this module, to establish authority.
  *
  * Zero runtime npm dependencies. Erasable-syntax TypeScript only
  * (Node type-stripping compatible).
  */
 
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { getBoundServerAuthority, isServerAuthorityBound } from "./authority-state.ts";
 
 export interface DelegatedGrant {
   /** Unique grant id (caller-supplied or generated). */
@@ -229,12 +263,20 @@ export function createGrantIntegrityService(
 }
 
 // ---------------------------------------------------------------------------
-// M2.2.2 — the trusted server composition boundary.
+// M2.2.2/M2.2.3 — the trusted server composition boundary.
+//
+// M2.2.3 Finding A: the binding state lives in the private module
+// ./authority-state.ts and is written ONLY by the trusted
+// composition root (./server-composition.ts). THIS module — the
+// general-purpose auth module that request-handling code and the
+// runtime adapters import — exports NO initialization capability:
+// it can only READ the bound authority, and it fails closed while
+// the authority is unbound.
 // ---------------------------------------------------------------------------
 
 /**
- * The trusted membership/authentication surface this module may draw
- * provenance from. In production this is the real membership
+ * The trusted membership/authentication surface the authority may
+ * draw provenance from. In production this is the real membership
  * provider (FileMembershipProvider or its durable successor); it is
  * NEVER request data. The D1/M7 durable membership adapter slots in
  * behind this SAME abstraction — the interface is unchanged.
@@ -261,65 +303,20 @@ export interface RegistryInput {
 }
 
 /**
- * The server authority binding: the membership provider and the
- * canonical tool registry, injected ONCE at the trusted server
- * composition boundary (gateway startup). Set-once, then frozen and
- * read-only for the module's lifetime — this is dependency injection
- * at the composition boundary, not global mutable state, and not a
- * permissive fallback: before initialization every trusted mint and
- * grant creation fails closed.
- */
-export interface ServerAuthorityConfig {
-  membershipProvider: ActorMembershipSource;
-  toolRegistry: RegistryInput;
-}
-
-let serverAuthority: Readonly<ServerAuthorityConfig> | null = null;
-
-/**
- * Binds the server authority (membership provider + canonical tool
- * registry). Returns true on the FIRST successful call; returns
- * false forever after — the binding cannot be replaced, swapped or
- * reset by any later caller (a request handler can never re-point
- * the trusted provenance at a fabricated provider or registry).
- * Malformed configs are rejected and leave the module unbound.
- */
-export function initializeServerAuthority(config: unknown): boolean {
-  if (serverAuthority !== null) return false;
-  if (!config || typeof config !== "object") return false;
-  const provider = (config as { membershipProvider?: unknown }).membershipProvider;
-  const registry = (config as { toolRegistry?: unknown }).toolRegistry;
-  if (
-    !provider ||
-    typeof provider !== "object" ||
-    typeof (provider as ActorMembershipSource).isMember !== "function" ||
-    typeof (provider as ActorMembershipSource).getRole !== "function"
-  ) {
-    return false;
-  }
-  if (!registry || typeof registry !== "object" || Array.isArray(registry)) {
-    return false;
-  }
-  serverAuthority = Object.freeze({
-    membershipProvider: provider as ActorMembershipSource,
-    toolRegistry: registry as RegistryInput,
-  });
-  return true;
-}
-
-/**
  * Whether the trusted server composition boundary has been bound.
  * False => every trusted-context mint and every grant creation fails
- * closed.
+ * closed. (M2.2.3: this is a READ-ONLY predicate. The initialization
+ * capability itself is NOT exported from this module — it lives in
+ * the trusted composition root ./server-composition.ts.)
  */
 export function isServerAuthorityInitialized(): boolean {
-  return serverAuthority !== null;
+  return isServerAuthorityBound();
 }
 
 // ---------------------------------------------------------------------------
 // M2.2.1 CORRECTION C + M2.2.2 CORRECTION A — runtime-branded trusted
-// actor provenance, minted ONLY from the server-bound membership
-// provider.
+// actor provenance, minted ONLY from the bound (protected) membership
+// adapter.
 // ---------------------------------------------------------------------------
 
 /**
@@ -332,10 +329,10 @@ const TRUSTED_ACTOR_BRAND = Symbol("radarmatrix.trusted-actor-context");
 /**
  * Trusted server-side actor context. Constructible ONLY by
  * createTrustedActorContext (which verifies membership through the
- * SERVER-BOUND provider and derives the role from it). The brand is
+ * BOUND membership adapter and derives the role from it). The brand is
  * enforced AT RUNTIME by deriveActorAuthority and createDelegatedGrant
  * — the TypeScript type alone proves nothing, and (M2.2.2) the brand
- * alone is not proof either: the role data itself now originates
+ * alone is not proof either: the role data itself originates
  * exclusively from the set-once server authority binding.
  */
 export interface TrustedActorContext {
@@ -350,22 +347,22 @@ export interface TrustedActorContext {
 
 /**
  * Mints the one and only trusted actor context — from the
- * SERVER-BOUND membership provider ONLY (M2.2.2). Fails closed
- * (returns null) when:
+ * BOUND membership adapter ONLY (M2.2.2; protected by M2.2.3).
+ * Fails closed (returns null) when:
  * - a second argument is supplied (legacy caller-supplied providers
  *   are rejected LOUDLY — the caller is not the composition
  *   boundary),
- * - the server authority is not initialized,
+ * - the server authority is not composed,
  * - the principal identifiers are missing/malformed,
  * - the actor is NOT a verified member of the workspace
  *   (cross-workspace delegation impossible),
  * - the membership layer yields no role or an unknown role, or the
- *   membership provider throws.
+ *   membership adapter is unavailable.
  *
  * The returned object is frozen and branded; its roles come ONLY
- * from the bound membership provider. A caller can never manufacture
- * it, and can never substitute the membership source it is minted
- * from.
+ * from the bound (protected) membership adapter. A caller can never
+ * manufacture it, and can never substitute the membership source it
+ * is minted from.
  */
 export function createTrustedActorContext(
   principal: { caller_id: unknown; workspace_id: unknown },
@@ -376,8 +373,9 @@ export function createTrustedActorContext(
   // closed, loudly.
   if (legacyProvider.length > 0) return null;
   if (!principal || typeof principal !== "object") return null;
-  if (serverAuthority === null) return null;
-  const membership = serverAuthority.membershipProvider;
+  const boundAuthority = getBoundServerAuthority();
+  if (boundAuthority === null) return null;
+  const membership = boundAuthority.membershipAdapter;
 
   const callerId = (principal as { caller_id?: unknown }).caller_id;
   const workspaceId = (principal as { workspace_id?: unknown }).workspace_id;
@@ -385,23 +383,14 @@ export function createTrustedActorContext(
   if (typeof workspaceId !== "string" || workspaceId.trim().length === 0) return null;
 
   // Membership is verified against the requested workspace through
-  // the SERVER-BOUND provider — a request payload can never assert
-  // it and can never replace the provider.
-  let isMember: boolean = false;
-  try {
-    isMember = membership.isMember(callerId, workspaceId) === true;
-  } catch {
-    return null;
-  }
-  if (!isMember) return null;
-  let role: unknown = null;
-  try {
-    role = membership.getRole(callerId, workspaceId);
-  } catch {
-    return null;
-  }
+  // the BOUND (protected) adapter — a request payload can never
+  // assert it and can never replace the adapter. The adapter itself
+  // fails closed (false/null) on any underlying failure.
+  const isMember = membership.isMember(callerId, workspaceId);
+  if (isMember !== true) return null;
+  const role = membership.getRole(callerId, workspaceId);
   if (typeof role !== "string") return null;
-  const level = ROLE_LEVELS[role];
+  const level = (ROLE_LEVELS as Record<string, unknown>)[role];
   if (level === undefined) return null; // unknown role fails closed
   return Object.freeze({
     [TRUSTED_ACTOR_BRAND]: true as const,
@@ -446,13 +435,18 @@ const MAX_TTL_SECONDS = 60 * 60 * 4; // 4 hours — delegation windows stay shor
  * Role hierarchy — MUST mirror the authorization provider
  * (viewer < contributor < editor < admin). Derived authority uses
  * the same levels the authorization boundary enforces.
+ *
+ * M2.2.3: exported (read-only, frozen) so the trusted composition
+ * root can VALIDATE every registry entry's required_role against the
+ * same hierarchy before accepting it. This is policy data, not an
+ * authority-bearing capability.
  */
-const ROLE_LEVELS: Record<string, number> = {
+export const ROLE_LEVELS: Readonly<Record<string, number>> = Object.freeze({
   viewer: 1,
   contributor: 2,
   editor: 3,
   admin: 4,
-};
+});
 
 function isNonEmptyString(v: unknown): boolean {
   return typeof v === "string" && v.trim().length > 0;
@@ -464,11 +458,12 @@ function isNonEmptyString(v: unknown): boolean {
  * the authorization boundary would unlock it:
  * roleLevel(actor) >= roleLevel(tool.required_role).
  *
- * NOTE (M2.2.2): grant creation passes ONLY the server-bound
- * canonical registry here. The registry parameter remains so this
- * stays a pure, testable derivation function — but it grants no
+ * NOTE (M2.2.2/M2.2.3): grant creation passes ONLY the server-bound
+ * canonical registry SNAPSHOT here. The registry parameter remains so
+ * this stays a pure, testable derivation function — but it grants no
  * authority by itself: createDelegatedGrant never forwards a
- * caller-supplied registry.
+ * caller-supplied registry, and the bound snapshot is validated and
+ * frozen at composition.
  *
  * Returns null (fail-closed) when the context is missing the runtime
  * brand (a caller-constructed object), is malformed, or the actor
@@ -488,9 +483,9 @@ export function deriveActorAuthority(
   let highestLevel = 0;
   for (const role of actor.actor_roles) {
     if (typeof role !== "string") return null;
-    const level = ROLE_LEVELS[role];
+    const level = (ROLE_LEVELS as Record<string, unknown>)[role];
     if (level === undefined) return null; // unknown role => fail closed
-    if (level > highestLevel) highestLevel = level;
+    if (level > highestLevel) highestLevel = level as number;
   }
   if (highestLevel === 0) return null;
 
@@ -502,9 +497,9 @@ export function deriveActorAuthority(
     if (!entry || typeof entry !== "object") continue;
     const requiredRole = (entry as RegistryToolEntry).required_role;
     if (typeof requiredRole !== "string") continue;
-    const requiredLevel = ROLE_LEVELS[requiredRole];
+    const requiredLevel = (ROLE_LEVELS as Record<string, unknown>)[requiredRole];
     if (requiredLevel === undefined) continue;
-    if (highestLevel >= requiredLevel) {
+    if (highestLevel >= (requiredLevel as number)) {
       actorTools.push(toolName);
       if ((entry as RegistryToolEntry).is_write_operation === true) {
         canWrite = true;
@@ -524,15 +519,15 @@ export function deriveActorAuthority(
  *   (actor_tools / actor_can_write),
  * - the input still carries a caller-supplied registry (M2.2.2: the
  *   canonical registry is server-owned — reject loudly),
- * - the server authority is not initialized (no bound membership
- *   provider / canonical registry),
+ * - the server authority is not composed (no bound membership
+ *   adapter / canonical registry snapshot),
  * - the actor context is not a runtime-branded trusted context,
  * - the requested grant would exceed the actor's own authority.
  *
  * Subset rule: every requested tool must (a) exist in the
- * SERVER-BOUND canonical registry and (b) be within the actor's
- * DERIVED tool authority. Requesting "write" requires the actor to
- * hold derived write capability (from the canonical registry — write
+ * SERVER-BOUND canonical registry snapshot and (b) be within the
+ * actor's DERIVED tool authority. Requesting "write" requires the actor
+ * to hold derived write capability (from the canonical registry — write
  * stays strictly harder than read). This is the
  * agent-privilege-escalation control: an agent can never receive
  * more authority than its delegating actor already had — and
@@ -564,9 +559,11 @@ export function createDelegatedGrant(
     return null;
   }
 
-  // M2.2.2: provenance is the set-once server authority binding.
-  if (serverAuthority === null) return null;
-  const serverRegistry = serverAuthority.toolRegistry;
+  // M2.2.2/M2.2.3: provenance is the set-once server authority
+  // binding (composed only by the trusted composition root).
+  const boundAuthority = getBoundServerAuthority();
+  if (boundAuthority === null) return null;
+  const serverRegistry = boundAuthority.toolRegistrySnapshot;
 
   if (
     !isNonEmptyString(input.grant_id) ||
@@ -579,7 +576,7 @@ export function createDelegatedGrant(
   if (!isTrustedActorContext(input.actor)) return null;
 
   // M2.2/M2.2.2: derive the actor's authority from the TRUSTED
-  // context against the SERVER-BOUND canonical registry.
+  // context against the SERVER-BOUND canonical registry snapshot.
   const authority = deriveActorAuthority(input.actor, serverRegistry);
   if (!authority) return null;
 
@@ -599,8 +596,8 @@ export function createDelegatedGrant(
   if (actionSet.has("write") && authority.actor_can_write !== true) return null;
 
   // Subset enforcement: every allowed tool must be a tool in the
-  // SERVER-BOUND canonical registry AND within the actor's DERIVED
-  // authority. Unknown tools fail closed.
+  // SERVER-BOUND canonical registry snapshot AND within the actor's
+  // DERIVED authority. Unknown tools fail closed.
   const actorSet = new Set<string>(authority.actor_tools);
   for (const tool of input.allowed_tools) {
     if (!isNonEmptyString(tool)) return null;

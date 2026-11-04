@@ -24,6 +24,13 @@
  * in production). All delegation-touching suites share that single
  * binding; request payloads cannot supply or replace it.
  *
+ * M2.2.3 note: the composition capability moved OUT of the
+ * general-purpose auth module into the trusted composition root
+ * (apps/mcp-server/src/auth/server-composition.ts). The helper below
+ * imports THAT module — the same module gateway startup will call.
+ * First-initialization behavior is proven in FRESH child processes
+ * (the m2-2-3 suite), because this process composes once at import.
+ *
  * Suites:
  * - v0.7-gateway.test.mjs (foundation gateway logic, self-contained)
  * - v0.8-chatgpt-contract.test.mjs (contract validation, self-contained)
@@ -51,6 +58,15 @@
  *   binding — fabricated providers/registries rejected, unbound
  *   authority fails closed, M2.2.1 HMAC/reservation protections
  *   re-asserted intact)
+ * - m2-2-3-authority-hardening.test.mjs (M2.2.3: secure first
+ *   initialization — the general-purpose auth module exports no
+ *   initialization capability, only the trusted composition root
+ *   (server-composition.ts) can establish authority (fresh-process
+ *   child scenarios); protected membership adapter (post-binding
+ *   method replacement has no effect, legitimate data updates flow)
+ *   and validated, copied, deep-frozen registry snapshot (retained
+ *   original references cannot mutate roles/write flags/identities;
+ *   unknown tools denied))
  */
 
 import { runAllTests as runGatewayTests } from "./v0.7-gateway.test.mjs";
@@ -64,10 +80,11 @@ import { runAllTests as runDelegationApprovalTests } from "./delegation-approval
 import { runAllTests as runM22SecurityRegressions } from "./m2-2-security-regressions.test.mjs";
 import { runAllTests as runM221SecurityCorrections } from "./m2-2-1-security-corrections.test.mjs";
 import { runAllTests as runM222Provenance } from "./m2-2-2-provenance.test.mjs";
+import { runAllTests as runM223AuthorityHardening } from "./m2-2-3-authority-hardening.test.mjs";
 
 console.log("\n");
 console.log("╔═════════════════════════════════════════╗");
-console.log("║   RADARMatrix Test Suite (v0.9 M2.2.2)  ║");
+console.log("║   RADARMatrix Test Suite (v0.9 M2.2.3)  ║");
 console.log("║   Foundation + Integration Tests        ║");
 console.log("╚═════════════════════════════════════════╝");
 
@@ -85,6 +102,7 @@ const suites = [
   { name: "▶ M2.2 Security Regressions (runtime fail-closed + hardened approvals)", run: runM22SecurityRegressions },
   { name: "▶ M2.2.1 Security Corrections (integrity, reservation, provenance, ordering, membership)", run: runM221SecurityCorrections },
   { name: "▶ M2.2.2 Provenance Tests (server-authority binding, fabricated provider/registry rejection)", run: runM222Provenance },
+  { name: "▶ M2.2.3 Authority Hardening Tests (secure first initialization, immutable provider/registry binding)", run: runM223AuthorityHardening },
 ];
 
 const results = [];
