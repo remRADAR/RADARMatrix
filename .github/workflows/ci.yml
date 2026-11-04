@@ -77,6 +77,20 @@ jobs:
           cat /tmp/suite-output.log >> "$GITHUB_STEP_SUMMARY" || true
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
+      # M2.2: ALSO annotate the failing lines so they are readable from
+      # the run-page annotations table even without log/summary access.
+      - name: Annotate failing tests (on failure)
+        if: failure()
+        run: |
+          if [ -f /tmp/suite-output.log ]; then
+            if grep -q '✗' /tmp/suite-output.log; then
+              grep '✗' /tmp/suite-output.log | while IFS= read -r line; do echo "::error::${line}"; done
+            else
+              echo "No failure markers found — annotating log tail (possible runner crash):"
+              tail -n 10 /tmp/suite-output.log | while IFS= read -r line; do echo "::error::${line}"; done
+            fi
+          fi
+
       - name: Upload test output (on failure)
         if: failure()
         uses: actions/upload-artifact@v4
