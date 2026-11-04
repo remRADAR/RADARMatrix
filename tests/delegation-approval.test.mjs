@@ -1,5 +1,6 @@
 /**
- * RADARMatrix Delegation & Approval Tests (M2, Phase P4; hardened M2.2; corrected M2.2.1)
+ * RADARMatrix Delegation & Approval Tests (M2, Phase P4; hardened M2.2;
+ * corrected M2.2.1; provenance-corrected M2.2.2)
  *
  * Verifies the owner-approved M2 delegation and approval-token
  * architecture:
@@ -21,6 +22,13 @@
  *   including the current use count; unkeyed hashes cannot bypass.
  * - M2.2.1: reserveGrantUse atomically consumes a use BEFORE
  *   dispatch and re-seals the grant.
+ * - M2.2.2: the membership provider and the canonical tool registry
+ *   are bound ONCE at the trusted server composition boundary
+ *   (initializeServerAuthority). createTrustedActorContext takes NO
+ *   provider argument (a caller-supplied provider is rejected
+ *   loudly) and createDelegatedGrant rejects caller-supplied
+ *   registries — tool permission checks use ONLY the server-bound
+ *   canonical registry.
  * - Write delegation requires the actor to hold write capability.
  * - Grants bind one agent + one workspace; mismatch fails closed.
  * - Expiry and use limits are enforced on every validation.
@@ -60,6 +68,7 @@ import {
 import {
   TOOL_REGISTRY,
 } from "../apps/mcp-server/src/chatgpt-app-contract.ts";
+import { setMembershipState } from "./server-authority.helper.mjs";
 
 const W = "w_prod";
 const ACTOR = "user_editor";
@@ -73,10 +82,12 @@ const INTEGRITY = createGrantIntegrityService(INTEGRITY_SECRET);
 assert.ok(INTEGRITY, "test integrity service must construct");
 
 /**
- * Membership source double: the role the trusted membership layer
- * reports for (caller, workspace). Everything else fails membership.
+ * A FABRICATED caller-supplied provider (M2.2.2: these are rejected
+ * outright by createTrustedActorContext — kept here only to prove the
+ * rejection). Production provenance is the server-bound provider from
+ * ./server-authority.helper.mjs.
  */
-function membershipFor(role, opts) {
+function fabricatedProvider(role, opts) {
   const o = opts || {};
   return {
     isMember(caller, ws) {
@@ -90,12 +101,26 @@ function membershipFor(role, opts) {
   };
 }
 
-/** Mints a RUNTIME-BRANDED trusted actor context (the only legal way). */
+/**
+ * Mints a RUNTIME-BRANDED trusted actor context (the only legal way),
+ * pointing the SERVER-BOUND trusted membership provider (the test's
+ * own server-side fixture state) at the requested role/actor/workspace.
+ * The provider itself is NEVER an argument (M2.2.2).
+ */
 function trustedActor(role, opts) {
-  return createTrustedActorContext(
-    { caller_id: (opts && opts.actor) || ACTOR, workspace_id: (opts && opts.workspace) || W },
-    membershipFor(role, opts),
-  );
+  const o = opts || {};
+  setMembershipState({
+    actor: o.actor || ACTOR,
+    workspace: o.workspace || W,
+    role,
+    rawRole: o.rawRole,
+    isMember: o.isMember,
+    getRole: o.getRole,
+  });
+  return createTrustedActorContext({
+    caller_id: o.actor || ACTOR,
+    workspace_id: o.workspace || W,
+  });
 }
 
 function baseGrantInput(overrides) {
@@ -107,7 +132,6 @@ function baseGrantInput(overrides) {
       allowed_actions: ["read"],
       ttl_seconds: 600,
       max_uses: 2,
-      registry: TOOL_REGISTRY,
       actor: trustedActor("editor"),
     },
     overrides || {},
@@ -127,8 +151,8 @@ function test(name, fn) {
 }
 
 // ---------------------------------------------------------------------------
-// M2.2/M2.2.1: derived actor authority — never caller-supplied,
-// never compile-time-only.
+// M2.2/M2.2.1/M2.2.2: derived actor authority — never caller-supplied,
+// never compile-time-only, never caller-sourced provenance.
 // ---------------------------------------------------------------------------
 test("M2.2.1: deriveActorAuthority derives tools from verified roles, never from the caller", () => {
   const viewer = deriveActorAuthority(trustedActor("viewer"), TOOL_REGISTRY);
@@ -162,25 +186,64 @@ test("M2.2.1: a caller-constructed (unbranded) actor object is rejected at RUNTI
   );
 });
 
-test("M2.2.1: createTrustedActorContext fails closed on malformed/unauthenticated/malicious membership sources", () => {
-  assert.equal(createTrustedActorContext(null, membershipFor("editor")), null);
-  assert.equal(createTrustedActorContext({ caller_id: "", workspace_id: W }, membershipFor("editor")), null);
-  assert.equal(createTrustedActorContext({ caller_id: ACTOR, workspace_id: "" }, membershipFor("editor")), null);
+test("M2.2.2: a CALLER-SUPPLIED membership provider is rejected — provenance is server-bound only", () => {
+  // The M2.2.1 signature accepted a provider argument; a fabricated
+  // provider ({isMember:()=>true, getRole:()=>"admin"}) could mint a
+  // branded admin context. M2.2.2: the provider is bound ONCE at the
+  // server composition boundary — any provider passed as an argument
+  // fails closed, loudly.
+  assert.equal(
+    createTrustedActorContext(
+      { caller_id: ACTOR, workspace_id: W },
+      fabricatedProvider("admin"),
+    ),
+    null,
+    "a caller-supplied provider must never mint a trusted context",
+  );
+  assert.equal(
+    createTrustedActorContext(
+      { caller_id: ACTOR, workspace_id: W },
+      { isMember: () => true, getRole: () => "admin" },
+    ),
+    null,
+    "a fabricated always-true/admin provider must never mint a trusted context",
+  );
+  assert.equal(createTrustedActorContext({ caller_id: ACTOR, workspace_id: W }, null), null);
+  assert.equal(createTrustedActorContext({ caller_id: ACTOR, workspace_id: W }, {}), null);
+});
+
+test("M2.2.1/M2.2.2: createTrustedActorContext fails closed on malformed/unauthenticated/malicious membership", () => {
+  assert.equal(createTrustedActorContext(null), null);
+  assert.equal(createTrustedActorContext({ caller_id: "", workspace_id: W }), null);
+  assert.equal(createTrustedActorContext({ caller_id: ACTOR, workspace_id: "" }), null);
   // Not a member => no trusted context (unauthenticated actor).
   assert.equal(
-    createTrustedActorContext({ caller_id: ACTOR, workspace_id: W }, membershipFor("editor", { isMember: () => false })),
+    trustedActor("editor", { isMember: () => false }),
     null,
     "non-members never receive a trusted context",
   );
   // Unknown role from the membership layer => fail closed.
   assert.equal(
-    createTrustedActorContext({ caller_id: ACTOR, workspace_id: W }, membershipFor(null, { rawRole: "superuser" })),
+    trustedActor(null, { rawRole: "superuser" }),
     null,
     "unknown roles never receive a trusted context",
   );
-  // Malformed membership surface => fail closed.
-  assert.equal(createTrustedActorContext({ caller_id: ACTOR, workspace_id: W }, null), null);
-  assert.equal(createTrustedActorContext({ caller_id: ACTOR, workspace_id: W }, {}), null);
+  // A throwing membership provider fails closed (never an exception
+  // past the boundary, never a permissive fallback).
+  assert.equal(
+    trustedActor("editor", {
+      isMember: () => { throw new Error("store down"); },
+    }),
+    null,
+    "a failing membership source fails closed",
+  );
+  assert.equal(
+    trustedActor("editor", {
+      getRole: () => { throw new Error("store down"); },
+    }),
+    null,
+    "a failing role lookup fails closed",
+  );
 });
 
 test("M2.2: caller-supplied actor_tools / actor_can_write are rejected outright", () => {
@@ -193,6 +256,32 @@ test("M2.2: caller-supplied actor_tools / actor_can_write are rejected outright"
     createDelegatedGrant(baseGrantInput({ actor_can_write: true }), NOW, INTEGRITY),
     null,
     "actor_can_write input must be rejected",
+  );
+});
+
+test("M2.2.2: a caller-supplied tool REGISTRY is rejected — the canonical registry is server-owned", () => {
+  // A caller-controlled registry could redefine which tools exist or
+  // which roles they require (granting itself authority). The
+  // registry lives in the set-once server authority binding; an
+  // input still carrying `registry` fails closed.
+  const attackerRegistry = {
+    "radar.remember": { required_role: "viewer", is_write_operation: true },
+    "made.up.tool": { required_role: "viewer", is_write_operation: false },
+  };
+  assert.equal(
+    createDelegatedGrant(
+      baseGrantInput({ registry: attackerRegistry, allowed_tools: ["made.up.tool"] }),
+      NOW,
+      INTEGRITY,
+    ),
+    null,
+    "a caller-supplied registry must never validate a grant",
+  );
+  // Even without elevation intent, the legacy registry field is rejected:
+  assert.equal(
+    createDelegatedGrant(baseGrantInput({ registry: TOOL_REGISTRY }), NOW, INTEGRITY),
+    null,
+    "the registry input is gone — reject loudly so legacy callers fail visibly",
   );
 });
 
@@ -292,7 +381,7 @@ test("missing or malformed actor context fails closed", () => {
   assert.equal(createDelegatedGrant(baseGrantInput({ actor: null }), NOW, INTEGRITY), null);
   // Branded contexts are minted ONLY from verified membership; a
   // context whose membership is unverifiable yields null first.
-  const noRole = createTrustedActorContext({ caller_id: ACTOR, workspace_id: W }, membershipFor(null, { rawRole: "not_a_role" }));
+  const noRole = trustedActor(null, { rawRole: "not_a_role" });
   assert.equal(noRole, null);
   const otherActorGrant = createDelegatedGrant(
     baseGrantInput({ actor: trustedActor("admin", { actor: "u_other" }) }),
