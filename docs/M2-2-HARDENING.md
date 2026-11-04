@@ -174,3 +174,38 @@ NOT ready for another review until the owner decides the M2.2 disposition**
 (review the branch, then merge `security/m2-2-hardening` → M2 branch via PR #6,
 advancing PR #3 automatically). No merge is performed without that explicit
 owner decision.
+
+## M2.2.1 correction cross-reference (post-review addendum)
+
+An independent review of M2.2 identified five security weaknesses, corrected on
+this same branch in the M2.2.1 session (full report: docs/M2-2-1-CORRECTIONS.md).
+Where this document is superseded, the correction document is stricter:
+
+- The M2.2 integrity seal described in Finding B was an UNKEYED sha256 —
+  recomputable by anyone able to mutate both grant and hash, and it did not bind
+  the use count. M2.2.1 replaces it with a server-held **HMAC-SHA-256** seal
+  binding every authority-bearing field INCLUDING `uses`, failing closed
+  (`integrity_unavailable`) whenever the integrity secret is missing or short.
+  There is no unkeyed fallback.
+- Grant use was recorded AFTER the external request (non-atomic against
+  concurrent validation). M2.2.1 introduces the atomic **`reserveGrantUse`**
+  reservation (check-and-consume + re-seal) executed BEFORE dispatch, with a
+  documented no-refund policy; `recordGrantUse` is removed. Per-process
+  atomicity only — cross-process capacity remains a durable-store (D1, M7)
+  dependency.
+- The `TrustedActorContext` in Finding B was a plain TypeScript interface —
+  constructible by any caller with fabricated roles. M2.2.1 makes it a
+  **runtime-branded** context minted ONLY by `createTrustedActorContext` from
+  verified membership; the compile-time type is never the boundary.
+- The M3 flow redeemed approvals BEFORE validating the delegated grant
+  (adapter composition defect — approvals.ts itself was already correct).
+  The M2.2.1 compatibility adapter on this branch enforces: grant validation →
+  reservation → approval redemption → dispatch.
+- Membership temp files (Finding D) were predictable with default permissions.
+  M2.2.1 upgrades persistence to exclusive `wx` creation with 0600
+  permissions, a random same-directory temp name, fsync, atomic rename, and
+  safe cleanup on failure.
+
+The original M3 branch (`runtime/m3-github-readonly` @ `d22e84d`) is untouched;
+a compatibility adapter carrying only the sanctioned changes lives at
+`apps/mcp-server/src/runtime/github-readonly.ts` on this branch.
