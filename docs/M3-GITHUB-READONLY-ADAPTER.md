@@ -49,10 +49,13 @@ command execution existed). M3 adds:
    `requiresApproval` additionally demand a valid single-use approval
    token verified by an injected verifier (the M2 approvals module:
    Ed25519-signed, exact action + exact resource id + workspace +
-   actor, TTL ≤ 30 min, jti single-use redemption). No verifier
-   configured ⇒ approval-gated operations are denied. The DEFAULT
-   M3 registry contains no approval-gated operations (repo reads are
-   not consequential writes); the hook is proven by tests with a
+   actor, TTL ≤ 30 min, jti single-use redemption). The adapter
+   presents the DELEGATING HUMAN ACTOR from the grant
+   (`grant.actor_id`) — never the agent — so approvals stay
+   actor-bound per the M2 approval law. No verifier configured ⇒
+   approval-gated operations are denied. The DEFAULT M3 registry
+   contains no approval-gated operations (repo reads are not
+   consequential writes); the hook is proven by tests with a
    synthetic registry entry so future operation sets cannot bypass
    it.
 5. **Honest status.** Without a configured GitHub token (or transport)
@@ -104,9 +107,15 @@ honest `describe()` capability listing.
 
 ## CI evidence
 
-Recorded in HANDOFF.md (exact GitHub Actions run ids and conclusions
-per commit). The authoring environment has no git and no node; all
-test evidence is GitHub Actions only.
+M3 reached green through five verified commits (all evidence in
+HANDOFF.md): `32d4297` (typecheck failure, 2 defects), `cf89c06`
+(typecheck fix; test failures), `9eae883` (docs), `23d03e2` (test
+harness fix), `630a071` (adapter approval-actor fix — the one real
+M3 implementation defect: the approval check omitted `actor_id`),
+`2698192` (final, validation-order test fix). **Final head `2698192`:
+runs 41884831543 (push) + 41884842532 (PR #5 synchronize) — SUCCESS**,
+every job step green. The authoring environment has no git and no
+node; all test evidence is GitHub Actions only.
 
 ## Remaining production limitations (honest)
 
