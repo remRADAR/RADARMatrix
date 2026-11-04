@@ -81,10 +81,11 @@ import { runAllTests as runM22SecurityRegressions } from "./m2-2-security-regres
 import { runAllTests as runM221SecurityCorrections } from "./m2-2-1-security-corrections.test.mjs";
 import { runAllTests as runM222Provenance } from "./m2-2-2-provenance.test.mjs";
 import { runAllTests as runM223AuthorityHardening } from "./m2-2-3-authority-hardening.test.mjs";
+import { runAllTests as runM224CompositionBoundary } from "./m2-2-4-composition-boundary.test.mjs";
 
 console.log("\n");
 console.log("╔═════════════════════════════════════════╗");
-console.log("║   RADARMatrix Test Suite (v0.9 M2.2.3)  ║");
+console.log("║   RADARMatrix Test Suite (v0.9 M2.2.4)  ║");
 console.log("║   Foundation + Integration Tests        ║");
 console.log("╚═════════════════════════════════════════╝");
 
@@ -103,6 +104,7 @@ const suites = [
   { name: "▶ M2.2.1 Security Corrections (integrity, reservation, provenance, ordering, membership)", run: runM221SecurityCorrections },
   { name: "▶ M2.2.2 Provenance Tests (server-authority binding, fabricated provider/registry rejection)", run: runM222Provenance },
   { name: "▶ M2.2.3 Authority Hardening Tests (secure first initialization, immutable provider/registry binding)", run: runM223AuthorityHardening },
+  { name: "▶ M2.2.4 Composition Boundary Tests (approved import graph and residual runtime threat)", run: runM224CompositionBoundary },
 ];
 
 const results = [];
