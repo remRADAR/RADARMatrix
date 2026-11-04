@@ -149,11 +149,15 @@ test("A: production mode with NO auth configuration fails closed (empty gates)",
   assert.equal(out.isolation, false, "unconfigured production must contain no membership");
 });
 
-test("A: the parent test process itself runs in explicit test mode (no accidental default)", () => {
-  assert.equal(
-    process.env.RADARMATRIX_RUNTIME_MODE,
-    "test",
-    "the test scripts must set the runtime mode explicitly (got: " + JSON.stringify(process.env.RADARMATRIX_RUNTIME_MODE) + ")",
+test("A: the parent test process itself runs in an explicit fixture mode (no accidental default)", () => {
+  // The runner process must always carry an EXPLICIT fixture mode.
+  // (The brand-gateway suite pins "development" for the shared
+  // in-process environment — the mode must never be left unset for
+  // the fail-closed default to trigger mid-run.)
+  assert.ok(
+    process.env.RADARMATRIX_RUNTIME_MODE === "development" ||
+      process.env.RADARMATRIX_RUNTIME_MODE === "test",
+    "the test environment must pin an explicit fixture mode (got: " + JSON.stringify(process.env.RADARMATRIX_RUNTIME_MODE) + ")",
   );
 });
 
