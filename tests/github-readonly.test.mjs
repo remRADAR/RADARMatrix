@@ -63,14 +63,18 @@ const TOKEN = "gh_test_token_123";
 // own authority over that domain.
 const RUNTIME_TOOLS = Object.keys(GITHUB_READONLY_OPERATIONS);
 const RUNTIME_REGISTRY = Object.assign({}, TOOL_REGISTRY, GITHUB_READONLY_OPERATIONS);
-const ACTOR_TOOLS = Object.keys(TOOL_REGISTRY).concat(RUNTIME_TOOLS);
 
 function baseGrantInput(overrides) {
+  const o = overrides || {};
+  // The actor's authority over the grant's registry domain is the
+  // full registry keyset (subset rule: allowed_tools must be within
+  // the actor's own tools AND registered).
+  const registry = o.registry || RUNTIME_REGISTRY;
   return Object.assign(
     {
       grant_id: "grant_m3_1",
       actor_id: ACTOR,
-      actor_tools: ACTOR_TOOLS,
+      actor_tools: Object.keys(registry),
       actor_can_write: true,
       agent_id: AGENT,
       workspace_id: W,
@@ -78,9 +82,9 @@ function baseGrantInput(overrides) {
       allowed_actions: ["read"],
       ttl_seconds: 600,
       max_uses: 0,
-      registry: RUNTIME_REGISTRY,
+      registry,
     },
-    overrides || {},
+    o,
   );
 }
 
@@ -152,17 +156,26 @@ test("adapter without a token reports unavailable and denies execution", async (
   assert.equal(r.stdout, "");
 });
 
-test("adapter without a transport reports unavailable (no fetch in env => honest)", async () => {
-  const { config } = okConfig({ fetchImpl: undefined });
-  const adapter = createGitHubReadOnlyAdapter(config);
-  assert.equal(adapter.status, "unavailable");
-  const r = await adapter.execute({
-    command: "github.read.branches",
-    args: { owner: "remRADAR", repo: "RADARMatrix" },
-    authority: authorityFor(),
-  });
-  assert.equal(r.status, "unavailable");
-  assert.equal(r.notes, "no_transport_available");
+test("adapter without a transport reports unavailable (fetch-less environment simulated)", async () => {
+  // The adapter falls back to the GLOBAL fetch; Node >= 18 always
+  // provides it, so this test simulates a fetch-less environment by
+  // temporarily removing globalThis.fetch (restored in finally).
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = undefined;
+  try {
+    const { config } = okConfig({ fetchImpl: undefined });
+    const adapter = createGitHubReadOnlyAdapter(config);
+    assert.equal(adapter.status, "unavailable");
+    const r = await adapter.execute({
+      command: "github.read.branches",
+      args: { owner: "remRADAR", repo: "RADARMatrix" },
+      authority: authorityFor(),
+    });
+    assert.equal(r.status, "unavailable");
+    assert.equal(r.notes, "no_transport_available");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -188,7 +201,6 @@ test("command-string injection attempts are denied (no shell, no URL control)", 
     "github.read.file?access_token=x",
     "../../etc/passwd",
     "github.read.file extra",
-    "",
   ]) {
     const r = await adapter.execute({
       command: bad,
@@ -198,6 +210,14 @@ test("command-string injection attempts are denied (no shell, no URL control)", 
     assert.equal(r.status, "denied");
     assert.equal(r.notes, "operation_not_in_allowlist");
   }
+  // An empty/missing command is its own fail-closed case.
+  const empty = await adapter.execute({
+    command: "",
+    args: { owner: "o", repo: "r", path: "p" },
+    authority: authorityFor(),
+  });
+  assert.equal(empty.status, "denied");
+  assert.equal(empty.notes, "missing_command");
 });
 
 test("the adapter only ever issues GET requests", async () => {
