@@ -150,7 +150,11 @@ test("A: production mode with NO auth configuration fails closed (empty gates)",
 });
 
 test("A: the parent test process itself runs in explicit test mode (no accidental default)", () => {
-  assert.equal(process.env.RADARMATRIX_RUNTIME_MODE, "test", "the test scripts must set the runtime mode explicitly");
+  assert.equal(
+    process.env.RADARMATRIX_RUNTIME_MODE,
+    "test",
+    "the test scripts must set the runtime mode explicitly (got: " + JSON.stringify(process.env.RADARMATRIX_RUNTIME_MODE) + ")",
+  );
 });
 
 // ---------------------------------------------------------------------------
