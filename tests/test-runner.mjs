@@ -24,6 +24,9 @@
  * - delegation-approval.test.mjs (M2: delegated authority subset
  *   enforcement + single-use Ed25519 approval tokens — implemented,
  *   not yet wired to the gateway)
+ * - github-readonly.test.mjs (M3: read-only GitHub runtime adapter —
+ *   allowlist, delegated authority, approval hook, deterministic
+ *   injected transport; no network in tests)
  */
 
 import { runAllTests as runGatewayTests } from "./v0.7-gateway.test.mjs";
@@ -34,10 +37,11 @@ import { runAllTests as runGatewayIntegrationTests } from "./gateway-integration
 import { runAllTests as runProviderEsmWrapperTests } from "./provider-esm-wrappers.test.mjs";
 import { runAllTests as runProductionAuthTests } from "./production-auth-negative.test.mjs";
 import { runAllTests as runDelegationApprovalTests } from "./delegation-approval.test.mjs";
+import { runAllTests as runGitHubReadonlyTests } from "./github-readonly.test.mjs";
 
 console.log("\n");
 console.log("╔═══════════════════════════════════════╗");
-console.log("║   RADARMatrix Test Suite (v0.9 M2)     ║");
+console.log("║   RADARMatrix Test Suite (v0.9 M3)     ║");
 console.log("║   Foundation + Integration Tests       ║");
 console.log("╚═══════════════════════════════════════╝");
 
@@ -52,6 +56,7 @@ const suites = [
   { name: "▶ Provider ESM Wrapper Tests (M1a follow-up)", run: runProviderEsmWrapperTests },
   { name: "▶ Production Authentication & Membership Tests (M2 — real implementation)", run: runProductionAuthTests },
   { name: "▶ Delegation & Approval Tests (M2 — implemented, not yet gateway-wired)", run: runDelegationApprovalTests },
+  { name: "▶ GitHub Read-Only Runtime Adapter Tests (M3 — real implementation)", run: runGitHubReadonlyTests },
 ];
 
 const results = [];

@@ -13,6 +13,7 @@
   },
   "include": [
     "packages/contracts/**/*.d.ts",
-    "apps/mcp-server/src/auth/**/*.ts"
+    "apps/mcp-server/src/auth/**/*.ts",
+    "apps/mcp-server/src/runtime/**/*.ts"
   ]
 }
