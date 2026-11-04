@@ -201,7 +201,7 @@ export interface GitHubReadonlyConfig {
 const DEFAULT_TIMEOUT_MS = 10_000;
 const DEFAULT_MAX_RESPONSE_BYTES = 1_048_576;
 
-function isNonEmptyString(v: unknown): boolean {
+function isNonEmptyString(v: unknown): v is string {
   return typeof v === "string" && v.trim().length > 0;
 }
 
@@ -487,7 +487,7 @@ export function createGitHubReadOnlyAdapter(
           status: "denied",
           exitCode: response.status,
           stdout: "",
-          stderr,
+          stderr: body,
           notes: "http_" + response.status,
         };
       }
@@ -496,7 +496,7 @@ export function createGitHubReadOnlyAdapter(
           status: "denied",
           exitCode: response.status,
           stdout: "",
-          stderr,
+          stderr: body,
           notes: "http_" + response.status,
         };
       }
@@ -504,7 +504,7 @@ export function createGitHubReadOnlyAdapter(
         status: "unavailable",
         exitCode: response.status,
         stdout: "",
-        stderr,
+        stderr: body,
         notes: "http_" + response.status,
       };
     },
