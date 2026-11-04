@@ -173,6 +173,7 @@ export interface ApprovalVerifyFn {
       action: string;
       resource_id: string;
       workspace_id: string;
+      actor_id: string;
       grant_id?: string;
     },
     now: number,
@@ -383,6 +384,10 @@ export function createGitHubReadOnlyAdapter(
             action: op.name,
             resource_id: requestPath,
             workspace_id: authority.workspace_id,
+            // The delegating human actor from the grant — approvals
+            // are actor-bound (verifyApproval enforces the exact
+            // match; an approval minted for someone else must fail).
+            actor_id: grant.actor_id,
             grant_id: grant.grant_id,
           },
           nowSeconds(),

@@ -570,6 +570,32 @@ test("valid single-use approval executes exactly once; replay denies", async () 
   assert.equal(replay.stderr, "replayed");
 });
 
+test("approval minted for a DIFFERENT actor is denied (approvals are actor-bound)", async () => {
+  const redemption = createRedemptionRecord();
+  const adapter = approvalAdapter(redemption);
+  const authority = sensitiveAuthority();
+  const issued = issueApproval(
+    {
+      action: "github.read.sensitive",
+      resource_ids: ["/repos/o/r/secrets"],
+      workspace_id: W,
+      actor_id: "someone_else",
+      ttl_seconds: 300,
+      now: NOW,
+    },
+    keys.privateKeyPem,
+  );
+  const r = await adapter.execute({
+    command: "github.read.sensitive",
+    args: { owner: "o", repo: "r" },
+    authority,
+    approvalToken: issued.token,
+  });
+  assert.equal(r.status, "denied");
+  assert.equal(r.stderr, "actor_mismatch");
+  assert.equal(authority.grant.uses, 0);
+});
+
 test("wrong-scope approval (different resource) denies; failed approvals do not consume a grant use", async () => {
   const redemption = createRedemptionRecord();
   const adapter = approvalAdapter(redemption);
