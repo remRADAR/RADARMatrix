@@ -1,6 +1,6 @@
 "use strict";
 /**
- * RADARMatrix FileMembershipProvider (M2, Phase P3)
+ * RADARMatrix FileMembershipProvider (M2, Phase P3; hardened M2.2)
  *
  * Durable (file-backed) membership record implementing the
  * fail-closed MembershipProvider law plus M2 authority semantics:
@@ -11,17 +11,25 @@
  * - Missing or corrupt file = empty registry (fail closed).
  * - Roles live ONLY here — never in token claims.
  * - grant()/revoke() persist to the backing file when a path is set.
+ * - M2.2: persistence is now ATOMIC-ON-DISK — the JSON is written to
+ *   a process-unique temporary file and moved into place with
+ *   fs.renameSync (atomic on POSIX). A crash mid-write can no longer
+ *   truncate the live membership file: the old file survives until
+ *   the new one is complete, and a failed rename never replaces it.
+ *   (A crash BEFORE the rename still loses that single mutation —
+ *   the in-memory map stays authoritative for this process.)
  *
- * OPERATIONAL BOUNDARY (M2.1 documentation — semantics unchanged):
- * This is an INTERIM, SINGLE-INSTANCE, FILE-BACKED implementation.
- * It is NOT a transactional distributed membership store:
- * - File writes are plain fs.writeFileSync — NOT an atomic database
- *   transaction. A crash mid-write can truncate the file; a truncated
- *   or corrupt file then loads as an EMPTY registry (fail closed —
- *   access is lost, never wrongly granted).
+ * OPERATIONAL BOUNDARY (M2.1 documentation — semantics unchanged in
+ * M2.2): This is an INTERIM, SINGLE-INSTANCE, FILE-BACKED
+ * implementation. It is NOT a transactional distributed membership
+ * store:
+ * - File writes are atomic single-file replacements, but they are
+ *   NOT database transactions. There is no locking, no merge, and
+ *   no versioning.
  * - Concurrent writers (multiple provider instances, multiple
  *   processes) race: last-writer-wins clobbers the other's
- *   grant/revoke. There is no locking, no merge, no versioning.
+ *   grant/revoke. Atomic rename prevents TORN writes; it does not
+ *   prevent LOST writes.
  * - Multi-process or horizontally scaled production deployments
  *   REQUIRE a stronger storage adapter (the StorageAdapter seam;
  *   planned durable store, D1 at M7 per the owner roadmap). This
@@ -33,7 +41,7 @@
  * - Corrupt or missing membership data fails CLOSED (empty registry)
  *   — availability is sacrificed before security, by design.
  * This provider is NOT production-grade distributed persistence.
- * Introducing a real database is explicitly out of scope for M2.1.
+ * Introducing a real database is explicitly out of scope for M2.
  *
  * This is the development/staging seed of the durable membership
  * store (the StorageAdapter seam). The production adapter (M7 plan)
@@ -97,6 +105,20 @@ class FileMembershipProvider {
     }
   }
 
+  /**
+   * M2.2: atomic-on-disk persistence.
+   *
+   * The serialized registry is written to a process-unique temporary
+   * file in the SAME directory (same filesystem => rename is atomic),
+   * then moved into place with fs.renameSync. Effects:
+   * - A crash mid-write leaves the live file untouched.
+   * - Readers can never observe a torn/partial JSON file from this
+   *   writer. (A corrupt file from an external source still loads
+   *   as an empty, fail-closed registry.)
+   * - On any write or rename error the temporary file is removed and
+   *   the error propagates: persistence failures are LOUD, never
+   *   silently swallowed.
+   */
   #persist() {
     if (!this.path) {
       return;
@@ -107,7 +129,19 @@ class FileMembershipProvider {
         ([workspace, role]) => ({ workspace, role }),
       );
     }
-    fs.writeFileSync(this.path, JSON.stringify(data, null, 2));
+    const tmpPath =
+      this.path + ".tmp." + process.pid + "." + Date.now();
+    try {
+      fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2));
+      fs.renameSync(tmpPath, this.path);
+    } catch (error) {
+      try {
+        fs.unlinkSync(tmpPath);
+      } catch (cleanupError) {
+        /* best-effort cleanup — the primary error is rethrown below */
+      }
+      throw error;
+    }
   }
 
   isMember(callerId, workspaceId) {

@@ -9,6 +9,10 @@
  * non-zero when ANY test fails. CI relies on this exit code; a
  * secondary output guard additionally rejects swallowed failure lines.
  *
+ * M2.2 note: the runtime mode is fail-closed by default — the npm
+ * test scripts set RADARMATRIX_RUNTIME_MODE=test explicitly. The
+ * runner never relies on a mode default.
+ *
  * Suites:
  * - v0.7-gateway.test.mjs (foundation gateway logic, self-contained)
  * - v0.8-chatgpt-contract.test.mjs (contract validation, self-contained)
@@ -24,6 +28,8 @@
  * - delegation-approval.test.mjs (M2: delegated authority subset
  *   enforcement + single-use Ed25519 approval tokens — implemented,
  *   not yet wired to the gateway)
+ * - m2-2-security-regressions.test.mjs (M2.2: fail-closed runtime
+ *   modes + hardened approval claims/clock validation)
  */
 
 import { runAllTests as runGatewayTests } from "./v0.7-gateway.test.mjs";
@@ -34,12 +40,13 @@ import { runAllTests as runGatewayIntegrationTests } from "./gateway-integration
 import { runAllTests as runProviderEsmWrapperTests } from "./provider-esm-wrappers.test.mjs";
 import { runAllTests as runProductionAuthTests } from "./production-auth-negative.test.mjs";
 import { runAllTests as runDelegationApprovalTests } from "./delegation-approval.test.mjs";
+import { runAllTests as runM22SecurityRegressions } from "./m2-2-security-regressions.test.mjs";
 
 console.log("\n");
-console.log("╔═══════════════════════════════════════╗");
-console.log("║   RADARMatrix Test Suite (v0.9 M2)     ║");
-console.log("║   Foundation + Integration Tests       ║");
-console.log("╚═══════════════════════════════════════╝");
+console.log("╔═════════════════════════════════════════╗");
+console.log("║   RADARMatrix Test Suite (v0.9 M2.2)    ║");
+console.log("║   Foundation + Integration Tests        ║");
+console.log("╚═════════════════════════════════════════╝");
 
 const startTime = Date.now();
 
@@ -52,6 +59,7 @@ const suites = [
   { name: "▶ Provider ESM Wrapper Tests (M1a follow-up)", run: runProviderEsmWrapperTests },
   { name: "▶ Production Authentication & Membership Tests (M2 — real implementation)", run: runProductionAuthTests },
   { name: "▶ Delegation & Approval Tests (M2 — implemented, not yet gateway-wired)", run: runDelegationApprovalTests },
+  { name: "▶ M2.2 Security Regressions (runtime fail-closed + hardened approvals)", run: runM22SecurityRegressions },
 ];
 
 const results = [];
@@ -76,7 +84,7 @@ const failingSuites = results.filter((r) => (r.failed || 0) > 0 || r.threw !== n
 const totalFailures = results.reduce((sum, r) => sum + (r.failed || 0) + (r.threw !== null ? 1 : 0), 0);
 
 const duration = Date.now() - startTime;
-console.log("\n╔═══════════════════════════════════════╗");
+console.log("\n╔═════════════════════════════════════════╗");
 console.log("║           Test Run Complete            ║");
 console.log("║   Duration: " + duration + "ms");
 console.log("║   Suites: " + results.length + ", failing: " + failingSuites.length);
@@ -87,7 +95,7 @@ if (failingSuites.length > 0) {
     console.log("║   - " + r.name + why);
   }
 }
-console.log("╚═══════════════════════════════════════╝\n");
+console.log("╚═════════════════════════════════════════╝\n");
 
 if (totalFailures > 0) {
   console.error("Test run FAILED: " + totalFailures + " failure(s) across " + failingSuites.length + " suite(s).");

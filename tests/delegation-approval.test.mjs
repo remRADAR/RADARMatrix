@@ -1,5 +1,5 @@
 /**
- * RADARMatrix Delegation & Approval Tests (M2, Phase P4)
+ * RADARMatrix Delegation & Approval Tests (M2, Phase P4; hardened M2.2)
  *
  * Verifies the owner-approved M2 delegation and approval-token
  * architecture:
@@ -9,8 +9,14 @@
  * Security invariants verified:
  * - An agent NEVER inherits its delegating actor's full authority:
  *   grants are subset-enforced at creation time.
+ * - M2.2: actor authority is DERIVED from a trusted server-side
+ *   actor context (verified roles + tool registry) — inputs still
+ *   carrying caller-supplied actor_tools/actor_can_write are
+ *   rejected outright.
  * - Write delegation requires the actor to hold write capability.
  * - Grants bind one agent + one workspace; mismatch fails closed.
+ * - M2.2: grants carry an integrity hash — any mutation of the
+ *   security-relevant fields is rejected at validation time.
  * - Expiry and use limits are enforced on every validation.
  * - Approvals are Ed25519-signed, short-lived, scope-bound to an
  *   exact action + exact resource list, workspace- and actor-bound,
@@ -18,7 +24,9 @@
  * - Malformed or forged tokens fail closed.
  *
  * These modules are implemented and unit-tested but NOT yet wired
- * into the gateway; runtime execution remains future work (M3+).
+ * into the gateway for execution; runtime execution remains future
+ * work (M3+). The delegation mechanism is NOT connected to
+ * unrestricted agent execution.
  *
  * Failures are counted and returned to tests/test-runner.mjs, which
  * exits non-zero when any test fails. Standalone runs exit non-zero.
@@ -30,6 +38,7 @@ import {
   createDelegatedGrant,
   validateGrantUse,
   recordGrantUse,
+  deriveActorAuthority,
 } from "../apps/mcp-server/src/auth/delegation.ts";
 import {
   issueApproval,
@@ -48,25 +57,29 @@ const ACTOR = "user_editor";
 const AGENT = "agent_specialist_1";
 const NOW = 1_000_000;
 
-// The actor's own authority mirrors an editor in the tool registry:
-// every registered tool the actor may call, write included.
-const ACTOR_TOOLS = Object.keys(TOOL_REGISTRY);
-
 function baseGrantInput(overrides) {
   return Object.assign(
     {
       grant_id: "grant_1",
-      actor_id: ACTOR,
-      actor_tools: ACTOR_TOOLS,
-      actor_can_write: true,
       agent_id: AGENT,
-      workspace_id: W,
       allowed_tools: ["radar.search"],
       allowed_actions: ["read"],
       ttl_seconds: 600,
       max_uses: 2,
       registry: TOOL_REGISTRY,
+      actor: {
+        actor_id: ACTOR,
+        actor_roles: ["editor"],
+        workspace_id: W,
+      },
     },
+    overrides || {},
+  );
+}
+
+function baseCheck(overrides) {
+  return Object.assign(
+    { agent_id: AGENT, workspace_id: W, tool: "radar.search", action: "read" },
     overrides || {},
   );
 }
@@ -77,33 +90,79 @@ function test(name, fn) {
 }
 
 // ---------------------------------------------------------------------------
+// M2.2: derived actor authority — never caller-supplied.
+// ---------------------------------------------------------------------------
+test("M2.2: deriveActorAuthority derives tools from verified roles, never from the caller", () => {
+  const viewer = deriveActorAuthority({ actor_id: "u", actor_roles: ["viewer"], workspace_id: W }, TOOL_REGISTRY);
+  assert.ok(viewer, "viewer authority must derive");
+  assert.equal(viewer.actor_can_write, false, "viewer never derives write capability");
+  assert.ok(viewer.actor_tools.includes("radar.search"), "viewer derives read tools");
+  assert.ok(!viewer.actor_tools.includes("radar.remember"), "viewer must not derive write tools");
+
+  const admin = deriveActorAuthority({ actor_id: "u", actor_roles: ["admin"], workspace_id: W }, TOOL_REGISTRY);
+  assert.ok(admin.actor_tools.length === Object.keys(TOOL_REGISTRY).length, "admin derives every registered tool");
+  assert.equal(admin.actor_can_write, true, "admin derives write capability");
+});
+
+test("M2.2: deriveActorAuthority fails closed on malformed or unknown roles", () => {
+  assert.equal(deriveActorAuthority(null, TOOL_REGISTRY), null);
+  assert.equal(deriveActorAuthority({ actor_id: "", actor_roles: ["editor"], workspace_id: W }, TOOL_REGISTRY), null);
+  assert.equal(deriveActorAuthority({ actor_id: "u", actor_roles: [], workspace_id: W }, TOOL_REGISTRY), null);
+  assert.equal(deriveActorAuthority({ actor_id: "u", actor_roles: ["superuser"], workspace_id: W }, TOOL_REGISTRY), null, "unknown role must fail closed");
+  assert.equal(deriveActorAuthority({ actor_id: "u", actor_roles: ["viewer"], workspace_id: W }, null), null);
+});
+
+test("M2.2: caller-supplied actor_tools / actor_can_write are rejected outright", () => {
+  // Legacy shape: the caller asserts its own authority. Must be
+  // rejected even though the asserted authority would be VALID —
+  // the point is that a caller may never assert it at all.
+  assert.equal(
+    createDelegatedGrant(baseGrantInput({ actor_tools: ["radar.search"], actor_can_write: true }), NOW),
+    null,
+    "actor_tools input must be rejected",
+  );
+  assert.equal(
+    createDelegatedGrant(baseGrantInput({ actor_can_write: true }), NOW),
+    null,
+    "actor_can_write input must be rejected",
+  );
+});
+
+// ---------------------------------------------------------------------------
 // Delegated grants: subset enforcement (agent privilege escalation).
 // ---------------------------------------------------------------------------
-test("valid scoped grant is created", () => {
+test("valid scoped grant is created and sealed with an integrity hash", () => {
   const grant = createDelegatedGrant(baseGrantInput(), NOW);
   assert.ok(grant, "valid grant must be created");
   assert.equal(grant.agent_id, AGENT);
   assert.equal(grant.workspace_id, W);
   assert.equal(grant.expires_at, NOW + 600);
   assert.equal(grant.uses, 0);
+  assert.equal(typeof grant.integrity_hash, "string");
+  assert.ok(grant.integrity_hash.length === 64, "sha256 hex integrity hash expected");
 });
 
-test("grant requesting a tool OUTSIDE the actor's authority is rejected (escalation control)", () => {
-  const grant = createDelegatedGrant(
-    baseGrantInput({ actor_tools: ["radar.search"] }),
-    NOW,
-  );
-  // allowed_tools asks for radar.remember, actor only has radar.search.
+test("grant requesting a tool OUTSIDE the actor's derived authority is rejected (escalation control)", () => {
+  // A viewer (read-only, derived) cannot delegate radar.remember.
   const escalated = createDelegatedGrant(
     baseGrantInput({
-      actor_tools: ["radar.search"],
+      actor: { actor_id: ACTOR, actor_roles: ["viewer"], workspace_id: W },
       allowed_tools: ["radar.remember"],
       allowed_actions: ["write"],
     }),
     NOW,
   );
   assert.equal(escalated, null, "subset violation must be rejected at creation");
-  assert.ok(grant, "sanity: same actor within subset is fine");
+  // Sanity: the same viewer within its derived authority is fine.
+  const within = createDelegatedGrant(
+    baseGrantInput({
+      actor: { actor_id: ACTOR, actor_roles: ["viewer"], workspace_id: W },
+      allowed_tools: ["radar.search"],
+      allowed_actions: ["read"],
+    }),
+    NOW,
+  );
+  assert.ok(within, "viewer within subset is fine");
 });
 
 test("grant requesting an unknown tool is rejected", () => {
@@ -114,7 +173,7 @@ test("grant requesting an unknown tool is rejected", () => {
   assert.equal(g, null);
 });
 
-test("write delegation requires the actor to hold write capability", () => {
+test("write delegation requires the actor to hold derived write capability", () => {
   const ok = createDelegatedGrant(
     baseGrantInput({
       allowed_tools: ["radar.remember"],
@@ -125,7 +184,7 @@ test("write delegation requires the actor to hold write capability", () => {
   assert.ok(ok, "editor may delegate write");
   const denied = createDelegatedGrant(
     baseGrantInput({
-      actor_can_write: false,
+      actor: { actor_id: ACTOR, actor_roles: ["viewer"], workspace_id: W },
       allowed_tools: ["radar.remember"],
       allowed_actions: ["write"],
     }),
@@ -150,49 +209,81 @@ test("agent cannot equal actor (self-delegation rejected)", () => {
   assert.equal(createDelegatedGrant(baseGrantInput({ agent_id: ACTOR }), NOW), null);
 });
 
+test("missing or malformed actor context fails closed", () => {
+  assert.equal(createDelegatedGrant(baseGrantInput({ actor: null }), NOW), null);
+  assert.equal(createDelegatedGrant(baseGrantInput({ actor: { actor_id: ACTOR, workspace_id: W } }), NOW), null);
+  assert.equal(createDelegatedGrant(baseGrantInput({ actor: { actor_id: ACTOR, actor_roles: ["not_a_role"], workspace_id: W } }), NOW), null);
+  const otherActorGrant = createDelegatedGrant(baseGrantInput({ actor: { actor_id: "u_other", actor_roles: ["admin"], workspace_id: W } }), NOW);
+  assert.ok(otherActorGrant, "admin actor context must derive authority");
+  assert.equal(otherActorGrant.actor_id, "u_other", "the grant binds to the trusted context's actor, not the caller's assertion");
+});
+
 // ---------------------------------------------------------------------------
 // Delegated grants: validation-time enforcement.
 // ---------------------------------------------------------------------------
 test("valid use passes; agent mismatch, workspace mismatch fail closed", () => {
   const grant = createDelegatedGrant(baseGrantInput(), NOW);
-  assert.equal(validateGrantUse(grant, { agent_id: AGENT, workspace_id: W, tool: "radar.search", action: "read" }, NOW).valid, true);
-  assert.equal(validateGrantUse(grant, { agent_id: "other_agent", workspace_id: W, tool: "radar.search", action: "read" }, NOW).reason, "agent_mismatch");
-  assert.equal(validateGrantUse(grant, { agent_id: AGENT, workspace_id: "w_other", tool: "radar.search", action: "read" }, NOW).reason, "workspace_mismatch");
+  assert.equal(validateGrantUse(grant, baseCheck(), NOW).valid, true);
+  assert.equal(validateGrantUse(grant, baseCheck({ agent_id: "other_agent" }), NOW).reason, "agent_mismatch");
+  assert.equal(validateGrantUse(grant, baseCheck({ workspace_id: "w_other" }), NOW).reason, "workspace_mismatch");
 });
 
 test("tool outside the grant is denied (scope not inherited)", () => {
   const grant = createDelegatedGrant(baseGrantInput(), NOW);
-  const r = validateGrantUse(grant, { agent_id: AGENT, workspace_id: W, tool: "radar.remember", action: "read" }, NOW);
+  const r = validateGrantUse(grant, baseCheck({ tool: "radar.recall" }), NOW);
   assert.equal(r.valid, false);
   assert.equal(r.reason, "tool_not_allowed");
 });
 
 test("write action on a read-only grant is denied", () => {
   const grant = createDelegatedGrant(baseGrantInput(), NOW);
-  const r = validateGrantUse(grant, { agent_id: AGENT, workspace_id: W, tool: "radar.search", action: "write" }, NOW);
+  const r = validateGrantUse(grant, baseCheck({ action: "write" }), NOW);
   assert.equal(r.reason, "action_not_allowed");
 });
 
 test("expired grant is denied at validation time", () => {
   const grant = createDelegatedGrant(baseGrantInput({ ttl_seconds: 60 }), NOW);
-  const r = validateGrantUse(grant, { agent_id: AGENT, workspace_id: W, tool: "radar.search", action: "read" }, NOW + 61);
+  const r = validateGrantUse(grant, baseCheck(), NOW + 61);
   assert.equal(r.reason, "grant_expired");
+});
+
+test("M2.2: a non-finite validation clock is rejected (invalid_clock)", () => {
+  const grant = createDelegatedGrant(baseGrantInput(), NOW);
+  assert.equal(validateGrantUse(grant, baseCheck(), NaN).reason, "invalid_clock");
+  assert.equal(validateGrantUse(grant, baseCheck(), Infinity).reason, "invalid_clock");
 });
 
 test("use limit is enforced: max_uses=2 allows two uses then denies", () => {
   const grant = createDelegatedGrant(baseGrantInput({ max_uses: 2 }), NOW);
-  const check = { agent_id: AGENT, workspace_id: W, tool: "radar.search", action: "read" };
-  assert.equal(validateGrantUse(grant, check, NOW).valid, true);
+  assert.equal(validateGrantUse(grant, baseCheck(), NOW).valid, true);
   assert.equal(recordGrantUse(grant), true);
-  assert.equal(validateGrantUse(grant, check, NOW).valid, true);
+  assert.equal(validateGrantUse(grant, baseCheck(), NOW).valid, true);
   assert.equal(recordGrantUse(grant), true);
-  assert.equal(validateGrantUse(grant, check, NOW).reason, "use_limit_reached");
+  assert.equal(validateGrantUse(grant, baseCheck(), NOW).reason, "use_limit_reached");
   assert.equal(recordGrantUse(grant), false, "double-count must be refused");
 });
 
+test("M2.2: grant mutation is rejected at validation time (integrity seal)", () => {
+  const grant = createDelegatedGrant(baseGrantInput({ ttl_seconds: 60 }), NOW);
+  // Tamper: extend the expiry.
+  const extended = Object.assign({}, grant, { expires_at: NOW + 9999 });
+  assert.equal(validateGrantUse(extended, baseCheck(), NOW).reason, "grant_mutated");
+  // Tamper: widen the tool list.
+  const widened = Object.assign({}, grant, { allowed_tools: ["radar.search", "radar.remember"] });
+  assert.equal(validateGrantUse(widened, baseCheck({ tool: "radar.remember" }), NOW).reason, "grant_mutated");
+  // Tamper: inflate the use limit.
+  const inflated = Object.assign({}, grant, { max_uses: 999 });
+  assert.equal(validateGrantUse(inflated, baseCheck(), NOW).reason, "grant_mutated");
+  // Tamper: strip the hash.
+  const stripped = Object.assign({}, grant, { integrity_hash: "" });
+  assert.equal(validateGrantUse(stripped, baseCheck(), NOW).reason, "malformed_grant");
+  // Sanity: the untouched grant still validates.
+  assert.equal(validateGrantUse(grant, baseCheck(), NOW).valid, true);
+});
+
 test("malformed grant objects fail closed", () => {
-  assert.equal(validateGrantUse(null, { agent_id: AGENT, workspace_id: W, tool: "radar.search", action: "read" }, NOW).valid, false);
-  assert.equal(validateGrantUse({}, { agent_id: AGENT, workspace_id: W, tool: "radar.search", action: "read" }, NOW).reason, "malformed_grant");
+  assert.equal(validateGrantUse(null, baseCheck(), NOW).valid, false);
+  assert.equal(validateGrantUse({}, baseCheck(), NOW).reason, "malformed_grant");
 });
 
 // ---------------------------------------------------------------------------
@@ -285,6 +376,8 @@ test("issueApproval rejects invalid inputs (empty resources, bad TTLs)", () => {
   assert.equal(issueFor({ action: "" }), null);
   assert.equal(issueFor({ workspace_id: "" }), null);
   assert.equal(issueFor({ actor_id: "" }), null);
+  assert.equal(issueFor({ now: NaN }), null, "M2.2: non-finite issue clock must not mint an approval");
+  assert.equal(issueFor({ now: Infinity }), null, "M2.2: non-finite issue clock must not mint an approval");
 });
 
 test("malformed approval tokens fail closed", () => {
@@ -303,6 +396,14 @@ test("tampered approval payload fails signature verification", () => {
   const tampered = forgedClaims + "." + parts[1];
   const r = verifyApproval(tampered, approvalKeys.publicKeyPem, checkFor({ resource_id: "res_evil" }), createRedemptionRecord(), NOW + 1);
   assert.equal(r.reason, "bad_signature");
+});
+
+test("M2.2: atomic redemption — claim() is a check-and-set, second claim loses", () => {
+  const red = createRedemptionRecord();
+  assert.equal(red.claim("jti_a"), true, "first claim wins");
+  assert.equal(red.claim("jti_a"), false, "second claim for the same jti must lose");
+  assert.equal(red.has("jti_a"), true);
+  assert.equal(red.size(), 1);
 });
 
 // ---------------------------------------------------------------------------
