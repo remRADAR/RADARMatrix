@@ -1,8 +1,8 @@
 # M2.2.4 — Trusted Composition Boundary Correction
 
-**Branch:** `security/m2-2-4-trusted-composition-boundary`  
-**Base:** PR #8 head `3921fe552b8bfe78ade848443b1253451b3d8c7a`  
-**Target:** `security/m2-2-3-authority-hardening`  
+**Branch:** `security/m2-2-4-trusted-composition-boundary`
+**Base:** PR #8 head `3921fe552b8bfe78ade848443b1253451b3d8c7a`
+**Target:** `security/m2-2-3-authority-hardening`
 **Status:** Draft implementation; not merged, deployed, or production-ready.
 
 ## 1. Review finding and threat model
