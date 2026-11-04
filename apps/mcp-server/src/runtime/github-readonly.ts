@@ -492,7 +492,16 @@ export function createGitHubReadOnlyAdapter(
           nowSeconds(),
         );
         if (!approval || approval.valid !== true) {
-          return deny("approval_denied", approval && approval.reason);
+          // Surface the verifier's exact denial reason (expired,
+          // replayed, actor_mismatch, workspace_mismatch,
+          // action_mismatch, resource_mismatch, grant_mismatch,
+          // ...) — the honest status vocabulary of the approvals
+          // module. No reason available => generic fail-closed note.
+          const approvalReason =
+            approval && typeof approval.reason === "string" && approval.reason.length > 0
+              ? approval.reason
+              : "approval_denied";
+          return deny(approvalReason);
         }
       }
 

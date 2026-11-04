@@ -362,8 +362,15 @@ test("M2.2: grant mutation is rejected at validation time (integrity seal)", () 
   // Tamper: inflate the use limit.
   const inflated = Object.assign({}, grant, { max_uses: 999 });
   assert.equal(validateGrantUse(inflated, baseCheck(), NOW, INTEGRITY).reason, "grant_mutated");
-  // M2.2.1: tamper: ROLL BACK the use count (reset attack).
-  const rolledBack = Object.assign({}, grant, { uses: 0 });
+  // M2.2.1: tamper: ROLL BACK the use count (reset attack). The
+  // tamper must target a grant that has ALREADY consumed a use —
+  // rolling a fresh grant back to uses: 0 is a no-op. The re-seal
+  // after reservation is what makes the rollback detectable.
+  const consumed = createDelegatedGrant(baseGrantInput({ ttl_seconds: 60 }), NOW, INTEGRITY);
+  assert.ok(consumed, "sanity: the consumed-grant fixture must construct");
+  assert.equal(reserveGrantUse(consumed, INTEGRITY, NOW).reserved, true);
+  assert.equal(consumed.uses, 1);
+  const rolledBack = Object.assign({}, consumed, { uses: 0 });
   assert.equal(validateGrantUse(rolledBack, baseCheck(), NOW, INTEGRITY).reason, "grant_mutated");
   // Tamper: strip the seal.
   const stripped = Object.assign({}, grant, { integrity_hash: "" });
