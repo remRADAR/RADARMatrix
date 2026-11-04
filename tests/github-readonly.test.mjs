@@ -332,14 +332,19 @@ test("a grant that does not include the operation denies (scope not inherited)",
 });
 
 test("expired grant denies; use limit denies", async () => {
-  const { config } = okConfig({ now: NOW + 10_000 });
-  const adapter = createGitHubReadOnlyAdapter(config);
-  const expired = await adapter.execute({
+  // Adapter clock beyond the grant's expiry: the grant is expired.
+  const expiredAdapter = createGitHubReadOnlyAdapter(okConfig({ now: NOW + 10_000 }).config);
+  const expired = await expiredAdapter.execute({
     command: "github.read.branches",
     args: { owner: "o", repo: "r" },
     authority: authorityFor(),
   });
+  assert.equal(expired.status, "denied");
   assert.equal(expired.stderr, "grant_expired");
+  // A SECOND adapter at an in-window clock for the use-limit case
+  // (validateGrantUse checks expiry BEFORE use limits, so the
+  // exhausted grant must be exercised while still unexpired).
+  const limitedAdapter = createGitHubReadOnlyAdapter(okConfig().config);
   const exhausted = createDelegatedGrant(
     baseGrantInput({ max_uses: 1 }),
     NOW,
@@ -349,11 +354,12 @@ test("expired grant denies; use limit denies", async () => {
     validateGrantUse(exhausted, { agent_id: AGENT, workspace_id: W, tool: "github.read.branches", action: "read" }, NOW).valid,
   );
   assert.equal(recordGrantUse(exhausted), true);
-  const limitedResult = await adapter.execute({
+  const limitedResult = await limitedAdapter.execute({
     command: "github.read.branches",
     args: { owner: "o", repo: "r" },
     authority: authorityFor({ grant: exhausted }),
   });
+  assert.equal(limitedResult.status, "denied");
   assert.equal(limitedResult.stderr, "use_limit_reached");
 });
 
