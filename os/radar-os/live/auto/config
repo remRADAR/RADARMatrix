@@ -1,0 +1,22 @@
+#!/bin/sh
+# Stage 0.1 design scaffold for Debian Live.
+# Requires live-build and pinned Debian snapshot/source policy in Stage 1.
+set -eu
+
+ARCH="${RADAR_OS_ARCH:-$(dpkg --print-architecture 2>/dev/null || printf '%s' amd64)}"
+case "$ARCH" in
+  amd64|arm64) ;;
+  *) echo "unsupported RADAR_OS_ARCH: $ARCH" >&2; exit 2 ;;
+esac
+
+lb config \
+  --architectures "$ARCH" \
+  --distribution trixie \
+  --archive-areas "main contrib non-free-firmware" \
+  --debian-installer false \
+  --binary-images iso-hybrid \
+  --apt-recommends false \
+  --memtest none
+
+# Package selection, branding, service units, signing, and image metadata remain
+# explicit Stage 1 work. No privileged RADAR service is enabled here.
