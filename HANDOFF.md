@@ -24,3 +24,12 @@
 - Runbook: `docs/CLOUDFLARE-STAGING-ASSET-UPLOAD.md`
 - Manifest validation: four files, deterministic Cloudflare SHA-256/base64+extension hashes, raw-byte sizes, `git diff --check` passed.
 - Deployment diagnosis: the active Cloudflare connector authorizes account `f3ea4523accdd48e8469707368b39799` (`remradar` workers.dev), while the previously inspected staging account is `825459f1f313c6c9427bf6718bbd4907` (`radarcharts-cache`). The manifest registration request against `825459f1f313c6c9427bf6718bbd4907` was rejected with HTTP 403 / error 10000 before upload; no bytes or Worker resources were changed.
+
+
+## Checkpoint: connected Cloudflare retarget
+
+- Connected account: `f3ea4523accdd48e8469707368b39799`
+- Connected workers.dev subdomain: `remradar`
+- Build verification: typecheck, production build, Matrix Console smoke, manifest regeneration, and diff check passed.
+- Manifest registration: succeeded for `radarmatrix-prototype`; Cloudflare returned three upload buckets covering all four assets.
+- No asset bytes uploaded and no Worker deployment performed in this checkpoint.

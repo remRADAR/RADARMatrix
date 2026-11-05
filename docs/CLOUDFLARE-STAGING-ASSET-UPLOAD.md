@@ -7,8 +7,8 @@ This runbook records the direct Cloudflare Static Assets flow for the Matrix Con
 - Asset source: `apps/matrix-console/dist/`
 - Manifest: `apps/matrix-console/cloudflare-assets-manifest.json`
 - Worker name: `radarmatrix-prototype`
-- Account ID: `825459f1f313c6c9427bf6718bbd4907`
-- workers.dev subdomain: `radarcharts-cache`
+- Account ID: `f3ea4523accdd48e8469707368b39799`
+- workers.dev subdomain: `remradar`
 
 ## Correct API sequence
 
@@ -45,3 +45,8 @@ Paths use forward slashes and begin with `/`. Sizes are raw byte counts, not bas
 The earlier upload attempted to attach an `assets` binding directly in the one-step script upload. Cloudflare rejected it with error `10305: Cannot use an assets binding without assets.` That endpoint does not replace the upload-session flow: the asset completion JWT must be obtained first.
 
 The temporary CDN and GitHub/CDN URLs were also rejected by the Cloudflare connector's outbound fetch policy, so asset bytes must be sent through the hash-keyed base64 upload endpoint rather than fetched by the connector runtime.
+
+
+## Connected-account verification (2026-11-05)
+
+The active Cloudflare connector is account `f3ea4523accdd48e8469707368b39799` with workers.dev subdomain `remradar`. The verified build passed `typecheck`, production build, Matrix Console smoke tests, deterministic manifest regeneration, and `git diff --check`. Manifest registration succeeded and returned three upload buckets; no asset bytes were uploaded and no Worker version was deployed in this checkpoint.
