@@ -50,3 +50,20 @@ The temporary CDN and GitHub/CDN URLs were also rejected by the Cloudflare conne
 ## Connected-account verification (2026-11-05)
 
 The active Cloudflare connector is account `f3ea4523accdd48e8469707368b39799` with workers.dev subdomain `remradar`. The verified build passed `typecheck`, production build, Matrix Console smoke tests, deterministic manifest regeneration, and `git diff --check`. Manifest registration succeeded and returned three upload buckets; no asset bytes were uploaded and no Worker version was deployed in this checkpoint.
+
+## Local Wrangler deployment
+
+The repository includes `scripts/deploy-matrix-console-wrangler.sh`. It rebuilds and smoke-tests the console, regenerates the manifest, creates a temporary asset-serving Worker entrypoint, and invokes Wrangler with the connected account. It does not add a persistent Wrangler config or attach routes, domains, variables, or secrets.
+
+```bash
+export CLOUDFLARE_API_TOKEN='…'
+export CLOUDFLARE_ACCOUNT_ID='f3ea4523accdd48e8469707368b39799'
+
+# Compile and validate only; no upload.
+WRANGLER_DRY_RUN=1 npm run deploy:matrix-console:wrangler
+
+# Build and deploy to the connected account.
+npm run deploy:matrix-console:wrangler
+```
+
+`CLOUDFLARE_WORKER_NAME`, `CLOUDFLARE_COMPATIBILITY_DATE`, and `WRANGLER_VERSION` may be overridden. The default Worker name is `radarmatrix-prototype`, and the default Wrangler version is `4.157.0`.

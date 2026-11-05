@@ -15,7 +15,8 @@
     "typecheck": "npm --prefix apps/matrix-console run typecheck",
     "build:matrix-console": "npm --prefix apps/matrix-console run build",
     "test:matrix-console": "node tests/matrix-console-smoke.mjs",
-    "create:cloudflare-manifest": "node scripts/create-cloudflare-assets-manifest.mjs"
+    "create:cloudflare-manifest": "node scripts/create-cloudflare-assets-manifest.mjs",
+    "deploy:matrix-console:wrangler": "bash scripts/deploy-matrix-console-wrangler.sh"
   },
   "keywords": [
     "radarmatrix",
