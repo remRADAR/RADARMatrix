@@ -10,6 +10,7 @@ Stage 0.1 closes architecture gaps through documentation and creates non-destruc
 - Starting branch/base: `origin/main`
 - Starting SHA: `93c1dc18f04faae015c0afdd196c854278f5bee1`
 - New branch: `architecture/stage-0-1-closure`
+- Substantive implementation ending SHA: `fc0058c5c4adef434bf32a1fce62870321f4da2c`
 - PR #11: OPEN, Draft; base `main` at `93c1dc18…`; head `prototype/matrix-console-v1` at `96ed647…`; unchanged.
 - PR #12: OPEN, Draft; base `security/m2-2-3-authority-hardening` at `0246fe04…`; head `security/m2-3-1-boundary-contracts` at `fc8e3bd…`; unchanged.
 - Branch dependency policy: this branch is based on `main` and does not include unmerged PR #11 or #12. PR #12 RM-IEP/1 is documented as an explicit future reconciliation dependency.
