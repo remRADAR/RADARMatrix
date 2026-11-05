@@ -67,3 +67,15 @@ npm run deploy:matrix-console:wrangler
 ```
 
 `CLOUDFLARE_WORKER_NAME`, `CLOUDFLARE_COMPATIBILITY_DATE`, and `WRANGLER_VERSION` may be overridden. The default Worker name is `radarmatrix-prototype`, and the default Wrangler version is `4.157.0`.
+
+## GitHub Actions CI/CD
+
+`.github/workflows/deploy-staging.yml` deploys on every push to the `staging` branch. It uses the `staging` GitHub Environment and runs the same `npm run deploy:matrix-console:wrangler` script used locally.
+
+Configure the following in the repository's **Settings → Environments → staging**:
+
+- Secret: `CLOUDFLARE_API_TOKEN` with the minimum Workers deployment permissions required by Wrangler.
+- Variable: `CLOUDFLARE_ACCOUNT_ID` set to `f3ea4523accdd48e8469707368b39799`.
+- Optional variable: `CLOUDFLARE_WORKER_NAME`, defaulting to `radarmatrix-prototype`.
+
+The workflow has `contents: read` permission, serializes staging deployments with a concurrency group, and does not configure routes, domains, secrets, or persistent Wrangler configuration.
