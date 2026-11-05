@@ -33,3 +33,10 @@
 - Build verification: typecheck, production build, Matrix Console smoke, manifest regeneration, and diff check passed.
 - Manifest registration: succeeded for `radarmatrix-prototype`; Cloudflare returned three upload buckets covering all four assets.
 - No asset bytes uploaded and no Worker deployment performed in this checkpoint.
+
+## Checkpoint: connected-account upload attempt
+
+- Manifest registration succeeded for account `f3ea4523accdd48e8469707368b39799` / subdomain `remradar`.
+- Cloudflare returned three asset buckets for the four verified build files.
+- Asset upload did not start because the Cloudflare execution runtime cannot read the sandbox filesystem and its outbound policy rejects the temporary CDN/GitHub mirrors used to bridge raw bytes.
+- No partial asset upload, Worker version, deployment, route, DNS record, or secret was created.
