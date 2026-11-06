@@ -24,7 +24,18 @@ if m.get('format') != 'iso' or m.get('image') != name: raise SystemExit('FAIL: m
 PY
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
-xorriso -osirrox on -indev "$IMAGE" -extract /live/vmlinuz "$TMP/vmlinuz" >/dev/null 2>&1 || { echo "FAIL: cannot extract /live/vmlinuz to establish image architecture" >&2; exit 1; }
+# Locate the kernel without assuming one ISO layout. Debian Live puts it at
+# /live/vmlinuz; vanilla isolinux/GRUB images use /vmlinuz or /boot/vmlinuz;
+# casper-based images use /casper/vmlinuz. The architecture claim must still be
+# proven from the kernel binary itself — only the search path is lenient.
+KERNEL_PATH=""
+for candidate in /live/vmlinuz /live/vmlinuz-* /vmlinuz /vmlinuz-* /boot/vmlinuz /boot/vmlinuz-* /casper/vmlinuz; do
+  if xorriso -osirrox on -indev "$IMAGE" -extract "$candidate" "$TMP/vmlinuz" >/dev/null 2>&1; then
+    KERNEL_PATH="$candidate"
+    break
+  fi
+done
+[[ -n "$KERNEL_PATH" ]] || { echo "FAIL: no kernel found in image (searched /live/vmlinuz, /vmlinuz, /boot/vmlinuz, /casper/vmlinuz); architecture cannot be verified" >&2; exit 1; }
 KERNEL_INFO="$(file -b "$TMP/vmlinuz")"
 case "$EXPECTED_ARCH:$KERNEL_INFO" in
   amd64:*'x86 boot'*) ;;
@@ -35,10 +46,10 @@ case "$EXPECTED_ARCH:$KERNEL_INFO" in
 esac
 HASH="$(sha256sum "$IMAGE" | awk '{print $1}')"
 mkdir -p "$(dirname "$REPORT")"
-python3 - "$REPORT" "$IMAGE" "$EXPECTED_ARCH" "$HASH" "$FORMAT" "$KERNEL_INFO" "$CHECKSUM" "$METADATA" <<'PY'
+python3 - "$REPORT" "$IMAGE" "$EXPECTED_ARCH" "$HASH" "$FORMAT" "$KERNEL_INFO" "$CHECKSUM" "$METADATA" "$KERNEL_PATH" <<'PY'
 import json,sys,datetime,os
-p,image,arch,sha,fmt,kernel,checksum,metadata=sys.argv[1:]
-d={'schema':'radar-os-image-validation/v1','timestamp_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'image':os.path.abspath(image),'architecture':arch,'format':'iso9660','image_sha256':sha,'file_description':fmt,'kernel_description':kernel,'checksum_sidecar':os.path.abspath(checksum),'metadata_sidecar':os.path.abspath(metadata),'validation':'PASS'}
+p,image,arch,sha,fmt,kernel,checksum,metadata,kpath=sys.argv[1:]
+d={'schema':'radar-os-image-validation/v1','timestamp_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'image':os.path.abspath(image),'architecture':arch,'format':'iso9660','image_sha256':sha,'file_description':fmt,'kernel_description':kernel,'kernel_path':kpath,'checksum_sidecar':os.path.abspath(checksum),'metadata_sidecar':os.path.abspath(metadata),'validation':'PASS'}
 with open(p,'w') as f: json.dump(d,f,indent=2); f.write('\n')
 PY
 printf 'PASS: image format, architecture, checksum, and metadata validated\nimage=%s\narchitecture=%s\nsha256=%s\nreport=%s\n' "$IMAGE" "$EXPECTED_ARCH" "$HASH" "$REPORT"
