@@ -9,7 +9,7 @@
 | MCP client → gateway | RM-MCP-001/002 | Direct protocol boundary | Required | No, unless device client | Per write/consequence | Required | Existing foundation |
 | Trusted authority → execution adapter | RM-IEP/1 + grant/session | Adapter required | Required before request and at adapter | Required for local device | Required when consequential | Required | Proposed; protocol on PR #12, adapter missing |
 | Halo Shell → RADAR OS service | RM-IPC-001 | Adapter/service boundary | Required | Required | Operation-dependent | Required | NOT IMPLEMENTED |
-| Console → cloud service | Versioned API contract | Adapter required | Required | Device routes require device auth | Operation-dependent | Required | Console is local/demo-only on PR #11 |
+| Console → cloud service | Versioned API contract | Adapter required | Required | Device routes require device auth | Operation-dependent | Required | Console is merged via PR #11; current UI remains local/demo-only |
 | RADAR OS service → cloud | RM-SYNC-001 | Sync adapter | Required | Required | No implicit authority | Required | NOT IMPLEMENTED |
 | Skill registry → router | RM-SKILL-001 | Direct local read | Gateway auth for exposed route | No | No | Route outcome as applicable | Existing plan-only |
 | Router → agent executor | RM-TASK-001 + grant | Adapter required | Required | Required for local execution | Required | Required | Plan-only; executor missing |
@@ -42,7 +42,7 @@
 `MCP client → gateway → trusted authority → authorization → tool registry → permitted adapter → result → audit`
 
 - Trust boundaries: client/gateway; gateway/authority; authority/adapter; adapter/data.
-- Authentication: caller identity at gateway; production token verification is deployment-gated.
+- Authentication: current provider uses development-only caller_id fixtures; production OAuth/OIDC token verification is **NOT IMPLEMENTED**.
 - Authorization: membership, RBAC, workspace match, and tool schema.
 - Versions: MCP/tool registry v0.8; gateway response foundation/M2.
 - Failure: malformed request, missing identity, unknown tool, workspace mismatch, forbidden role, unavailable storage; deny or structured error.
@@ -56,7 +56,7 @@
 - Trust boundaries: authority/agent; agent/adapter; adapter/authority; adapter/host.
 - Authentication: actor, agent, workspace, session, and device identity required; device part is not implemented.
 - Authorization: grant integrity/reservation, approval, frozen registry, per-tool authorization, then RM-IEP validation.
-- Versions: RM-IEP/1 exists on unmerged PR #12; adapter is absent.
+- Versions: RM-IEP/1 exists only on open Draft PR #12 (not in main); adapter is absent.
 - Failure: any missing or expired authority, protocol mismatch, adapter crash, audit failure, or cancellation must deny/fail closed.
 - Audit: required before/after according to operation semantics; durable sink is pending.
 - Status: **not operational**; only contract validation and authority tests exist.

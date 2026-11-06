@@ -3,11 +3,16 @@
 # Requires live-build and pinned Debian snapshot/source policy in Stage 1.
 set -eu
 
-ARCH="${RADAR_OS_ARCH:-$(dpkg --print-architecture 2>/dev/null || printf '%s' amd64)}"
+ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
+ARCH="${RADAR_OS_ARCH:-}"
 case "$ARCH" in
   amd64|arm64) ;;
-  *) echo "unsupported RADAR_OS_ARCH: $ARCH" >&2; exit 2 ;;
+  *) echo "RADAR_OS_ARCH must be explicitly set to amd64 or arm64" >&2; exit 2 ;;
 esac
+command -v lb >/dev/null 2>&1 || { echo "live-build (lb) is required" >&2; exit 2; }
+mkdir -p config/package-lists
+install -m 0644 "$ROOT/config/package-manifest.common.txt" config/package-lists/radar-common.list.chroot
+install -m 0644 "$ROOT/config/package-manifest.$ARCH.txt" config/package-lists/radar-architecture.list.chroot
 
 lb config \
   --architectures "$ARCH" \

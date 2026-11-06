@@ -2,7 +2,7 @@
 
 ## Current capability
 
-RADARMatrix now has a versioned, declarative specialist registry and a deterministic plan-only router. It selects the smallest useful specialist set from the requested goal, associates skill IDs, and returns a bounded handoff plan. It does **not** invoke a model, persist a task, start a worker, or perform an external action. This is deliberate: the repository has no agent execution provider/queue, and the existing production OAuth/MCP transport is not live.
+RADARMatrix now has a versioned, declarative specialist registry and a deterministic plan-only router. It selects the smallest useful specialist set from the requested goal, associates skill IDs, and returns a bounded handoff plan. It does **not** invoke a model, persist a task, start a worker, or perform an external action. This is deliberate: the repository has no agent execution provider/queue, production OAuth/OIDC authentication is **NOT IMPLEMENTED**, and the live MCP transport is not deployed.
 
 The registry is in `apps/agent-skills/registry.json`; adapted skill guidance is in `apps/agent-skills/skills/`. Source provenance is recorded in the registry and `apps/agent-skills/README.md`.
 

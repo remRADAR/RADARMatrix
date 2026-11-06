@@ -177,7 +177,7 @@ The repository currently does not prove that the following are deployed:
 | Capability | Current repository status |
 |---|---|
 | Live MCP endpoint | Not deployed by this repository |
-| Real OAuth/OIDC validation | Foundation only |
+| Real OAuth/OIDC validation | **NOT IMPLEMENTED**; only development-only caller_id test identity exists |
 | Database or vector store | Not connected |
 | Instagram connector | Not implemented or authorized here |
 | Meta webhook endpoint | Architecture requirement, not deployed here |

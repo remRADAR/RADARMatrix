@@ -11,7 +11,7 @@ Debian 13 Trixie is the current proposal because it provides a mature kernel, sy
 ## Layout
 
 - `live/` — minimal Debian Live configuration entry point.
-- `config/` — common package and build policy.
+- `config/` — common and architecture-specific package manifests. AMD64 and ARM64 kernel packages are intentionally excluded from the common manifest.
 - `profiles/amd64/` and `profiles/arm64/` — architecture-specific decisions.
 - `qemu/` — documented virtual-machine targets.
 - `scripts/` — safe build/image validation/boot command wrappers.
@@ -20,6 +20,8 @@ Debian 13 Trixie is the current proposal because it provides a mature kernel, sy
 ## Build contract
 
 A future build must pin package sources and record profile, architecture, source snapshot, package manifest, build log, image name, checksum, and provenance. The first image is a development/validation image, not a production release. Production signing keys and update channels are not configured here.
+
+`RADAR_OS_ARCH=amd64|arm64 os/radar-os/scripts/build-live.sh` requires an explicit target architecture and generates Debian Live `config/package-lists` from the common plus matching architecture manifest. Set `RADAR_OS_RUN_LB=1` only in an approved build environment to invoke `lb build`. A produced ISO is accepted only with matching `.sha256` and `.radar-os.json` sidecars, ISO-9660 format evidence, and extracted `/live/vmlinuz` architecture evidence; see `qemu/README.md` for boot test arguments and evidence files.
 
 ## Safety boundary
 

@@ -3,7 +3,6 @@
 # Pin exact versions and snapshot sources during Stage 1 before building.
 
 systemd
-linux-image-amd64
 network-manager
 openssh-client
 sudo
@@ -23,8 +22,3 @@ rsyslog
 logrotate
 initramfs-tools
 firmware-linux-free
-
-# Future Halo desktop candidates; not enabled by Stage 0.1.
-# kde-plasma-desktop
-# plasma-workspace-wayland
-# sddm

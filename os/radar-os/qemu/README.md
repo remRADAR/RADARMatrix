@@ -1,6 +1,6 @@
 # RADAR OS QEMU validation scaffold
 
-The QEMU scaffold is non-destructive and does not create or overwrite host disks. It expects a prebuilt image path supplied by the caller. Scripts fail if QEMU, firmware, or the image is missing.
+The QEMU scaffold is non-destructive and does not create or overwrite host disks. It requires a prebuilt validated image and an explicit firmware file. Example: `os/radar-os/scripts/boot-qemu-amd64.sh IMAGE.iso ARTIFACTS/amd64.serial.log /path/to/OVMF_CODE.fd [ARTIFACTS/amd64.evidence.json]`. The ARM64 wrapper takes the same arguments and uses the `virt` machine. No firmware path is silently guessed.
 
 Validation stages are intentionally separate:
 
@@ -10,6 +10,8 @@ Validation stages are intentionally separate:
 4. Userspace readiness: systemd reaches the defined target.
 5. Desktop readiness: a graphical session is separately verified.
 
-Launching QEMU alone is not a pass for all five stages. Serial/headless logs and exit status must be retained under an explicitly selected artifact directory.
+The shared runner bounds boot observation with `RADAR_OS_QEMU_TIMEOUT` (default 120 seconds), captures QEMU stderr separately, and requires `RADAR_OS_QEMU_READY_PATTERN` in the serial log (default `Multi-User System.`). It writes a JSON evidence record containing architecture, machine, QEMU version, image and firmware hashes, logs, readiness result, elapsed time, QEMU exit code, and whether cleanup terminated QEMU after readiness. A process that starts but does not emit the marker is a failure, not a boot pass. The runner terminates a still-running QEMU after readiness; it does not claim desktop readiness.
 
-The current environment lacks `qemu-system-x86_64`, `qemu-system-aarch64`, `qemu-img`, and firmware files. No boot result is claimed.
+Image validation requires the image, `.sha256` checksum sidecar, and `.radar-os.json` build metadata sidecar. It verifies ISO-9660 format and extracts `/live/vmlinuz` with xorriso to establish kernel architecture. Missing validation tooling or any unestablished required property fails closed.
+
+The current environment lacks `qemu-system-x86_64`, `qemu-system-aarch64`, `qemu-img`, `xorriso`, and firmware files. No image or successful boot result is claimed.
