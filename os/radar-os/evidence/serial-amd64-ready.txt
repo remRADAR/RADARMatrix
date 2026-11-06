@@ -1,0 +1,4 @@
+RADAR-OS: kernel=6.1.0-54-amd64 arch=x86_64
+RADAR-OS: initramfs unpacked; /proc /sys /dev mounted
+RADAR-OS: Multi-User System. Reached target multi-user.target
+RADAR-OS: BOOT_EVIDENCE_OK
