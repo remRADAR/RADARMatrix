@@ -8,7 +8,8 @@ Stage 0.1 closes architecture gaps through documentation and creates non-destruc
 
 - Repository: `remRADAR/RADARMatrix`
 - Verified current `main`: `91d95170a541a2355c409b2a2d0c8f30e1b20e71` on 2026-11-06.
-- Correction branch: `architecture/stage-0-1-1-review-corrections`, based on that current main; changes remain local until pushed and opened as Draft.
+- Correction branch: `architecture/stage-0-1-1-review-corrections`, based on that current main; pushed implementation commit `f24b6528865fbf888af1167d481c0dac6fa33e0c`.
+- Draft PR #14: https://github.com/remRADAR/RADARMatrix/pull/14, base `main`; intentionally not merged. The head may advance for report-only follow-up edits; independently verify PR head before review.
 - PR #11 is merged (2026-11-05). Its Matrix Console implementation is present in current `main`; the historical PR head is not an ancestor of current main (consistent with a squash merge).
 - PR #12 is open Draft from `security/m2-3-1-boundary-contracts` into `security/m2-2-3-authority-hardening`; it is not based on current main. RM-IEP/1 changes remain absent from main.
 - PR #13 is open Draft from `architecture/stage-0-1-closure` into `main`; its recorded base is old (`93c1dc18…`). This correction branch is based on the newer main and does not assume PR #13 is merged.
@@ -60,6 +61,8 @@ Stage 0.1 closes architecture gaps through documentation and creates non-destruc
 - **F-03 Debian package manifests:** AMD64 and ARM64 kernel packages are separated from common packages, and the manifests are wired into live-build package lists.
 - **F-04 QEMU validation:** wrappers require explicit firmware and validate the image before launch; the shared runner waits for a serial OS-readiness marker, bounds execution, distinguishes process start from OS readiness, and emits evidence JSON/logs.
 - **F-05 Image validation:** validation requires ISO format, architecture metadata, extracted kernel architecture evidence, and a matching SHA-256 sidecar; unavailable validation tools or missing evidence fail closed with a clear error.
+
+Independent Mistral Vibe review is pending for PR #14 at the pushed implementation head. No independent reviewer approval is claimed.
 
 ## Historical Stage 0.1 verification (before these corrections)
 
