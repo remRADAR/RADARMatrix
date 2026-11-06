@@ -56,7 +56,12 @@ jobs:
       - name: Guard against swallowed failures
         shell: bash
         run: |
-          if grep -E "^[[:space:]]+[^ -~] " /tmp/test.log; then
+          # The failure marker is U+2717; the pass marker is U+2713. They are
+          # adjacent codepoints, so the character class [^ -~] alone matched
+          # BOTH and failed a green run (run 42253877282, step 6). Build the
+          # exact codepoint from octal so this file stays pure ASCII.
+          MARKER=$(printf '\342\234\227')
+          if grep -qE "^[[:space:]]*${MARKER} " /tmp/test.log; then
             echo "::error::Test output contains failure markers"
             exit 1
           fi
