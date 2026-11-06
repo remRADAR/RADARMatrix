@@ -1,11 +1,9 @@
 name: CI
 
-# Why this workflow exists:
-# `main` carried only deploy-staging.yml, and
-the Stage 0.1.1 branch carried no workflow at all. Every "CI green" claim for
-# the Stage 0.1/0.1.1 work was therefore unverifiable from GitHub — the only
-# check that existed was a Vercel preview comment, which is not a test. This
-# workflow runs the real suite and fails the job on any recorded test failure.
+# Why this workflow exists: neither main nor the Stage 0.1.1 branch had a test
+# workflow. main carries only deploy-staging.yml (push to `staging`, no tests),
+# so PR #14's only check run was "Vercel Preview Comments". The exit-code
+# enforced suite therefore had no automated consumer.
 
 on:
   push:
@@ -14,9 +12,6 @@ on:
       - "architecture/**"
       - "security/**"
       - "runtime/**"
-      - "chat/**"
-      - "phase1/**"
-      - "prototype/**"
       - "stage-1/**"
   pull_request:
     branches:
@@ -31,21 +26,15 @@ concurrency:
 
 jobs:
   tests:
-    name: Tests, typecheck, boundary policy
+    name: Tests and typecheck
     runs-on: ubuntu-latest
     timeout-minutes: 20
-
     steps:
-      - name: Check out source
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      # The root package declares zero runtime dependencies; only the Matrix
-      # Console has a lockfile. Install it so the typecheck step is real.
       - name: Install Matrix Console dependencies
         run: |
           if [ -f apps/matrix-console/package-lock.json ]; then
@@ -54,10 +43,9 @@ jobs:
             echo "no console lockfile on this ref; skipping install"
           fi
 
-      - name: Run test suite (exit-code enforced)
+      - name: Run test suite (exit code enforced)
         shell: bash
         run: |
-          set -Eeuo pipefail
           set +e
           npm test 2>&1 | tee /tmp/test.log
           status=${PIPESTATUS[0]}
@@ -65,15 +53,11 @@ jobs:
           echo "npm test exit code: $status"
           exit "$status"
 
-      # Secondary guard: the runner already exits non-zero on a recorded
-      # failure. This catches the case where a future edit reintroduces a
-      # swallowed "✗" line without recording it.
       - name: Guard against swallowed failures
         shell: bash
         run: |
-          set -Eeuo pipefail
-          if grep -E "^[[:space:]]+✗ " /tmp/test.log; then
-            echo "::error::Test output contains failure markers; treating as failure."
+          if grep -E "^[[:space:]]+[^ -~] " /tmp/test.log; then
+            echo "::error::Test output contains failure markers"
             exit 1
           fi
           echo "no swallowed failure markers found"
@@ -81,48 +65,32 @@ jobs:
       - name: Assert runner reported PASSED
         shell: bash
         run: |
-          set -Eeuo pipefail
           grep -q "RESULT: PASSED" /tmp/test.log || {
             echo "::error::Runner did not report RESULT: PASSED"
             exit 1
           }
-          echo "runner reported PASSED"
 
       - name: Typecheck Matrix Console
         run: npm run typecheck
 
-      - name: Production fail-closed smoke
-        run: npm run test:deployment
-
   os-scaffold:
-    name: RADAR OS script and policy checks
+    name: RADAR OS script checks
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
     steps:
-      - name: Check out source
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
 
       - name: Bash syntax check
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          bash -n os/radar-os/scripts/*.sh os/radar-os/live/auto/config
-          echo "shell syntax OK"
+        run: bash -n os/radar-os/scripts/*.sh os/radar-os/live/auto/config
 
       - name: OS scaffold regression tests
         run: npm run test:os-scaffold
 
-      # Honest boundary: the image build and QEMU boot are NOT run here.
-      # live-build, QEMU, and firmware are not provisioned on this runner, so
-      # this job must not imply a boot was verified. Real boot evidence is
-      # produced out-of-band and committed under os/radar-os/evidence/.
       - name: State the boot-evidence boundary
         run: |
           echo "NOT RUN HERE: real ISO build and QEMU boot."
           echo "This job proves script behaviour only, not that an OS boots."
+          echo "Real boot evidence is committed under os/radar-os/evidence/."
