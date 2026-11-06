@@ -4,6 +4,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 IMAGE="$TMP/fake.iso"
+CHECKSUM="$IMAGE.sha256"
 printf 'synthetic image fixture\n' > "$IMAGE"
 if "$ROOT/scripts/validate-image.sh" "$IMAGE" 2>"$TMP/no-arch.err"; then
   echo "expected missing architecture to fail" >&2; exit 1
@@ -47,4 +48,21 @@ if PATH="$TMP/bin:$PATH" "$ROOT/scripts/validate-image.sh" "$IMAGE" amd64 2>"$TM
   echo "expected checksum mismatch to fail" >&2; exit 1
 fi
 grep -q 'checksum does not match' "$TMP/checksum.err"
-echo "image validation tests passed: valid evidence reports, missing evidence, architecture mismatch, and checksum mismatch"
+printf 'tamper\n' > "$IMAGE"
+REAL_HASH="$(sha256sum "$IMAGE" | awk '{print $1}')"
+printf '%s  other.iso\n' "$REAL_HASH" > "$CHECKSUM"
+if PATH="$TMP/bin:$PATH" "$ROOT/scripts/validate-image.sh" "$IMAGE" amd64 2>"$TMP/wrong-name.err"; then
+  echo "expected checksum sidecar bound to a different filename to fail" >&2; exit 1
+fi
+grep -q 'expected fake.iso' "$TMP/wrong-name.err"
+printf '%s  fake.iso\n%s  fake.iso\n' "$REAL_HASH" "$REAL_HASH" > "$CHECKSUM"
+if PATH="$TMP/bin:$PATH" "$ROOT/scripts/validate-image.sh" "$IMAGE" amd64 2>"$TMP/multiple-lines.err"; then
+  echo "expected multi-record checksum sidecar to fail" >&2; exit 1
+fi
+grep -q 'exactly one SHA-256 record' "$TMP/multiple-lines.err"
+printf '%s  fake.iso\n' "$(printf '0%.0s' {1..64})" > "$CHECKSUM"
+if PATH="$TMP/bin:$PATH" "$ROOT/scripts/validate-image.sh" "$IMAGE" amd64 2>"$TMP/wrong-hash.err"; then
+  echo "expected wrong exact-image digest to fail" >&2; exit 1
+fi
+grep -q 'checksum does not match' "$TMP/wrong-hash.err"
+echo "image validation tests passed: required metadata, exact image/hash binding, malformed/multiple checksum records, format and architecture"

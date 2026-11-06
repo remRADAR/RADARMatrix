@@ -138,7 +138,7 @@ Brand Studio now has a Live Preview view with an HTTP(S)-only URL form and isola
 
 - `apps/mcp-server/src/mcp-gateway.ts` — MCP request handler with full pipeline
 - `apps/mcp-server/src/chatgpt-app-contract.ts` — Tool definitions and schemas
-- `apps/mcp-server/.well-known/oauth-protected-resource.json` — OAuth configuration
+- `apps/mcp-server/.well-known/oauth-protected-resource.json` — protected-resource discovery metadata only; it is not an OAuth provider, login flow, or token validator
 
 ### Testing
 

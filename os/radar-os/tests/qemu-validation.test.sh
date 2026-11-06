@@ -31,6 +31,7 @@ SH
 cat > "$TMP/bin/fake-qemu" <<'SH'
 #!/usr/bin/env bash
 if [[ "${1:-}" == --version ]]; then echo 'QEMU emulator version 99.0-test'; exit 0; fi
+printf '%s\n' "$@" > "$MOCK_QEMU_ARGS"
 SERIAL=''
 MACHINE=''
 while (($#)); do
@@ -52,7 +53,9 @@ cat > "$IMAGE.radar-os.json" <<'JSON'
 {"architecture":"amd64","format":"iso","image":"dummy.iso"}
 JSON
 (cd "$TMP" && sha256sum dummy.iso > dummy.iso.sha256)
-PATH="$TMP/bin:$PATH" MOCK_KERNEL_ARCH=amd64 MOCK_QEMU_READY=1 RADAR_OS_QEMU_TIMEOUT=3 "$ROOT/scripts/boot-qemu-amd64.sh" "$IMAGE" "$TMP/amd64.serial.log" "$FIRMWARE" "$TMP/amd64.evidence.json" >/dev/null
+PATH="$TMP/bin:$PATH" MOCK_QEMU_ARGS="$TMP/amd64.args" MOCK_KERNEL_ARCH=amd64 MOCK_QEMU_READY=1 RADAR_OS_QEMU_TIMEOUT=3 "$ROOT/scripts/boot-qemu-amd64.sh" "$IMAGE" "$TMP/amd64.serial.log" "$FIRMWARE" "$TMP/amd64.evidence.json" >/dev/null
+grep -qx -- '-cdrom' "$TMP/amd64.args"
+! grep -qx -- '-drive' "$TMP/amd64.args"
 python3 - "$TMP/amd64.evidence.json" <<'PY'
 import json,sys
 x=json.load(open(sys.argv[1]))
@@ -61,10 +64,14 @@ PY
 cat > "$IMAGE.radar-os.json" <<'JSON'
 {"architecture":"arm64","format":"iso","image":"dummy.iso"}
 JSON
-PATH="$TMP/bin:$PATH" MOCK_KERNEL_ARCH=arm64 MOCK_QEMU_READY=0 RADAR_OS_QEMU_TIMEOUT=3 "$ROOT/scripts/boot-qemu-arm64.sh" "$IMAGE" "$TMP/arm64.serial.log" "$FIRMWARE" "$TMP/arm64.evidence.json" >"$TMP/not-ready.out" 2>"$TMP/not-ready.err" && {
+PATH="$TMP/bin:$PATH" MOCK_QEMU_ARGS="$TMP/arm64.args" MOCK_KERNEL_ARCH=arm64 MOCK_QEMU_READY=0 RADAR_OS_QEMU_TIMEOUT=3 "$ROOT/scripts/boot-qemu-arm64.sh" "$IMAGE" "$TMP/arm64.serial.log" "$FIRMWARE" "$TMP/arm64.evidence.json" >"$TMP/not-ready.out" 2>"$TMP/not-ready.err" && {
   echo "expected QEMU process start without readiness to fail" >&2; exit 1;
 }
 grep -q 'QEMU process started but OS readiness marker was not observed' "$TMP/not-ready.err"
+grep -qx -- '-drive' "$TMP/arm64.args"
+grep -qx -- 'virtio-scsi-device' "$TMP/arm64.args"
+grep -qx -- 'scsi-cd,drive=radar_cdrom' "$TMP/arm64.args"
+! grep -qx -- '-cdrom' "$TMP/arm64.args"
 python3 - "$TMP/arm64.evidence.json" <<'PY'
 import json,sys
 x=json.load(open(sys.argv[1]))
