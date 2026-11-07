@@ -1,0 +1,261 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+.halo-shell{--h-gold:#e6c77d;--h-white:#f5f6f8;--h-muted:rgba(238,243,250,.62);position:relative;isolation:isolate;display:flex;flex-direction:column;width:100%;height:100vh;min-height:560px;overflow:hidden;background:#10151c;color:var(--h-white);font-family:Inter,system-ui,sans-serif}
+.halo-wallpaper,.halo-wallpaper-shade{position:absolute;inset:0;z-index:-2}
+.halo-wallpaper{background:radial-gradient(ellipse at 78% 18%,rgba(83,133,160,.42),transparent 34%),radial-gradient(ellipse at 18% 80%,rgba(157,119,64,.28),transparent 36%),linear-gradient(130deg,#111923 0%,#1d2935 48%,#10151d 100%);background-image:linear-gradient(180deg,rgba(7,11,16,.18),rgba(7,11,16,.48)),radial-gradient(ellipse at 78% 18%,rgba(83,133,160,.42),transparent 34%),linear-gradient(130deg,#111923,#1d2935 48%,#10151d);background-size:cover;background-position:center}
+.halo-wallpaper-shade{z-index:-1;background:linear-gradient(180deg,rgba(7,12,18,.26),transparent 24%,rgba(6,10,15,.12) 68%,rgba(5,9,14,.32))}
+.halo-topbar{height:48px;flex:0 0 48px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;border-bottom:1px solid rgba(255,255,255,.09);background:rgba(10,16,23,.22);backdrop-filter:blur(24px) saturate(145%);-webkit-backdrop-filter:blur(24px) saturate(145%)}
+.halo-top-brand{display:flex;align-items:center;gap:8px;font:700 11px 'Space Grotesk',sans-serif;letter-spacing:.2em}.halo-brand-mark{font-size:19px;color:var(--h-gold)}.halo-top-brand i{font:500 9px Inter,sans-serif;letter-spacing:.12em;color:var(--h-gold);opacity:.8}
+.halo-top-center{display:flex;align-items:center;gap:8px;color:rgba(239,244,250,.58);font:9px ui-monospace,monospace;letter-spacing:.13em}.halo-top-center b{color:rgba(255,255,255,.3)}
+.halo-live-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#8fd6b2;box-shadow:0 0 10px rgba(143,214,178,.75)}
+.halo-top-right{display:flex;align-items:center;gap:15px}.halo-top-date{font-size:10px;color:var(--h-muted)}.halo-top-icon,.halo-exit{border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.07);color:#fff;border-radius:7px;height:28px;min-width:30px}.halo-exit{padding:0 10px;font-size:10px;color:rgba(255,255,255,.76)}.halo-exit span{color:var(--h-gold);margin-left:5px}
+.halo-desktop-area{position:relative;flex:1;min-height:0;padding:25px 27px 74px}
+.halo-icon-grid{display:grid;grid-template-columns:repeat(2,76px);grid-auto-rows:86px;gap:8px 10px;width:max-content}
+.halo-desktop-icon{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:7px;width:76px;height:82px;padding:7px 4px;border:1px solid transparent;border-radius:10px;background:transparent;color:#fff;text-shadow:0 1px 5px rgba(0,0,0,.7);font-size:10px;cursor:pointer;transition:background .18s ease,border-color .18s ease,transform .18s ease}
+.halo-desktop-icon:hover,.halo-desktop-icon:focus-visible{outline:none;background:rgba(255,255,255,.13);border-color:rgba(255,255,255,.18);transform:translateY(-2px)}
+.halo-app-glyph{display:grid;place-items:center;width:37px;height:37px;border-radius:11px;border:1px solid rgba(255,255,255,.25);box-shadow:0 6px 18px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.24);font:500 20px 'Space Grotesk',sans-serif;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.halo-app-glyph.gold,.halo-taskbar-glyph.gold,.halo-window-glyph.gold{color:#f2d58e;background:linear-gradient(145deg,rgba(206,166,83,.48),rgba(105,78,34,.35))}
+.halo-app-glyph.blue,.halo-taskbar-glyph.blue,.halo-window-glyph.blue{color:#a9dcff;background:linear-gradient(145deg,rgba(75,151,206,.5),rgba(33,75,111,.4))}
+.halo-app-glyph.amber,.halo-taskbar-glyph.amber,.halo-window-glyph.amber{color:#ffd29a;background:linear-gradient(145deg,rgba(212,139,65,.5),rgba(110,67,28,.4))}
+.halo-app-glyph.violet,.halo-taskbar-glyph.violet,.halo-window-glyph.violet{color:#d0baff;background:linear-gradient(145deg,rgba(143,107,211,.5),rgba(72,52,116,.4))}
+.halo-app-glyph.green,.halo-taskbar-glyph.green,.halo-window-glyph.green{color:#a6e7c4;background:linear-gradient(145deg,rgba(68,162,119,.5),rgba(32,89,66,.4))}
+.halo-app-glyph.cyan,.halo-taskbar-glyph.cyan,.halo-window-glyph.cyan{color:#a4edf0;background:linear-gradient(145deg,rgba(67,164,173,.5),rgba(32,91,105,.4))}
+.halo-app-glyph.slate,.halo-taskbar-glyph.slate,.halo-window-glyph.slate{color:#e2e9f2;background:linear-gradient(145deg,rgba(125,145,166,.45),rgba(62,76,94,.4))}
+.halo-app-glyph.pink,.halo-taskbar-glyph.pink,.halo-window-glyph.pink{color:#ffc1df;background:linear-gradient(145deg,rgba(202,104,158,.48),rgba(112,52,89,.4))}
+.halo-widgets{position:absolute;top:30px;right:34px;width:250px;display:grid;gap:10px}
+.halo-clock-widget,.halo-status-widget{border:1px solid rgba(255,255,255,.2);border-radius:15px;background:rgba(14,22,31,.3);box-shadow:0 14px 38px rgba(0,0,0,.15),inset 0 1px 0 rgba(255,255,255,.11);backdrop-filter:blur(26px) saturate(150%);-webkit-backdrop-filter:blur(26px) saturate(150%);padding:17px}
+.halo-widget-kicker,.halo-widget-heading{font:9px ui-monospace,monospace;letter-spacing:.14em;color:rgba(255,255,255,.58)}
+.halo-clock-widget>strong{display:block;font:500 43px 'Space Grotesk',sans-serif;letter-spacing:-.07em;margin:8px 0 0}.halo-clock-widget>span:nth-of-type(2){font-size:10px;color:var(--h-muted)}
+.halo-clock-rule{height:1px;background:rgba(255,255,255,.14);margin:15px 0 11px}.halo-clock-footer{display:flex;align-items:center;gap:7px;font:8px ui-monospace,monospace;letter-spacing:.08em;color:rgba(255,255,255,.54)}
+.halo-widget-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.halo-status-pill{padding:3px 6px;border:1px solid rgba(230,199,125,.4);border-radius:4px;color:var(--h-gold);font-size:8px}
+.halo-status-row{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-top:1px solid rgba(255,255,255,.09);font-size:9px;color:rgba(255,255,255,.68)}.halo-status-row b{font-weight:500;color:#a9e3c6}.halo-status-row b.is-muted{color:rgba(255,255,255,.42)}
+.halo-taskbar{position:absolute;z-index:8;left:50%;bottom:14px;transform:translateX(-50%);display:flex;align-items:center;gap:8px;max-width:calc(100% - 28px);height:56px;padding:7px 10px;border:1px solid rgba(255,255,255,.24);border-radius:17px;background:rgba(15,22,31,.46);box-shadow:0 14px 42px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.15);backdrop-filter:blur(32px) saturate(165%);-webkit-backdrop-filter:blur(32px) saturate(165%)}
+.halo-taskbar-start,.halo-taskbar-app,.halo-tray,.halo-taskbar-clock{display:flex;align-items:center;justify-content:center;border:0;background:transparent;color:#fff;cursor:pointer}
+.halo-taskbar-start{width:38px;height:38px;border-radius:11px;color:var(--h-gold);font-size:23px;transition:background .18s ease}.halo-taskbar-start:hover,.halo-taskbar-start.is-active{background:rgba(255,255,255,.13)}
+.halo-taskbar-divider{height:25px;width:1px;background:rgba(255,255,255,.15)}
+.halo-taskbar-apps{display:flex;align-items:center;gap:4px}.halo-taskbar-app{position:relative;width:38px;height:40px;border-radius:10px;transition:background .18s ease,transform .18s ease}.halo-taskbar-app:hover{background:rgba(255,255,255,.13);transform:translateY(-3px)}
+.halo-taskbar-glyph{display:grid;place-items:center;width:25px;height:25px;border:1px solid rgba(255,255,255,.18);border-radius:8px;font:14px 'Space Grotesk',sans-serif;box-shadow:0 3px 10px rgba(0,0,0,.2)}
+.halo-taskbar-app>i{position:absolute;bottom:1px;left:50%;width:10px;height:2px;transform:translateX(-50%);border-radius:2px;background:var(--h-gold);box-shadow:0 0 8px rgba(230,199,125,.6)}
+.halo-taskbar-spacer{width:12px}.halo-tray{gap:8px;padding:0 5px;font-size:12px;color:rgba(255,255,255,.76)}.halo-taskbar-clock{flex-direction:column;align-items:flex-end;gap:2px;padding:0 5px 0 2px;white-space:nowrap}.halo-taskbar-clock strong{font-size:10px;font-weight:500}.halo-taskbar-clock small{font-size:8px;color:rgba(255,255,255,.57)}
+.halo-start-panel,.halo-quick-panel{position:absolute;z-index:10;bottom:82px;border:1px solid rgba(255,255,255,.22);border-radius:17px;background:rgba(17,25,35,.76);box-shadow:0 22px 60px rgba(0,0,0,.36),inset 0 1px 0 rgba(255,255,255,.14);backdrop-filter:blur(36px) saturate(165%);-webkit-backdrop-filter:blur(36px) saturate(165%)}
+.halo-start-panel{left:50%;width:min(390px,calc(100% - 28px));transform:translateX(-50%);padding:19px}
+.halo-start-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}.halo-start-head small,.halo-start-label{display:block;color:rgba(255,255,255,.48);font:8px ui-monospace,monospace;letter-spacing:.14em}.halo-start-head strong{display:block;font:500 18px 'Space Grotesk',sans-serif;margin-top:4px}.halo-user-avatar{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:linear-gradient(140deg,#e6c77d,#8c6b37);color:#1a1a18;font-weight:700}
+.halo-search{display:flex;align-items:center;gap:8px;height:37px;padding:0 11px;border:1px solid rgba(255,255,255,.18);border-radius:8px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);margin-bottom:20px}.halo-search input{width:100%;border:0;outline:0;background:transparent;color:#fff;font:10px Inter,sans-serif}.halo-search input::placeholder{color:rgba(255,255,255,.43)}
+.halo-start-apps{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}.halo-start-apps button{display:flex;flex-direction:column;align-items:center;gap:7px;padding:11px 4px;border:1px solid transparent;border-radius:9px;background:transparent;color:rgba(255,255,255,.86);font-size:9px}.halo-start-apps button:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.1)}.halo-start-apps .halo-app-glyph{width:30px;height:30px;font-size:16px;border-radius:9px}
+.halo-start-footer{display:flex;align-items:center;justify-content:space-between;border-top:1px solid rgba(255,255,255,.12);padding-top:13px;margin-top:14px;color:rgba(255,255,255,.5);font-size:8px}.halo-start-footer button{border:0;background:transparent;color:rgba(255,255,255,.75);font-size:9px}
+.halo-quick-panel{right:18px;width:270px;padding:17px}.halo-quick-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}.halo-quick-heading strong{font:500 15px 'Space Grotesk',sans-serif}.halo-quick-heading button{border:0;background:transparent;color:#fff;font-size:19px}
+.halo-quick-toggles{display:grid;grid-template-columns:1fr 1fr;gap:8px}.halo-quick-toggles button{display:grid;grid-template-columns:25px 1fr;align-items:center;text-align:left;gap:2px 7px;padding:10px;border:1px solid rgba(255,255,255,.12);border-radius:9px;background:rgba(255,255,255,.05);color:rgba(255,255,255,.7)}.halo-quick-toggles button.enabled{background:rgba(230,199,125,.15);border-color:rgba(230,199,125,.36)}.halo-quick-toggles button>span{grid-row:span 2;color:var(--h-gold);font-size:17px}.halo-quick-toggles b{font-size:9px;font-weight:600}.halo-quick-toggles small{font-size:8px;color:rgba(255,255,255,.48)}
+.halo-slider{display:block;margin-top:17px;color:rgba(255,255,255,.65);font-size:10px}.halo-slider span{display:flex;gap:8px;align-items:center}.halo-slider b{font-weight:500}.halo-slider input{display:block;width:100%;margin-top:10px;accent-color:var(--h-gold)}
+.halo-quick-foot{display:flex;justify-content:space-between;border-top:1px solid rgba(255,255,255,.12);padding-top:13px;margin-top:18px;color:rgba(255,255,255,.5);font-size:8px}.halo-quick-foot strong{font-weight:500;color:#fff}
+.halo-window{position:absolute;z-index:5;left:50%;top:50%;transform:translate(-50%,-50%);width:min(540px,calc(100% - 36px));min-height:285px;border:1px solid rgba(255,255,255,.25);border-radius:15px;background:rgba(17,25,35,.72);box-shadow:0 24px 70px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.16);backdrop-filter:blur(34px) saturate(155%);-webkit-backdrop-filter:blur(34px) saturate(155%);overflow:hidden}
+.halo-window-titlebar{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;border-bottom:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04)}.halo-window-app{display:flex;align-items:center;gap:8px;font-size:10px}.halo-window-glyph{display:grid;place-items:center;width:22px;height:22px;border-radius:6px;font-size:12px}.halo-window-controls{display:flex;gap:6px}.halo-window-controls button{width:25px;height:23px;border:1px solid rgba(255,255,255,.12);border-radius:6px;background:rgba(255,255,255,.06);color:#fff;font-size:15px}
+.halo-window-content{padding:28px}.halo-window-eyebrow{font:8px ui-monospace,monospace;letter-spacing:.14em;color:var(--h-gold)}.halo-window-content h2{font:500 27px 'Space Grotesk',sans-serif;margin:9px 0}.halo-window-content p{max-width:420px;color:rgba(255,255,255,.65);font-size:11px;line-height:1.65}
+.halo-window-placeholder{display:flex;align-items:center;gap:12px;padding:13px;border:1px solid rgba(255,255,255,.12);border-radius:9px;background:rgba(255,255,255,.05);margin-top:24px}.halo-window-placeholder>span{font-size:24px;color:var(--h-gold)}.halo-window-placeholder b,.halo-window-placeholder small{display:block}.halo-window-placeholder b{font-size:10px}.halo-window-placeholder small{font-size:9px;color:rgba(255,255,255,.48);margin-top:4px;line-height:1.5}
+.halo-settings-preview{display:grid;gap:0;margin-top:20px}.halo-settings-preview label{display:flex;justify-content:space-between;padding:11px 0;border-top:1px solid rgba(255,255,255,.1);font-size:10px}.halo-settings-preview label span{color:rgba(255,255,255,.52)}.halo-settings-preview label b{font-weight:500;color:var(--h-gold)}
+.halo-preview-mark{position:absolute;left:19px;bottom:25px;color:rgba(255,255,255,.3);font:8px ui-monospace,monospace;letter-spacing:.12em;pointer-events:none}
+@media(max-width:760px){.halo-topbar{height:42px;flex-basis:42px;padding:0 12px}.halo-top-center{display:none}.halo-top-date{display:none}.halo-top-right{gap:7px}.halo-desktop-area{padding:17px 12px 72px}.halo-icon-grid{grid-template-columns:repeat(3,66px);grid-auto-rows:77px;gap:4px 5px}.halo-desktop-icon{width:66px;height:74px;font-size:9px}.halo-app-glyph{width:33px;height:33px;font-size:18px;border-radius:10px}.halo-widgets{top:auto;bottom:84px;right:12px;width:min(205px,48vw);gap:7px}.halo-clock-widget,.halo-status-widget{padding:12px;border-radius:12px}.halo-clock-widget>strong{font-size:30px;margin-top:5px}.halo-clock-widget>span:nth-of-type(2){font-size:8px}.halo-clock-rule{margin:9px 0}.halo-clock-footer{font-size:7px}.halo-status-row{font-size:8px;padding:6px 0}.halo-taskbar{bottom:9px;height:49px;max-width:calc(100% - 16px);gap:4px;padding:5px 7px;border-radius:14px}.halo-taskbar-start{width:32px;height:34px;font-size:20px}.halo-taskbar-apps{gap:1px}.halo-taskbar-app{width:31px;height:35px}.halo-taskbar-glyph{width:22px;height:22px;font-size:12px}.halo-taskbar-divider{height:20px}.halo-taskbar-spacer{width:2px}.halo-tray{gap:4px;font-size:10px}.halo-taskbar-clock strong{font-size:9px}.halo-taskbar-clock small{font-size:7px}.halo-start-panel,.halo-quick-panel{bottom:68px}.halo-quick-panel{right:8px;width:min(270px,calc(100% - 16px))}.halo-start-panel{padding:14px}.halo-preview-mark{display:none}}
+@media(max-width:390px){.halo-widgets{width:174px}.halo-status-row{font-size:7px}.halo-taskbar-app{width:27px}.halo-tray{display:none}.halo-taskbar{gap:3px}.halo-taskbar-clock{padding-left:4px}}
+@media(prefers-reduced-motion:reduce){.halo-shell *{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+
+/* Responsive Halo surfaces: keep the desktop shell intact, adapt controls instead of scaling it down. */
+.halo-shell{height:100vh;height:100dvh;min-height:0;max-width:100vw}
+.halo-desktop-area{overscroll-behavior:contain;scrollbar-width:thin}
+.halo-shell button{touch-action:manipulation}
+.halo-shell button:focus-visible,.halo-shell input:focus-visible{outline:2px solid var(--h-gold);outline-offset:2px}
+.halo-quick-note{margin:8px 0 4px;color:rgba(255,255,255,.58);font-size:11px;line-height:1.45}
+
+@media(max-width:760px){
+  .halo-topbar{height:calc(50px + env(safe-area-inset-top));flex-basis:calc(50px + env(safe-area-inset-top));padding:env(safe-area-inset-top) max(12px,env(safe-area-inset-right)) 0 max(12px,env(safe-area-inset-left))}
+  .halo-top-right{gap:4px}
+  .halo-top-icon,.halo-exit{min-width:44px;min-height:44px;display:grid;place-items:center}
+  .halo-exit{padding:0 8px;font-size:11px}
+  .halo-desktop-area{display:flex;flex:1;min-height:0;flex-direction:column;align-items:stretch;gap:12px;overflow-x:hidden;overflow-y:auto;padding:14px max(14px,env(safe-area-inset-right)) calc(82px + env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left));scroll-behavior:smooth}
+  .halo-icon-grid{width:100%;grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:minmax(68px,auto);gap:6px}
+  .halo-desktop-icon{width:100%;height:68px;min-height:64px;gap:4px;padding:4px;font-size:11px}
+  .halo-app-glyph{width:34px;height:34px;font-size:18px}
+  .halo-widgets{position:relative;inset:auto;display:grid;width:100%;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .halo-clock-widget,.halo-status-widget{min-width:0;padding:12px;border-radius:12px}
+  .halo-clock-widget>strong{font-size:clamp(24px,7vw,32px);margin-top:5px}
+  .halo-clock-widget>span:nth-of-type(2){font-size:10px}
+  .halo-clock-footer{font-size:8px}
+  .halo-status-row{gap:5px;padding:6px 0;font-size:9px}
+  .halo-taskbar{position:absolute;left:50%;bottom:calc(8px + env(safe-area-inset-bottom));width:calc(100% - 20px);max-width:460px;height:58px;justify-content:space-between;gap:3px;padding:5px 7px;transform:translateX(-50%);border-radius:16px}
+  .halo-taskbar-start,.halo-taskbar-app{width:44px;height:44px;min-width:44px;min-height:44px;flex:0 0 44px}
+  .halo-taskbar-start{font-size:21px}
+  .halo-taskbar-divider,.halo-taskbar-spacer,.halo-tray{display:none}
+  .halo-taskbar-apps{display:flex;min-width:0;flex:1;justify-content:center;gap:0}
+  .halo-taskbar-glyph{width:27px;height:27px;font-size:14px}
+  .halo-taskbar-clock{min-width:48px;min-height:44px;padding:0 3px}
+  .halo-taskbar-clock strong{font-size:10px}
+  .halo-taskbar-clock small{font-size:8px}
+  .halo-start-panel,.halo-quick-panel{bottom:calc(74px + env(safe-area-inset-bottom));max-height:calc(100% - 120px - env(safe-area-inset-top));overflow-y:auto;overscroll-behavior:contain}
+  .halo-start-panel{padding:16px}
+  .halo-window{position:fixed;inset:calc(8px + env(safe-area-inset-top)) 10px calc(74px + env(safe-area-inset-bottom));width:auto;min-height:0;max-height:none;transform:none;overflow-y:auto;overscroll-behavior:contain}
+  .halo-window-titlebar{min-height:48px}
+  .halo-window-controls button{width:44px;height:44px}
+  .halo-window-content{padding:18px}
+  .halo-window-content h2{font-size:25px}
+  .halo-window-content p{font-size:14px}
+  .halo-preview-mark{display:none}
+}
+
+@media(min-width:391px) and (max-width:760px){
+  .halo-taskbar-app:nth-child(n+5){display:none}
+}
+
+@media(max-width:390px){
+  .halo-taskbar-app:nth-child(n+4){display:none}
+  .halo-taskbar-clock small{display:none}
+  .halo-status-row{font-size:8px}
+}
+
+@media(max-height:500px) and (max-width:1000px) and (orientation:landscape){
+  .halo-topbar{height:calc(42px + env(safe-area-inset-top));flex-basis:calc(42px + env(safe-area-inset-top))}
+  .halo-shell{height:100vh;height:100dvh;min-height:0}
+  .halo-topbar{padding:env(safe-area-inset-top) max(12px,env(safe-area-inset-right)) 0 max(12px,env(safe-area-inset-left))}
+  .halo-top-center,.halo-top-date{display:none}
+  .halo-top-icon,.halo-exit{min-width:44px;min-height:44px}
+  .halo-desktop-area{min-height:0;overflow-x:hidden;overflow-y:auto;padding-left:max(14px,env(safe-area-inset-left));padding-right:max(14px,env(safe-area-inset-right))}
+  .halo-icon-grid{width:100%}
+  .halo-desktop-icon{width:100%}
+  .halo-widgets{position:relative;inset:auto;width:100%}
+  .halo-taskbar{left:50%;width:calc(100% - 24px);max-width:460px;justify-content:space-between;gap:3px;padding:5px 7px;transform:translateX(-50%)}
+  .halo-taskbar-start,.halo-taskbar-app{min-width:44px;min-height:44px;flex-basis:44px}
+  .halo-taskbar-divider,.halo-taskbar-spacer,.halo-tray{display:none}
+  .halo-taskbar-apps{flex:1;justify-content:center;gap:0}
+  .halo-taskbar-clock{min-width:48px;min-height:44px}
+  .halo-window{position:fixed;width:auto;max-height:none;transform:none;overflow-y:auto}
+  .halo-desktop-area{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,.72fr);align-items:start;gap:10px;padding-top:8px;padding-bottom:calc(66px + env(safe-area-inset-bottom))}
+  .halo-icon-grid{grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:62px;gap:3px}
+  .halo-desktop-icon{height:60px;min-height:58px;flex-direction:row;justify-content:flex-start;gap:6px;font-size:10px}
+  .halo-app-glyph{width:30px;height:30px;flex:0 0 30px}
+  .halo-widgets{grid-template-columns:1fr;gap:6px}
+  .halo-clock-widget,.halo-status-widget{padding:8px}
+  .halo-clock-widget>strong{font-size:23px}
+  .halo-clock-rule{margin:6px 0}
+  .halo-status-row{padding:3px 0}
+  .halo-taskbar{height:50px;bottom:calc(5px + env(safe-area-inset-bottom))}
+  .halo-taskbar-start,.halo-taskbar-app{width:40px;height:40px;min-width:40px;min-height:40px;flex-basis:40px}
+  .halo-start-panel,.halo-quick-panel{bottom:calc(60px + env(safe-area-inset-bottom));max-height:calc(100% - 72px - env(safe-area-inset-top))}
+  .halo-window{inset:calc(4px + env(safe-area-inset-top)) 10px calc(58px + env(safe-area-inset-bottom))}
+}
+
+@media(min-width:1100px) and (min-aspect-ratio:16/10){
+  .halo-shell{min-height:0}
+  .halo-topbar{height:64px;flex-basis:64px;padding-inline:clamp(24px,3vw,56px)}
+  .halo-desktop-area{padding:clamp(34px,4vw,76px) clamp(38px,5vw,96px) 110px}
+  .halo-icon-grid{grid-template-columns:repeat(2,104px);grid-auto-rows:124px;gap:14px 18px}
+  .halo-desktop-icon{width:104px;height:116px;gap:10px;font-size:14px}
+  .halo-app-glyph{width:58px;height:58px;border-radius:16px;font-size:28px}
+  .halo-widgets{width:min(390px,26vw);gap:14px}
+  .halo-clock-widget,.halo-status-widget{padding:24px;border-radius:18px}
+  .halo-clock-widget>strong{font-size:48px}
+  .halo-clock-widget>span:nth-of-type(2),.halo-status-row{font-size:13px}
+  .halo-taskbar{min-height:72px;width:min(780px,calc(100% - 80px));bottom:24px;gap:12px;padding:8px 14px;border-radius:20px}
+  .halo-taskbar-start{width:54px;height:54px;font-size:27px}
+  .halo-taskbar-app{width:52px;height:52px}
+  .halo-taskbar-glyph{width:38px;height:38px;font-size:20px}
+  .halo-taskbar-clock strong{font-size:13px}
+  .halo-taskbar-clock small{font-size:10px}
+  .halo-window{width:min(760px,68vw);max-height:calc(100% - 160px);overflow-y:auto}
+  .halo-window-content{padding:38px}
+  .halo-window-content p{font-size:15px}
+  .halo-top-icon,.halo-exit,.halo-window-controls button{min-height:44px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .halo-shell,.halo-shell *{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+
+@media(max-width:760px){.halo-search{height:44px}.halo-start-apps button{min-height:68px}.halo-start-footer button{min-height:44px}.halo-quick-toggles button{min-height:58px}.halo-slider input{min-height:30px}}
+
+@media(max-width:1000px){.halo-exit{display:flex;align-items:center;justify-content:center;gap:4px}}
+@media(min-width:1600px) and (min-aspect-ratio:16/9){
+  .halo-top-brand{font-size:15px}
+  .halo-top-center,.halo-top-date{font-size:12px}
+  .halo-top-icon,.halo-exit{min-width:56px;min-height:56px;font-size:16px}
+  .halo-exit{padding-inline:16px}
+  .halo-icon-grid{grid-template-columns:repeat(2,124px);grid-auto-rows:142px;gap:18px 22px}
+  .halo-desktop-icon{width:124px;height:132px;font-size:17px}
+  .halo-app-glyph{width:70px;height:70px;font-size:34px}
+  .halo-widgets{width:min(440px,27vw);gap:18px}
+  .halo-clock-widget,.halo-status-widget{padding:28px}
+  .halo-widget-kicker,.halo-widget-heading{font-size:12px}
+  .halo-clock-widget>strong{font-size:60px}
+  .halo-clock-widget>span:nth-of-type(2),.halo-status-row{font-size:16px}
+  .halo-status-pill{font-size:11px}
+  .halo-taskbar{width:min(900px,calc(100% - 96px));min-height:84px;gap:14px;padding:10px 18px;border-radius:22px}
+  .halo-taskbar-start{width:62px;height:62px;font-size:32px}
+  .halo-taskbar-app{width:62px;height:62px}
+  .halo-taskbar-glyph{width:44px;height:44px;font-size:23px}
+  .halo-taskbar-clock strong{font-size:16px}
+  .halo-taskbar-clock small{font-size:12px}
+  .halo-start-panel{width:min(480px,calc(100% - 64px));padding:26px}
+  .halo-start-head strong{font-size:24px}
+  .halo-start-apps button{min-height:90px;font-size:14px}
+  .halo-quick-panel{width:min(400px,calc(100% - 64px));padding:24px}
+  .halo-quick-heading strong{font-size:22px}
+  .halo-quick-toggles button{min-height:72px;font-size:14px}
+  .halo-quick-toggles b{font-size:14px}
+  .halo-quick-toggles small,.halo-slider,.halo-quick-note{font-size:13px}
+  .halo-window{width:min(820px,68vw)}
+  .halo-window-content h2{font-size:36px}
+  .halo-window-content p{font-size:17px}
+  .halo-window-controls button{width:48px;height:48px;font-size:20px}
+}
+
+.halo-install-panel{position:absolute;z-index:12;top:58px;right:18px;width:min(360px,calc(100% - 24px));max-height:calc(100% - 76px);overflow:auto;overscroll-behavior:contain;padding:18px;border:1px solid rgba(255,255,255,.22);border-radius:16px;background:rgba(17,25,35,.9);box-shadow:0 22px 60px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.14);backdrop-filter:blur(32px) saturate(160%);-webkit-backdrop-filter:blur(32px) saturate(160%)}
+.halo-install-checks{display:grid;gap:0}
+.halo-install-checks p{display:flex;justify-content:space-between;gap:12px;margin:0;padding:10px 0;border-top:1px solid rgba(255,255,255,.1);font-size:11px;color:rgba(255,255,255,.72)}
+.halo-install-checks b{font-weight:600;color:var(--h-gold);white-space:nowrap}
+.halo-install-checks b.is-ready{color:#a6e7c4}
+.halo-install-checks b.is-missing{color:#f0a09a}
+.halo-install-instructions{margin:12px 0 0;padding-top:12px;border-top:1px solid rgba(255,255,255,.13);color:rgba(255,255,255,.7);font-size:11px;line-height:1.55}
+.halo-install-instructions strong{color:#fff}
+@media(max-width:760px){.halo-install-panel{top:calc(58px + env(safe-area-inset-top));right:max(8px,env(safe-area-inset-right));width:min(360px,calc(100% - 16px));max-height:calc(100% - 76px - env(safe-area-inset-top) - env(safe-area-inset-bottom))}}
+@media(max-height:500px) and (max-width:1000px) and (orientation:landscape){.halo-install-panel{top:calc(48px + env(safe-area-inset-top));right:max(10px,env(safe-area-inset-right));max-height:calc(100% - 60px - env(safe-area-inset-top))}}
+@media(min-width:1600px) and (min-aspect-ratio:16/9){.halo-install-panel{top:78px;right:28px;width:min(420px,calc(100% - 80px));padding:24px}.halo-install-checks p,.halo-install-instructions{font-size:15px}.halo-install-checks p{padding:14px 0}}
+
+/* Original RADARCharts wallpaper: full panorama on desktop, framed portrait crop on phones. */
+.halo-wallpaper{background-color:#10151c;background-image:linear-gradient(180deg,rgba(7,11,16,.3),rgba(7,11,16,.48)),url('/assets/halo-stadium-wallpaper.webp'),radial-gradient(ellipse at 78% 18%,rgba(83,133,160,.42),transparent 34%),linear-gradient(130deg,#111923,#1d2935 48%,#10151d);background-size:cover,cover,cover,cover;background-position:center,center,center,center;background-repeat:no-repeat}
+@media(max-width:760px) and (orientation:portrait){.halo-wallpaper{background-image:linear-gradient(180deg,rgba(7,11,16,.3),rgba(7,11,16,.48)),url('/assets/halo-stadium-portrait.webp'),radial-gradient(ellipse at 78% 18%,rgba(83,133,160,.42),transparent 34%),linear-gradient(130deg,#111923,#1d2935 48%,#10151d);background-size:cover,auto 82%,cover,cover;background-position:center,center,center,center}}
+
+/* Layered glass glyphs: compact supplied MIT SVGs with a restrained, category-colored hover bloom. */
+.halo-glass-icon{display:block;width:100%;height:100%;overflow:visible;filter:drop-shadow(0 2px 3px rgba(4,8,14,.32))}
+.halo-app-glyph,.halo-taskbar-glyph,.halo-window-glyph,.halo-window-placeholder-icon{--halo-glow:rgba(255,255,255,.26);position:relative;overflow:hidden;transition:transform .2s cubic-bezier(.2,.8,.2,1),box-shadow .2s ease,filter .2s ease}
+.halo-app-glyph.gold,.halo-taskbar-glyph.gold,.halo-window-glyph.gold,.halo-window-placeholder-icon.gold{--halo-glow:rgba(255,200,94,.52)}
+.halo-app-glyph.blue,.halo-taskbar-glyph.blue,.halo-window-glyph.blue,.halo-window-placeholder-icon.blue{--halo-glow:rgba(79,178,255,.55)}
+.halo-app-glyph.amber,.halo-taskbar-glyph.amber,.halo-window-glyph.amber,.halo-window-placeholder-icon.amber{--halo-glow:rgba(255,166,83,.54)}
+.halo-app-glyph.violet,.halo-taskbar-glyph.violet,.halo-window-glyph.violet,.halo-window-placeholder-icon.violet{--halo-glow:rgba(177,126,255,.55)}
+.halo-app-glyph.green,.halo-taskbar-glyph.green,.halo-window-glyph.green,.halo-window-placeholder-icon.green{--halo-glow:rgba(83,221,157,.5)}
+.halo-app-glyph.cyan,.halo-taskbar-glyph.cyan,.halo-window-glyph.cyan,.halo-window-placeholder-icon.cyan{--halo-glow:rgba(69,220,229,.52)}
+.halo-app-glyph.slate,.halo-taskbar-glyph.slate,.halo-window-glyph.slate,.halo-window-placeholder-icon.slate{--halo-glow:rgba(173,201,236,.42)}
+.halo-app-glyph.pink,.halo-taskbar-glyph.pink,.halo-window-glyph.pink,.halo-window-placeholder-icon.pink{--halo-glow:rgba(255,103,191,.52)}
+.halo-window-glyph .halo-glass-icon{width:100%;height:100%}
+.halo-window-placeholder-icon{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;border:1px solid rgba(255,255,255,.22);border-radius:10px;background:rgba(255,255,255,.08)}
+.halo-window-placeholder-icon .halo-glass-icon{width:100%;height:100%}
+.halo-start-home-icon{width:26px;height:26px;filter:drop-shadow(0 2px 3px rgba(4,8,14,.3))}
+.halo-browser-guidance{margin-top:20px;padding:16px;border:1px solid rgba(255,255,255,.16);border-radius:12px;background:rgba(255,255,255,.055)}
+.halo-browser-status{display:flex;align-items:center;gap:9px;color:#d9f3e4;font-size:12px}.halo-browser-status .halo-live-dot{flex:0 0 6px}
+.halo-browser-guidance>p{margin:12px 0;color:rgba(255,255,255,.7);font-size:12px;line-height:1.6}
+.halo-browser-links{display:grid;gap:8px;margin:14px 0}
+.halo-browser-links a{display:flex;justify-content:space-between;align-items:center;min-height:44px;padding:0 12px;border:1px solid rgba(255,255,255,.14);border-radius:8px;background:rgba(255,255,255,.06);color:#fff;text-decoration:none;font-size:11px;transition:background .18s ease,border-color .18s ease}
+.halo-browser-links a:hover,.halo-browser-links a:focus-visible{outline:none;border-color:rgba(230,199,125,.5);background:rgba(230,199,125,.12)}
+.halo-browser-guidance>small{display:block;color:rgba(255,255,255,.52);font-size:10px;line-height:1.6}
+.halo-desktop-icon .halo-app-glyph,.halo-start-apps button .halo-app-glyph{box-shadow:0 7px 18px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.32)}
+.halo-taskbar-app .halo-taskbar-glyph{box-shadow:0 4px 12px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.2)}
+.halo-desktop-icon:focus-visible .halo-app-glyph,.halo-start-apps button:focus-visible .halo-app-glyph,.halo-taskbar-app:focus-visible .halo-taskbar-glyph{transform:translateY(-3px) scale(1.08);box-shadow:0 0 0 1px rgba(255,255,255,.28),0 9px 24px var(--halo-glow),inset 0 1px 0 rgba(255,255,255,.35)}
+.halo-taskbar-app:focus-visible{outline:2px solid var(--h-gold);outline-offset:2px}
+@media(hover:hover) and (pointer:fine){
+  .halo-desktop-icon:hover .halo-app-glyph,.halo-start-apps button:hover .halo-app-glyph{transform:translateY(-4px) scale(1.08) rotate(-3deg);filter:saturate(1.16);box-shadow:0 0 0 1px rgba(255,255,255,.24),0 10px 28px var(--halo-glow),inset 0 1px 0 rgba(255,255,255,.4)}
+  .halo-taskbar-app:hover .halo-taskbar-glyph{transform:translateY(-2px) scale(1.1);box-shadow:0 8px 22px var(--halo-glow),inset 0 1px 0 rgba(255,255,255,.3)}
+}
+@media(prefers-reduced-motion:reduce){.halo-app-glyph,.halo-taskbar-glyph,.halo-window-glyph,.halo-window-placeholder-icon,.halo-browser-links a{transition:none!important}}
+
+
+/* Console-inspired 16:9 launcher shelf: horizontal focus flow, without copying console artwork. */
+@media(min-width:1600px) and (min-aspect-ratio:16/9){
+  .halo-icon-grid{position:absolute;left:50%;bottom:132px;z-index:2;transform:translateX(-50%);grid-template-columns:repeat(8,124px);grid-auto-rows:140px;gap:14px;width:max-content}
+  .halo-desktop-icon{width:124px;height:132px;justify-content:center;gap:10px;padding:10px 8px;border:1px solid rgba(255,255,255,.15);border-radius:16px;background:rgba(10,16,24,.28);font-size:13px;transition:background .2s ease,border-color .2s ease,transform .2s cubic-bezier(.2,.8,.2,1)}
+  .halo-desktop-icon:hover,.halo-desktop-icon:focus-visible{background:rgba(255,255,255,.11);border-color:rgba(255,255,255,.3);transform:translateY(-6px) scale(1.03)}
+  .halo-app-glyph{width:70px;height:70px;border-radius:19px}
+}

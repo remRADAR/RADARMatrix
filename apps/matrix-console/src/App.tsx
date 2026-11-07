@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
+import { HaloDesktop } from './HaloDesktop';
 
 type Screen = 'overview' | 'chat' | 'agents' | 'skills' | 'knowledge' | 'tasks' | 'connections' | 'operator' | 'ide' | 'cloud' | 'halo';
 type Status = 'Implemented' | 'Connected' | 'Planned' | 'Unavailable' | 'Demo only';
@@ -17,6 +18,12 @@ const nav: { id: Screen; label: string; icon: string; group: string }[] = [
   { id: 'cloud', label: 'Cloud Computer', icon: '▣', group: 'Future surfaces' },
   { id: 'halo', label: 'Halo OS', icon: '◉', group: 'Future surfaces' },
 ];
+
+function screenFromLocation(): Screen {
+  const requested = new URLSearchParams(window.location.search).get('screen')
+    ?? window.location.pathname.split('/').filter(Boolean).at(-1);
+  return nav.find((item) => item.id === requested)?.id ?? 'overview';
+}
 
 const agents = [
   { name: 'RADAR Orchestrator', code: 'RM-00', role: 'Routing & review', skill: 'radar-vibe-queue', tone: 'gold', status: 'Plan-only' },
@@ -48,19 +55,26 @@ function Badge({ children, tone = 'neutral' }: { children: ReactNode; tone?: str
 }
 
 function App() {
-  const [screen, setScreen] = useState<Screen>('overview');
+  const [screen, setScreen] = useState<Screen>(screenFromLocation);
   const [query, setQuery] = useState('');
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState<string[]>([]);
   const [taskFilter, setTaskFilter] = useState('All');
   const current = nav.find((item) => item.id === screen)!;
 
+  useEffect(() => {
+    const syncScreen = () => setScreen(screenFromLocation());
+    window.addEventListener('popstate', syncScreen);
+    return () => window.removeEventListener('popstate', syncScreen);
+  }, []);
+
   const filteredSkills = useMemo(() => skills.filter((item) => item.join(' ').toLowerCase().includes(query.toLowerCase())), [query]);
   const filteredAgents = useMemo(() => agents.filter((item) => item.name.toLowerCase().includes(query.toLowerCase()) || item.skill.includes(query.toLowerCase())), [query]);
 
   function go(next: Screen) {
     setScreen(next);
-    window.history.replaceState({}, '', next === 'overview' ? '/' : `/${next}`);
+    const path = next === 'overview' ? '/' : `/${next}`;
+    if (window.location.pathname !== path || window.location.search) window.history.pushState({}, '', path);
   }
 
   function sendChat(event: FormEvent) {
@@ -70,6 +84,8 @@ function App() {
     setChatMessages((messages) => [...messages, trimmed]);
     setChatInput('');
   }
+
+  if (screen === 'halo') return <HaloDesktop onExit={() => go('overview')} />;
 
   return <div className="app-shell">
     <aside className="sidebar">
