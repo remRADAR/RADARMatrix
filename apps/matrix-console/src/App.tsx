@@ -20,8 +20,12 @@ const nav: { id: Screen; label: string; icon: string; group: string }[] = [
 ];
 
 function screenFromLocation(): Screen {
+  // The ES2022 at() method is unavailable on Chromium < 92, a realistic floor
+  // on Android 7-era television browsers, and it previously threw on every
+  // app load. Plain index access keeps identical behavior.
+  const segments = window.location.pathname.split('/').filter(Boolean);
   const requested = new URLSearchParams(window.location.search).get('screen')
-    ?? window.location.pathname.split('/').filter(Boolean).at(-1);
+    ?? segments[segments.length - 1];
   return nav.find((item) => item.id === requested)?.id ?? 'overview';
 }
 
