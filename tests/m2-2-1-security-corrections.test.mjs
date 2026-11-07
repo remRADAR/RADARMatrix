@@ -16,7 +16,10 @@
  *      copy; the original M3 branch is untouched).
  *   C. Trusted actor provenance: authority originates ONLY from the
  *      runtime-branded trusted context minted by
- *      createTrustedActorContext (verified membership).
+ *      createTrustedActorContext (verified membership). (M2.2.2
+ *      upgrade: the membership provider and canonical registry are
+ *      bound once at the server composition boundary — see
+ *      tests/m2-2-2-provenance.test.mjs for the provenance suite.)
  *   D. Approval ordering and replay: grant validation -> reservation
  *      -> approval redemption immediately before dispatch; failed
  *      grant checks never consume approvals; failed approvals never
@@ -24,6 +27,14 @@
  *   E. Membership file hardening: exclusive temp creation ("wx"),
  *      restrictive permissions (0o600), atomic replacement, safe
  *      cleanup, fail-closed corrupt/missing.
+ *
+ * M2.2.2 migration note: the trusted membership provider and the
+ * canonical tool registry are bound ONCE per process via
+ * ./server-authority.helper.mjs (the test process plays the trusted
+ * server composition boundary, exactly as gateway startup would in
+ * production). Grants validate against that server-bound registry;
+ * caller-supplied registries/providers are rejected (proven in the
+ * delegation and M2.2.2 suites).
  *
  * Failures are counted and returned to tests/test-runner.mjs, which
  * exits non-zero when any test fails. Standalone runs exit non-zero.
@@ -56,6 +67,7 @@ import {
 import {
   TOOL_REGISTRY,
 } from "../apps/mcp-server/src/chatgpt-app-contract.ts";
+import { setMembershipState, TEST_REGISTRY } from "./server-authority.helper.mjs";
 
 const NOW = 1_000_000;
 const W = "w_prod";
@@ -65,25 +77,25 @@ const SECRET = "m2-2-1-correction-suite-integrity-secret-0123456789";
 const INTEGRITY = createGrantIntegrityService(SECRET);
 assert.ok(INTEGRITY, "integrity service must construct");
 
-function membershipFor(role, opts) {
-  const o = opts || {};
-  return {
-    isMember(caller, ws) {
-      if (o.isMember !== undefined) return o.isMember(caller, ws);
-      return caller === (o.actor || ACTOR) && ws === (o.workspace || W);
-    },
-    getRole(caller, ws) {
-      if (caller !== (o.actor || ACTOR) || ws !== (o.workspace || W)) return null;
-      return o.rawRole !== undefined ? o.rawRole : role;
-    },
-  };
-}
-
+/**
+ * Mints a trusted actor context through the SERVER-BOUND membership
+ * provider (M2.2.2): the fixture state IS the test's server-side
+ * membership data; the provider itself is never an argument.
+ */
 function trustedActor(role, opts) {
-  return createTrustedActorContext(
-    { caller_id: (opts && opts.actor) || ACTOR, workspace_id: (opts && opts.workspace) || W },
-    membershipFor(role, opts),
-  );
+  const o = opts || {};
+  setMembershipState({
+    actor: o.actor || ACTOR,
+    workspace: o.workspace || W,
+    role,
+    rawRole: o.rawRole,
+    isMember: o.isMember,
+    getRole: o.getRole,
+  });
+  return createTrustedActorContext({
+    caller_id: o.actor || ACTOR,
+    workspace_id: o.workspace || W,
+  });
 }
 
 function baseGrantInput(overrides) {
@@ -95,7 +107,6 @@ function baseGrantInput(overrides) {
       allowed_actions: ["read"],
       ttl_seconds: 600,
       max_uses: 1,
-      registry: TOOL_REGISTRY,
       actor: trustedActor("editor"),
     },
     overrides || {},
@@ -287,19 +298,9 @@ const TEST_OPERATIONS = {
   },
 };
 
-/**
- * The TOOL_REGISTRY extended with the read-only test operations so
- * grants for them derive legally from the editor actor (the
- * delegation subset rule validates against the registry input).
- */
-const TEST_REGISTRY = Object.assign({}, TOOL_REGISTRY, {
-  "github.read.branches": { required_role: "viewer", is_write_operation: false },
-  "github.read.sensitive": { required_role: "viewer", is_write_operation: false },
-});
-
 function adapterGrant(maxUses, overrides) {
   return createDelegatedGrant(
-    baseGrantInput(Object.assign({ max_uses: maxUses, registry: TEST_REGISTRY, allowed_tools: ["github.read.branches", "github.read.sensitive"] }, overrides || {})),
+    baseGrantInput(Object.assign({ max_uses: maxUses, allowed_tools: ["github.read.branches", "github.read.sensitive"] }, overrides || {})),
     NOW,
     INTEGRITY,
   );
@@ -367,7 +368,7 @@ test("B: expired grant — ZERO external requests", async () => {
   const transport = makeTransport();
   const adapter = makeAdapter(transport);
   const expiredGrant = createDelegatedGrant(
-    baseGrantInput({ registry: TEST_REGISTRY, allowed_tools: ["github.read.branches"], ttl_seconds: 60 }),
+    baseGrantInput({ allowed_tools: ["github.read.branches"], ttl_seconds: 60 }),
     NOW - 120,
     INTEGRITY,
   );
@@ -473,10 +474,8 @@ test("C: caller-supplied TOOL AUTHORITY is rejected", () => {
 });
 
 test("C: UNAUTHENTICATED actor is rejected (membership not verified)", () => {
-  const ctx = createTrustedActorContext(
-    { caller_id: "stranger", workspace_id: W },
-    membershipFor("admin", { isMember: () => false }),
-  );
+  // The SERVER-BOUND provider reports non-membership for this caller:
+  const ctx = trustedActor("admin", { actor: "stranger", isMember: () => false });
   assert.equal(ctx, null, "an unauthenticated actor never receives a trusted context");
   assert.equal(
     createDelegatedGrant(baseGrantInput({ actor: ctx }), NOW, INTEGRITY),
@@ -485,10 +484,10 @@ test("C: UNAUTHENTICATED actor is rejected (membership not verified)", () => {
 });
 
 test("C: INVALID WORKSPACE MEMBERSHIP is rejected", () => {
-  const ctx = createTrustedActorContext(
-    { caller_id: ACTOR, workspace_id: "w_not_a_member" },
-    membershipFor("editor", { workspace: W }),
-  );
+  // The actor is a verified member of W ONLY; minting for another
+  // workspace fails the bound provider's membership check.
+  setMembershipState({ actor: ACTOR, workspace: W, role: "editor" });
+  const ctx = createTrustedActorContext({ caller_id: ACTOR, workspace_id: "w_not_a_member" });
   assert.equal(ctx, null, "membership is verified against the requested workspace");
 });
 
@@ -506,9 +505,10 @@ test("C: CROSS-WORKSPACE delegation is rejected", () => {
     validateGrantUse(grant, baseCheck({ workspace_id: "w_other" }), NOW, INTEGRITY).reason,
     "workspace_mismatch",
   );
-  // And the trusted-context factory refuses foreign workspaces outright:
+  // And the trusted-context factory refuses foreign workspaces outright
+  // (the bound provider verifies membership for the REQUESTED workspace):
   assert.equal(
-    createTrustedActorContext({ caller_id: ACTOR, workspace_id: "w_other" }, membershipFor("editor", { workspace: W })),
+    createTrustedActorContext({ caller_id: ACTOR, workspace_id: "w_other" }),
     null,
   );
 });
