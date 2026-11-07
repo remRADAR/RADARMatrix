@@ -121,9 +121,30 @@ function baseCheck(overrides) {
 }
 
 const tests = [];
-function test(name, fn) {
-  tests.push({ name, fn });
+/**
+ * Registers a test. `options.skip` carries a human-readable reason when
+ * the test cannot be meaningfully executed in the current environment.
+ * The harness reports such a test as SKIPPED (never as passed) and
+ * prints the reason, so the coverage gap stays auditable instead of
+ * being silently absorbed into a green run.
+ */
+function test(name, fn, options) {
+  const opts = options || {};
+  tests.push({ name, fn, skip: opts.skip || null });
 }
+
+/**
+ * True when this process runs as root (uid 0).
+ *
+ * Root bypasses POSIX directory permission bits: a directory chmod'ed to
+ * 0o500 is still writable by uid 0, so the EACCES denial path cannot be
+ * observed. Tests that depend on a permission denial must be skipped
+ * here rather than weakened - the assertion stays strict for non-root
+ * users, and the failure path keeps independent coverage through the
+ * exclusive-temp-creation (EEXIST) test below, which works for any uid.
+ */
+const RUNNING_AS_ROOT =
+  typeof process.getuid === "function" && process.getuid() === 0;
 
 // ---------------------------------------------------------------------------
 // A. Grant integrity — complete mutation matrix.
@@ -788,6 +809,10 @@ test("E: a FAILED WRITE leaves the previous valid membership file intact", () =>
   const reloaded = new FileMembershipProvider({ path: file });
   assert.equal(reloaded.isMember("user_new", W), false, "the failed mutation never landed");
   assert.equal(reloaded.isMember(ACTOR, W), true);
+}, {
+  skip: RUNNING_AS_ROOT
+    ? "running as root (uid 0): root bypasses POSIX directory permission bits, so chmod 0o500 does not deny writes and the EACCES path cannot be observed. The assertion stays strict for non-root users; the denial path keeps independent coverage via the exclusive-temp-creation (EEXIST) test."
+    : null,
 });
 
 test("E: temporary-file CLEANUP — no temp residue after success or failure", () => {
@@ -838,7 +863,13 @@ test("E: the concurrent multi-instance limitation is explicitly documented in th
 export async function runAllTests() {
   let failed = 0;
   let passed = 0;
-  for (const { name, fn } of tests) {
+  let skipped = 0;
+  for (const { name, fn, skip } of tests) {
+    if (skip) {
+      skipped += 1;
+      console.log("  ○ " + name + " — SKIPPED: " + skip);
+      continue;
+    }
     try {
       await fn();
       passed += 1;
@@ -848,8 +879,16 @@ export async function runAllTests() {
       console.log("  ✗ " + name + ": " + (error && error.message ? error.message : String(error)));
     }
   }
-  console.log("\nM2.2.1 security correction tests: " + passed + " passed, " + failed + " failed");
-  return { failed, passed };
+  console.log(
+    "\nM2.2.1 security correction tests: " +
+      passed +
+      " passed, " +
+      failed +
+      " failed, " +
+      skipped +
+      " skipped",
+  );
+  return { failed, passed, skipped };
 }
 
 if (import.meta.url === "file://" + process.argv[1]) {
