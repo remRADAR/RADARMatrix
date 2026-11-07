@@ -1,0 +1,14 @@
+{
+  // Wrangler config for the dedicated matrix.radarcharts.net Worker (owner-gated).
+  // Deployed via: npx --yes wrangler@4.157.0 deploy --config apps/matrix-console/wrangler.matrix.jsonc
+  // Assets-only Worker: no server code, no bindings, no vars, no secrets.
+  // No routes or custom domains are declared here. Attaching the production
+  // hostname matrix.radarcharts.net is an explicit owner-authorized step
+  // (see docs/CLOUDFLARE-MATRIX-HOSTING.md). Not deployed yet.
+  "name": "matrix-radarcharts",
+  "compatibility_date": "2026-11-07",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}
