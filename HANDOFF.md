@@ -218,3 +218,13 @@
 7. IdP adapter selection + implementation (PKCE, JWKS) when staging identities are needed.
 8. Durable store (D1 at M7, or earlier per the acceleration plan): memberships, grants, reservations, approvals, redemption records, audit events — the cross-process guarantees deliberately deferred to it.
 9. M4+ (vision components, only after owner-approved specifications): Operator Screen, RADAR Chat routing, Cloud Computer, per the recorded decisions above.
+
+
+## Checkpoint: M2.3.1 RM-IEP/1 boundary contracts
+
+- Branch: `security/m2-3-1-boundary-contracts`
+- Base: verified post-PR #9 merge commit `0246fe04d3fdc386ef629d76be75d311f2269f93`
+- Commit: `fa9bf653ee953982f0a21f067033d48f639fc5e3`
+- Draft PR: https://github.com/remRADAR/RADARMatrix/pull/12
+- Verification: typecheck, authority-boundary scan, M2.3.1 tests (5 passed), full test suite (14 suites passed), deployment smoke, and diff check all passed.
+- Deployment: not applicable to this security-only branch.
