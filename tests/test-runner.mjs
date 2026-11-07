@@ -9,6 +9,21 @@
  * non-zero when ANY test fails. CI relies on this exit code; a
  * secondary output guard additionally rejects swallowed failure lines.
  *
+ * M2.2 note: the runtime mode is fail-closed by default — the npm
+ * test scripts set RADARMATRIX_RUNTIME_MODE=test explicitly. The
+ * runner never relies on a mode default.
+ *
+ * M2.2.1 note: suites may export an async runAllTests (the delegation
+ * and correction suites verify concurrent denial behavior with real
+ * awaits); the runner awaits every suite.
+ *
+ * M2.2.2 note: the trusted membership provider and the canonical tool
+ * registry are bound ONCE per process at import time through
+ * ./server-authority.helper.mjs (the test process plays the trusted
+ * server composition boundary — exactly the role gateway startup has
+ * in production). All delegation-touching suites share that single
+ * binding; request payloads cannot supply or replace it.
+ *
  * Suites:
  * - v0.7-gateway.test.mjs (foundation gateway logic, self-contained)
  * - v0.8-chatgpt-contract.test.mjs (contract validation, self-contained)
@@ -21,9 +36,21 @@
  * - production-auth-negative.test.mjs (M2: production authentication
  *   chain — token matrix, provider fail-closed paths, durable
  *   membership, gateway integration in production mode)
- * - delegation-approval.test.mjs (M2: delegated authority subset
- *   enforcement + single-use Ed25519 approval tokens — implemented,
- *   not yet wired to the gateway)
+ * - delegation-approval.test.mjs (M2/M2.2.1/M2.2.2: delegated authority
+ *   subset enforcement, HMAC integrity seal, atomic reservation +
+ *   single-use Ed25519 approval tokens, caller-supplied
+ *   provider/registry rejection — implemented, not yet wired to the
+ *   gateway)
+ * - m2-2-security-regressions.test.mjs (M2.2: fail-closed runtime
+ *   modes + hardened approval claims/clock validation)
+ * - m2-2-1-security-corrections.test.mjs (M2.2.1: grant integrity
+ *   mutation matrix, atomic grant-use reservation through the
+ *   compatibility adapter, trusted-actor runtime provenance,
+ *   approval ordering/replay, membership-file hardening)
+ * - m2-2-2-provenance.test.mjs (M2.2.2: server-authority composition
+ *   binding — fabricated providers/registries rejected, unbound
+ *   authority fails closed, M2.2.1 HMAC/reservation protections
+ *   re-asserted intact)
  */
 
 import { runAllTests as runGatewayTests } from "./v0.7-gateway.test.mjs";
@@ -34,12 +61,15 @@ import { runAllTests as runGatewayIntegrationTests } from "./gateway-integration
 import { runAllTests as runProviderEsmWrapperTests } from "./provider-esm-wrappers.test.mjs";
 import { runAllTests as runProductionAuthTests } from "./production-auth-negative.test.mjs";
 import { runAllTests as runDelegationApprovalTests } from "./delegation-approval.test.mjs";
+import { runAllTests as runM22SecurityRegressions } from "./m2-2-security-regressions.test.mjs";
+import { runAllTests as runM221SecurityCorrections } from "./m2-2-1-security-corrections.test.mjs";
+import { runAllTests as runM222Provenance } from "./m2-2-2-provenance.test.mjs";
 
 console.log("\n");
-console.log("╔═══════════════════════════════════════╗");
-console.log("║   RADARMatrix Test Suite (v0.9 M2)     ║");
-console.log("║   Foundation + Integration Tests       ║");
-console.log("╚═══════════════════════════════════════╝");
+console.log("╔═════════════════════════════════════════╗");
+console.log("║   RADARMatrix Test Suite (v0.9 M2.2.2)  ║");
+console.log("║   Foundation + Integration Tests        ║");
+console.log("╚═════════════════════════════════════════╝");
 
 const startTime = Date.now();
 
@@ -51,7 +81,10 @@ const suites = [
   { name: "▶ Gateway Integration Security Tests (M1a — real implementation)", run: runGatewayIntegrationTests },
   { name: "▶ Provider ESM Wrapper Tests (M1a follow-up)", run: runProviderEsmWrapperTests },
   { name: "▶ Production Authentication & Membership Tests (M2 — real implementation)", run: runProductionAuthTests },
-  { name: "▶ Delegation & Approval Tests (M2 — implemented, not yet gateway-wired)", run: runDelegationApprovalTests },
+  { name: "▶ Delegation & Approval Tests (M2/M2.2.1/M2.2.2 — HMAC seal + atomic reservation)", run: runDelegationApprovalTests },
+  { name: "▶ M2.2 Security Regressions (runtime fail-closed + hardened approvals)", run: runM22SecurityRegressions },
+  { name: "▶ M2.2.1 Security Corrections (integrity, reservation, provenance, ordering, membership)", run: runM221SecurityCorrections },
+  { name: "▶ M2.2.2 Provenance Tests (server-authority binding, fabricated provider/registry rejection)", run: runM222Provenance },
 ];
 
 const results = [];
@@ -76,7 +109,7 @@ const failingSuites = results.filter((r) => (r.failed || 0) > 0 || r.threw !== n
 const totalFailures = results.reduce((sum, r) => sum + (r.failed || 0) + (r.threw !== null ? 1 : 0), 0);
 
 const duration = Date.now() - startTime;
-console.log("\n╔═══════════════════════════════════════╗");
+console.log("\n╔═════════════════════════════════════════╗");
 console.log("║           Test Run Complete            ║");
 console.log("║   Duration: " + duration + "ms");
 console.log("║   Suites: " + results.length + ", failing: " + failingSuites.length);
@@ -87,7 +120,7 @@ if (failingSuites.length > 0) {
     console.log("║   - " + r.name + why);
   }
 }
-console.log("╚═══════════════════════════════════════╝\n");
+console.log("╚═════════════════════════════════════════╝\n");
 
 if (totalFailures > 0) {
   console.error("Test run FAILED: " + totalFailures + " failure(s) across " + failingSuites.length + " suite(s).");
