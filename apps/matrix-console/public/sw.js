@@ -68,7 +68,10 @@ self.addEventListener('fetch', (event) => {
           await cache.put(request, response.clone());
           return response;
         }
-        const lastSegment = requestUrl.pathname.split('/').filter(Boolean).at(-1) || 'overview';
+        // The ES2022 at() method requires Chromium 92+; Android 7-era TV
+        // browsers can be older, so use plain index access instead.
+        const segments = requestUrl.pathname.split('/').filter(Boolean);
+        const lastSegment = segments[segments.length - 1] || 'overview';
         if (!APP_ROUTES.has(lastSegment)) return response;
         return cachedPage || await cache.match(ROOT_URL) || await cache.match(new URL('/offline.html', ROOT_URL).href) || response;
       } catch {

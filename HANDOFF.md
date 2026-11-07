@@ -40,3 +40,12 @@
 - Cloudflare returned three asset buckets for the four verified build files.
 - Asset upload did not start because the Cloudflare execution runtime cannot read the sandbox filesystem and its outbound policy rejects the temporary CDN/GitHub mirrors used to bridge raw bytes.
 - No partial asset upload, Worker version, deployment, route, DNS record, or secret was created.
+
+## Checkpoint: matrix.radarcharts.net hosting preparation (Halo OS PWA)
+
+- Branch: fix/halo-os-pwa-audit-corrections (PR #19). Hosting plan prepared; nothing deployed.
+- Plan: docs/CLOUDFLARE-MATRIX-HOSTING.md. Worker config template: apps/matrix-console/wrangler.matrix.jsonc (assets-only Worker, SPA fallback via not_found_handling single-page-application, no routes, domains, bindings, vars or secrets).
+- Fit with the PWA: the dedicated root subdomain matches manifest start URL /?screen=halo, manifest scope /, root-absolute asset paths, and /sw.js root service-worker scope. The repository Vercel root targets Brand Studio and cannot host the PWA.
+- Android 7 target assessment: the device guide names the 55-inch Android 7 target with no LG/webOS or AirPlay claims; the updated-Chromium floor (ES2020 bundle, roughly Chromium 87+) is documented; the stock Android 7 browser is explicitly not claimed tested; a precise note was added that the service worker uses optional chaining (its own floor is roughly Chromium 80+, below the effective bundle floor).
+- Deployment status: NOT DEPLOYED. No Worker, DNS record, custom domain, or production configuration created or changed. Both the workers.dev staging deploy and the matrix.radarcharts.net hostname attach remain owner-gated.
+- Verification for this checkpoint: PR #19 branch CI (test harness, typecheck, Matrix Console build + PWA smoke, fail-closed deployment smoke) must remain green; no runtime deployment claim is made by this checkpoint.
