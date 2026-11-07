@@ -49,6 +49,12 @@ jobs:
       - name: Type-check (tsc --noEmit)
         run: npm run typecheck
 
+      # M2.2.4: approved import graph for the composition root and
+      # authority-state module. This is source-architecture enforcement,
+      # not runtime isolation against arbitrary same-process code.
+      - name: Check trusted authority import boundary
+        run: npm run check:authority-boundary
+
       # Repository has zero RUNTIME npm dependencies.
       # Node >= 22.18 loads the TypeScript gateway/contract sources via
       # built-in type stripping (erasable syntax only).
