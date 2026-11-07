@@ -18,10 +18,13 @@ mkdir -p "$WORK_DIR/live"
 cp -a "$ROOT/live/." "$WORK_DIR/live/"
 ln -s "$ROOT/config" "$WORK_DIR/config"
 
+# auto/config is invoked with an explicit "sh" prefix: the executable bit can
+# be lost when files are pushed through the GitHub contents API (mode 100644),
+# and a Permission denied (exit 126) must never masquerade as a build failure.
 # Stage 0.1 does not run lb automatically. A real build requires an explicit,
 # immutable Debian snapshot timestamp and must run in an approved environment.
 if [[ "${RADAR_OS_RUN_LB:-0}" != 1 ]]; then
-  (cd "$WORK_DIR/live" && RADAR_OS_ARCH="$ARCH" ./auto/config)
+  (cd "$WORK_DIR/live" && RADAR_OS_ARCH="$ARCH" sh ./auto/config)
   echo "READY: isolated Debian Live configuration prepared for $ARCH; a real build additionally requires RADAR_OS_RUN_LB=1, RADAR_OS_SNAPSHOT_TIMESTAMP=YYYYMMDDTHHMMSSZ, and an approved environment."
   exit 0
 fi
@@ -30,7 +33,7 @@ SNAPSHOT="${RADAR_OS_SNAPSHOT_TIMESTAMP:-}"
 [[ "$SNAPSHOT" =~ ^[0-9]{8}T[0-9]{6}Z$ ]] || { echo "RADAR_OS_SNAPSHOT_TIMESTAMP must be an immutable YYYYMMDDTHHMMSSZ Debian snapshot timestamp" >&2; exit 2; }
 mkdir -p "$OUT_DIR"
 cd "$WORK_DIR/live"
-RADAR_OS_ARCH="$ARCH" RADAR_OS_SNAPSHOT_TIMESTAMP="$SNAPSHOT" ./auto/config
+RADAR_OS_ARCH="$ARCH" RADAR_OS_SNAPSHOT_TIMESTAMP="$SNAPSHOT" sh ./auto/config
 lb build 2>&1 | tee "$OUT_DIR/build.log"
 IMAGE="$(find . -maxdepth 1 -type f -name '*.iso' -print -quit)"
 [[ -n "$IMAGE" ]] || { echo "build completed without a discovered image" >&2; exit 1; }
@@ -44,5 +47,6 @@ with open(path,'w') as f:
     json.dump({'architecture':arch,'format':'iso','image':image,'debian_snapshot_timestamp':snapshot},f,indent=2)
     f.write('\n')
 PY
-"$ROOT/scripts/validate-image.sh" "$DEST" "$ARCH"
-printf '%s\n' "architecture=$ARCH" "image=$(basename "$IMAGE")" "debian_snapshot_timestamp=$SNAPSHOT" > "$OUT_DIR/build-metadata.txt"
+bash "$ROOT/scripts/validate-image.sh" "$DEST" "$ARCH"
+printf '%s
+' "architecture=$ARCH" "image=$(basename "$IMAGE")" "debian_snapshot_timestamp=$SNAPSHOT" > "$OUT_DIR/build-metadata.txt"
