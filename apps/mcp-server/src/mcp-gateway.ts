@@ -51,6 +51,23 @@
  * - OAuth/OIDC issuer integration (external identity provider)
  *   remains M3 work; this gateway trusts only tokens signed by the
  *   configured control-plane key.
+ *
+ * M2.2 (owner-directed security correction, 2026-11-04):
+ * - Runtime mode is now TRI-MODE and FAIL-CLOSED:
+ *   - "development" (exact): deterministic development fixtures.
+ *   - "test" (exact): the same deterministic development fixtures,
+ *     for the automated test suites (documented test fixtures —
+ *     never a production identity source).
+ *   - "production" (exact): production chain only when the COMPLETE
+ *     production auth configuration is present; otherwise EMPTY
+ *     registries (fail closed).
+ *   - Anything else — unset, misspelled, empty, unknown — yields
+ *     "fail_closed": EMPTY registries on BOTH gates. No request can
+ *     authenticate; no request is a member of any workspace. The
+ *     previous behavior (silent fallback to development) is a
+ *     vulnerability and is gone. Never again can an unset or
+ *     misspelled runtime variable silently activate development
+ *     identities.
  */
 
 interface MCPRequest {
@@ -141,25 +158,53 @@ import {
 } from "./runtime/agent-routing.cjs";
 
 /**
- * Runtime mode (M1a follow-up — Finding A: production fails closed).
+ * Runtime mode (M2.2 security correction — fail closed by default).
  *
- * Uses the existing RADARMATRIX_RUNTIME_MODE convention:
+ * The gateway recognizes EXACTLY three runtime modes. Anything else
+ * — including an unset, empty, misspelled, or unknown value — is
+ * treated as an UNKNOWN runtime environment and fails closed:
+ * empty registries on both the authentication and the membership
+ * gates. Development identities can never activate silently.
+ *
  * - "production": the gateway enforces production identity. When
  *   the complete production auth configuration is present, the M2
  *   chain (token verification + durable membership) is wired.
  *   With ANY incomplete configuration the gateway FAILS CLOSED:
  *   the development principal registry and the development
- *   membership fixture are NEVER wired. No request can authenticate,
- *   and no request can be a member of any workspace.
- * - Any other value (including unset): development mode with the
- *   deterministic development fixtures.
+ *   membership fixture are NEVER wired. No request can
+ *   authenticate, and no request can be a member of any workspace.
+ * - "development": deterministic development fixtures (explicitly
+ *   requested, for local development only).
+ * - "test": the same deterministic development fixtures, for the
+ *   automated test suites. Documented TEST fixtures — a test run
+ *   must set its mode explicitly; it never inherits a default.
  */
-const runtimeMode =
-  process.env.RADARMATRIX_RUNTIME_MODE === "production"
-    ? "production"
-    : "development";
+type RuntimeMode =
+  | "development"
+  | "test"
+  | "production"
+  | "fail_closed";
 
-function getRuntimeMode(): string {
+const REQUESTED_RUNTIME_MODE = process.env.RADARMATRIX_RUNTIME_MODE;
+
+const runtimeMode: RuntimeMode =
+  REQUESTED_RUNTIME_MODE === "production"
+    ? "production"
+    : REQUESTED_RUNTIME_MODE === "development"
+      ? "development"
+      : REQUESTED_RUNTIME_MODE === "test"
+        ? "test"
+        : "fail_closed";
+
+/**
+ * Fixtures (development or test) are active ONLY when the mode was
+ * requested EXPLICITLY and EXACTLY. In "fail_closed" and in every
+ * not-fully-configured "production" state, both gates are empty.
+ */
+const fixturesActive =
+  runtimeMode === "development" || runtimeMode === "test";
+
+function getRuntimeMode(): RuntimeMode {
   return runtimeMode;
 }
 
@@ -167,7 +212,7 @@ function getRuntimeMode(): string {
  * M2 production wiring (owner-approved).
  *
  * The production chain is armed ONLY when BOTH hold:
- * 1. RADARMATRIX_RUNTIME_MODE=production, and
+ * 1. RADARMATRIX_RUNTIME_MODE=production (exact), and
  * 2. isProductionAuthConfigured confirms the COMPLETE set:
  *    RADARMATRIX_AUTH_PUBLIC_KEY, RADARMATRIX_TOKEN_ISSUER,
  *    RADARMATRIX_AUDIENCE, RADARMATRIX_MEMBERSHIP_FILE.
@@ -189,13 +234,15 @@ const productionMembershipProvider = productionAuthConfigured
   : null;
 
 /**
- * Defense in depth: in any production state that is not fully
- * configured, BOTH gates are constructed with EMPTY explicit
- * registries:
+ * Defense in depth: in EVERY state that is not explicitly a
+ * fixture mode (development/test) or a fully configured production
+ * chain, BOTH gates are constructed with EMPTY explicit registries:
  * - authentication recognizes no identity at all, and
  * - membership contains no entry at all, so even a forged
  *   authenticated request could not pass workspace isolation.
- * Development mode keeps the deterministic development fixtures.
+ * This covers: production with missing/incomplete configuration,
+ * AND the M2.2 fail_closed default (unset/misspelled/unknown mode).
+ * Development and test modes keep the deterministic fixtures.
  */
 const authProvider = productionAuthConfigured
   ? new ProductionAuthenticationProvider({
@@ -204,11 +251,11 @@ const authProvider = productionAuthConfigured
       audience: process.env.RADARMATRIX_AUDIENCE,
       membership: productionMembershipProvider,
     })
-  : runtimeMode === "production"
-    ? new DevelopmentAuthenticationProvider({
+  : fixturesActive
+    ? new DevelopmentAuthenticationProvider()
+    : new DevelopmentAuthenticationProvider({
         principals: {},
-      })
-    : new DevelopmentAuthenticationProvider();
+      });
 
 const authorizationProvider =
   new DefaultAuthorizationProvider();
@@ -221,11 +268,12 @@ const authorizationProvider =
  * of nothing; unknown workspaces are accessible to no one; unknown
  * roles are rejected at grant time.
  *
- * Production (incompletely configured): empty explicit map —
+ * Production (incompletely configured) and fail_closed (unset,
+ * misspelled, or unknown runtime mode): empty explicit map —
  * nothing is a member of anything (fail closed).
  *
- * Development mode: mirrors defaultDevelopmentPrincipals() — the
- * four development principals are explicit members of the
+ * Development/test mode: mirrors defaultDevelopmentPrincipals() —
+ * the four development principals are explicit members of the
  * development workspace.
  *
  * In every mode this is a strict, fail-closed, explicit map.
@@ -233,12 +281,12 @@ const authorizationProvider =
  */
 const membershipProvider = productionAuthConfigured
   ? productionMembershipProvider
-  : runtimeMode === "production"
+  : fixturesActive
     ? new DevelopmentMembershipProvider({
-        members: {},
+        members: defaultDevelopmentMembership(),
       })
     : new DevelopmentMembershipProvider({
-        members: defaultDevelopmentMembership(),
+        members: {},
       });
 
 /**

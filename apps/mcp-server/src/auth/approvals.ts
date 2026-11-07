@@ -1,5 +1,5 @@
 /**
- * RADARMatrix Approval Tokens (M2, Phase P4)
+ * RADARMatrix Approval Tokens (M2, Phase P4; hardened M2.2)
  *
  * Owner-approved M2 architecture for future runtime execution:
  * an approval is a short-lived, Ed25519-signed, scope-bound,
@@ -14,6 +14,15 @@
  * - Redeemable exactly once (jti redemption record); replay after
  *   redemption is denied.
  * - No approval without a positive TTL; short-lived by design.
+ * - M2.2 SECURITY CORRECTION: the complete claims structure is
+ *   validated before any scope decision — jti, action,
+ *   resource_ids, workspace_id, actor_id must be present and
+ *   well-formed; iat/exp must be FINITE integers with exp > iat.
+ *   The clock input must be a finite number. NaN, Infinity, and
+ *   the JSON "1e999" trick are all rejected.
+ * - M2.2: redemption is an atomic check-and-set (claim). A FAILED
+ *   verification never consumes the approval; concurrent requests
+ *   can never redeem the same single-use jti twice.
  * - This module ISSUES and VERIFIES approval tokens. It does NOT
  *   execute anything. Wiring to a real execution adapter is future
  *   work; the gateway does not consume these tokens yet.
@@ -54,9 +63,15 @@ export interface IssueApprovalInput {
   now: number;
 }
 
+/**
+ * M2.2: claim() is the ATOMIC single-use redemption primitive:
+ * check-and-set in one synchronous operation. It returns true
+ * exactly once per jti — concurrent callers can never both win.
+ */
 export interface RedemptionRecord {
   has(jti: string): boolean;
   add(jti: string): void;
+  claim(jti: string): boolean;
   size(): number;
 }
 
@@ -66,6 +81,15 @@ export function createRedemptionRecord(): RedemptionRecord {
     has: (jti) => seen.has(jti),
     add: (jti) => {
       seen.add(jti);
+    },
+    claim: (jti) => {
+      // Synchronous single-threaded check-and-set: once seen,
+      // every later claim for the same jti loses the race.
+      if (seen.has(jti)) {
+        return false;
+      }
+      seen.add(jti);
+      return true;
     },
     size: () => seen.size,
   };
@@ -90,7 +114,7 @@ const MAX_TTL_SECONDS = 60 * 30; // 30 minutes — approvals are short-lived.
 /**
  * Issues a signed approval token. Returns null (fail-closed) on any
  * invalid input: empty action/resources/workspace/actor, non-positive
- * or excessive TTL, or an issue error.
+ * or excessive TTL, a non-finite clock, or an issue error.
  */
 export function issueApproval(
   input: IssueApprovalInput,
@@ -113,6 +137,8 @@ export function issueApproval(
   ) {
     return null;
   }
+  // M2.2: the issue clock must be a finite number — NaN/Infinity
+  // can never mint a valid approval.
   if (typeof input.now !== "number" || !Number.isFinite(input.now)) return null;
 
   const claims: ApprovalClaims = {
@@ -159,12 +185,60 @@ export interface VerifyApprovalResult {
 }
 
 /**
+ * M2.2: complete claims-structure validation. Runs on the PARSED
+ * claims (before trust is granted) so malformed structure can never
+ * reach the scope or expiry logic. Returns false for:
+ * - non-string / empty jti, action, workspace_id, actor_id
+ * - missing, empty, or non-string resource_ids
+ * - non-finite or non-integer iat/exp (NaN, Infinity, the JSON
+ *   "1e999" trick all land here)
+ * - exp <= iat (zero or negative lifetime can never be valid).
+ */
+function hasValidClaimStructure(claims: ApprovalClaims): boolean {
+  const isStr = (v: unknown) => typeof v === "string" && v.trim().length > 0;
+  if (!claims || typeof claims !== "object") return false;
+  if (!isStr(claims.jti)) return false;
+  if (!isStr(claims.action)) return false;
+  if (!isStr(claims.workspace_id)) return false;
+  if (!isStr(claims.actor_id)) return false;
+  if (!Array.isArray(claims.resource_ids) || claims.resource_ids.length === 0) return false;
+  for (const rid of claims.resource_ids) {
+    if (!isStr(rid)) return false;
+  }
+  if (
+    typeof claims.iat !== "number" ||
+    !Number.isFinite(claims.iat) ||
+    !Number.isInteger(claims.iat)
+  ) {
+    return false;
+  }
+  if (
+    typeof claims.exp !== "number" ||
+    !Number.isFinite(claims.exp) ||
+    !Number.isInteger(claims.exp)
+  ) {
+    return false;
+  }
+  if (claims.exp <= claims.iat) return false;
+  if (claims.grant_id !== undefined && !isStr(claims.grant_id)) return false;
+  if (claims.session_id !== undefined && !isStr(claims.session_id)) return false;
+  return true;
+}
+
+/**
  * Verifies an approval token against an execution attempt and (on
- * success) marks the jti redeemed — single use, replay denied.
+ * success, atomically) marks the jti redeemed — single use, replay
+ * denied.
  *
  * Exact-scope matching: the attempted action and resource must match
  * the approved action and resource list EXACTLY. There is no
  * wildcard resource and no broader-action acceptance.
+ *
+ * M2.2 order of operations:
+ * 1. token shape -> 2. claims structure -> 3. signature ->
+ * 4. clock input validity -> 5. replay check -> 6. expiry ->
+ * 7. exact scope binding -> 8. ATOMIC redemption (claim).
+ * A failed verification at ANY step never consumes the approval.
  */
 export function verifyApproval(
   token: string,
@@ -192,8 +266,10 @@ export function verifyApproval(
   if (typeof claims.jti !== "string" || claims.jti.length === 0) {
     return { valid: false, reason: "malformed_token" };
   }
-  if (redemption.has(claims.jti)) {
-    return { valid: false, reason: "replayed", jti: claims.jti };
+
+  // M2.2: complete claims-structure validation BEFORE any trust.
+  if (!hasValidClaimStructure(claims)) {
+    return { valid: false, reason: "malformed_claims", jti: undefined };
   }
 
   // Signature over the exact payload bytes.
@@ -210,6 +286,18 @@ export function verifyApproval(
   }
   if (!signatureOk) {
     return { valid: false, reason: "bad_signature", jti: claims.jti };
+  }
+
+  // M2.2: the verification clock must be a finite number. A NaN or
+  // Infinite clock input can never validate an approval.
+  if (typeof now !== "number" || !Number.isFinite(now)) {
+    return { valid: false, reason: "invalid_clock", jti: claims.jti };
+  }
+
+  // Replay check (read-only): a redeemed jti is denied. The atomic
+  // claim happens only after EVERY other check has passed.
+  if (redemption.has(claims.jti)) {
+    return { valid: false, reason: "replayed", jti: claims.jti };
   }
 
   // Expiry.
@@ -241,7 +329,11 @@ export function verifyApproval(
     return { valid: false, reason: "session_mismatch", jti: claims.jti };
   }
 
-  // Single-use redemption: mark AFTER all checks pass.
-  redemption.add(claims.jti);
+  // M2.2: single-use redemption is an ATOMIC check-and-set. Only a
+  // fully verified approval reaches this point, and only the first
+  // concurrent winner claims the jti.
+  if (!redemption.claim(claims.jti)) {
+    return { valid: false, reason: "replayed", jti: claims.jti };
+  }
   return { valid: true, jti: claims.jti };
 }
