@@ -82,6 +82,7 @@ import { runAllTests as runM221SecurityCorrections } from "./m2-2-1-security-cor
 import { runAllTests as runM222Provenance } from "./m2-2-2-provenance.test.mjs";
 import { runAllTests as runM223AuthorityHardening } from "./m2-2-3-authority-hardening.test.mjs";
 import { runAllTests as runM224CompositionBoundary } from "./m2-2-4-composition-boundary.test.mjs";
+import { runAllTests as runM231BoundaryContracts } from "./m2-3-1-boundary-contracts.test.mjs";
 
 console.log("\n");
 console.log("╔═════════════════════════════════════════╗");
@@ -105,6 +106,7 @@ const suites = [
   { name: "▶ M2.2.2 Provenance Tests (server-authority binding, fabricated provider/registry rejection)", run: runM222Provenance },
   { name: "▶ M2.2.3 Authority Hardening Tests (secure first initialization, immutable provider/registry binding)", run: runM223AuthorityHardening },
   { name: "▶ M2.2.4 Composition Boundary Tests (approved import graph and residual runtime threat)", run: runM224CompositionBoundary },
+  { name: "▶ M2.3.1 RM-IEP/1 Boundary Contracts (schemas, sessions, NDJSON)", run: runM231BoundaryContracts },
 ];
 
 const results = [];
