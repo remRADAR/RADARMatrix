@@ -51,3 +51,12 @@
 - `auto/config` now honors `RADAR_OS_DISTRIBUTION` (bookworm|trixie, default trixie); unsupported suites fail closed; `os/radar-os/tests/distribution.test.sh` covers default, explicit passthrough, and fail-closed.
 - Debian base decision: PENDING owner approval. Assessment: `docs/os/DEBIAN-BASE-ASSESSMENT.md` (recommendation: Debian 13 trixie). No production Stage 1 build has run.
 - Honest boundary: no genuine Debian Live ISO has been built and no QEMU boot of a real image has run yet; the earlier BusyBox initramfs ISO remains historical illustration only and does not count as Debian Live evidence.
+
+## Checkpoint: BLK-2 real-kernel validation resolved (evidence recorded)
+
+- Workflow run 42350200896 (radar-os-real-kernel-validation) on 68907d8: Success. Evidence committed by CI as 2182c635a05510af3c4cce13ef11247bbb0ec6a3 at os/radar-os/evidence/real-kernel-validation.json.
+- Real (non-mock) kernel binaries from Debian snapshot 20261101T000000Z, both suites and both architectures: bookworm 6.1.0-50 amd64/arm64 and trixie 6.12.113+deb13 amd64/arm64, each packaged into a real xorriso ISO fixture and validated end-to-end by the actual validate-image.sh.
+- Result: 8/8 cases OK. Same-architecture passes (exit 0); cross-architecture fails closed (exit 1). No descriptor-less kernels in the pinned set.
+- Open ARM64 question resolved: the real linux-signed-arm64 kernels ship an uncompressed Image binary that file 5.45 reports as "Linux kernel ARM64 boot executable Image, little-endian, 4K pages", matched case-insensitively by the validator. No decompression step is needed before ARM64 Gate 2 for the pinned kernel packages. Compressed or unidentifiable kernels still fail closed by design.
+- Executable bits: the same evidence commit restored mode 100755 on all 11 os/radar-os scripts, tests and auto/config (content verified byte-identical; mode-only changes).
+- BLK-2 status: RESOLVED at source level. Remaining Stage 1 gates unchanged: owner Debian base decision (trixie vs bookworm, see docs/os/DEBIAN-BASE-ASSESSMENT.md), then the owner-gated stage1-build workflow_dispatch (real live-build, validation, QEMU boot, reproducibility).
