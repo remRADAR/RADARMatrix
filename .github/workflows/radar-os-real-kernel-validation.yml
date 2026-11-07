@@ -1,0 +1,264 @@
+name: RADAR OS real-kernel validation (BLK-2)
+
+# Genuine execution evidence for the kernel-architecture detection fix in
+# validate-image.sh: REAL Debian kernel binaries are downloaded from the pinned
+# immutable snapshot, their actual file(1) descriptors are recorded, and the
+# REAL validator (real file, real xorriso) runs end-to-end against ISO fixtures
+# built from those kernels. Cross-architecture metadata and descriptor-less
+# (e.g. compressed) kernels must fail closed.
+#
+# The machine-generated evidence record is committed by a real git client,
+# which also restores executable bits (mode 100755) that GitHub contents-API
+# pushes cannot set. GITHUB_TOKEN pushes do not re-trigger workflows.
+
+on:
+  push:
+    branches:
+      - "stage-1/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: real-kernel-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  RADAR_OS_SNAPSHOT: 20261101T000000Z
+
+jobs:
+  real-kernel-validation:
+    name: Real kernel descriptor validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the real validation toolchain
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends file xorriso binutils
+
+      - name: Record toolchain versions
+        run: |
+          set -euo pipefail
+          {
+            echo "file: $(file --version | head -n1)"
+            echo "xorriso: $(xorriso --version 2>&1 | head -n1)"
+            echo "python: $(python3 --version)"
+          } | tee toolchain.txt
+
+      - name: Download pinned real Debian kernels from the immutable snapshot
+        run: |
+          set -euo pipefail
+          mkdir -p kernels
+          dl() {
+            local dir="$1" pkg="$2"
+            echo "downloading $pkg from snapshot $RADAR_OS_SNAPSHOT"
+            curl -fsSL --retry 3 --retry-delay 5 -o "kernels/$pkg" \
+              "https://snapshot.debian.org/archive/debian/$RADAR_OS_SNAPSHOT/pool/main/l/$dir/$pkg"
+          }
+          dl linux-signed-amd64 linux-image-6.1.0-50-amd64_6.1.176-1_amd64.deb
+          dl linux-signed-arm64 linux-image-6.1.0-50-arm64_6.1.176-1_arm64.deb
+          dl linux-signed-amd64 linux-image-6.12.113+deb13-amd64_6.12.113-1_amd64.deb
+          dl linux-signed-arm64 linux-image-6.12.113+deb13-arm64_6.12.113-1_arm64.deb
+          (cd kernels && sha256sum ./*.deb > debs.sha256 && cat debs.sha256)
+
+      - name: Extract the real vmlinuz binaries
+        run: |
+          set -euo pipefail
+          mkdir -p extracted
+          for deb in kernels/*.deb; do
+            base="$(basename "$deb" .deb)"
+            mkdir -p "extracted/$base"
+            (cd "extracted/$base" && ar x "$GITHUB_WORKSPACE/$deb" && tar -xf data.tar.* ./boot)
+            find "extracted/$base" -type f -name 'vmlinuz*' -printf '%p\n'
+          done
+          test -n "$(find extracted -type f -name 'vmlinuz*' -print -quit)" || { echo "no vmlinuz extracted" >&2; exit 1; }
+
+      - name: Run the real validator against ISO fixtures built from the real kernels
+        run: |
+          set -euo pipefail
+          REPO="$GITHUB_WORKSPACE"
+          mkdir -p fixtures results
+          printf 'package\tsuite\ttrue_arch\tdeb_sha256\tkernel_file\tdescriptor\tdescriptor_arch\n' > results/kernels.tsv
+          printf 'package\ttrue_arch\tmetadata_arch\tmode\texpected\texit\tdescriptor_arch\tok\n' > results/cases.tsv
+          FAILED=0
+          # Ground truth for each kernel's architecture comes from the Debian
+          # pool path and .deb filename (a priori package identity), never from
+          # file(1) output. The REAL descriptor observed at run time decides only
+          # whether the validator must accept (identifiable same-arch token) or
+          # fail closed (no architecture token, e.g. a compressed kernel).
+          record_kernel() {
+            local base="$1" suite="$2" true_arch="$3"
+            local kernel deb_sha descriptor dlc darch
+            kernel="$(find "extracted/$base" -type f -name 'vmlinuz*' | sort | head -n1)"
+            deb_sha="$(sha256sum "kernels/$base.deb" | awk '{print $1}')"
+            descriptor="$(file -b "$kernel")"
+            dlc="${descriptor,,}"
+            case "$dlc" in
+              *'x86 boot'*|*x86_64*|*x86-64*) darch=amd64 ;;
+              *arm64*|*aarch64*) darch=arm64 ;;
+              *) darch=none ;;
+            esac
+            printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$base" "$suite" "$true_arch" "$deb_sha" "$(basename "$kernel")" "$descriptor" "$darch" >> results/kernels.tsv
+          }
+          run_case() {
+            local base="$1" true_arch="$2" metadata_arch="$3" mode="$4"
+            local kernel fixture descriptor dlc darch expected exit_code ok
+            kernel="$(find "extracted/$base" -type f -name 'vmlinuz*' | sort | head -n1)"
+            fixture="fixtures/$base-$metadata_arch"
+            mkdir -p "$fixture/live"
+            cp "$kernel" "$fixture/live/vmlinuz"
+            xorriso -as mkisofs -J -r -V RADAROS -o "$fixture/radar-os-real.iso" "$fixture" >/dev/null 2>&1
+            (cd "$fixture" && sha256sum radar-os-real.iso > radar-os-real.iso.sha256)
+            printf '{"architecture":"%s","format":"iso","image":"radar-os-real.iso"}\n' "$metadata_arch" > "$fixture/radar-os-real.iso.radar-os.json"
+            descriptor="$(file -b "$kernel")"
+            dlc="${descriptor,,}"
+            case "$dlc" in
+              *'x86 boot'*|*x86_64*|*x86-64*) darch=amd64 ;;
+              *arm64*|*aarch64*) darch=arm64 ;;
+              *) darch=none ;;
+            esac
+            exit_code=0
+            bash "$REPO/os/radar-os/scripts/validate-image.sh" "$fixture/radar-os-real.iso" "$metadata_arch" "$fixture/validation.json" >/dev/null 2>"$fixture/stderr.txt" || exit_code=$?
+            if [[ "$mode" == cross ]]; then
+              expected=fail
+              [[ "$exit_code" -ne 0 ]] && ok=true || ok=false
+            elif [[ "$darch" == "$true_arch" ]]; then
+              expected=pass
+              [[ "$exit_code" -eq 0 ]] && ok=true || ok=false
+            else
+              expected=fail-closed
+              [[ "$exit_code" -ne 0 ]] && ok=true || ok=false
+            fi
+            printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$base" "$true_arch" "$metadata_arch" "$mode" "$expected" "$exit_code" "$darch" "$ok" >> results/cases.tsv
+            printf 'case %-58s metadata=%-5s expected=%-11s exit=%s descriptor_arch=%s\n' "$base" "$metadata_arch" "$expected" "$exit_code" "$darch"
+            printf '%s\n' "$descriptor" > "$fixture/descriptor.txt"
+            if [[ "$ok" != true ]]; then
+              echo "UNEXPECTED validator behaviour for $base/$metadata_arch (expected=$expected exit=$exit_code)" >&2
+              cat "$fixture/stderr.txt" >&2 || true
+              FAILED=1
+            fi
+          }
+          for spec in \
+            'linux-image-6.1.0-50-amd64_6.1.176-1_amd64|bookworm|amd64' \
+            'linux-image-6.1.0-50-arm64_6.1.176-1_arm64|bookworm|arm64' \
+            'linux-image-6.12.113+deb13-amd64_6.12.113-1_amd64|trixie|amd64' \
+            'linux-image-6.12.113+deb13-arm64_6.12.113-1_arm64|trixie|arm64'; do
+            IFS='|' read -r base suite true_arch <<<"$spec"
+            record_kernel "$base" "$suite" "$true_arch"
+            run_case "$base" "$true_arch" "$true_arch" same
+            if [[ "$true_arch" == amd64 ]]; then
+              run_case "$base" "$true_arch" arm64 cross
+            else
+              run_case "$base" "$true_arch" amd64 cross
+            fi
+          done
+          if [[ "$FAILED" != 0 ]]; then
+            echo "real-kernel validation found genuine validator regressions" >&2
+            exit 1
+          fi
+
+      - name: Build the machine-generated evidence record
+        if: always()
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, csv, datetime, os
+          def tsv(path):
+              with open(path) as f:
+                  return list(csv.DictReader(f, delimiter='	'))
+          kernels = tsv('results/kernels.tsv') if os.path.exists('results/kernels.tsv') else []
+          cases = tsv('results/cases.tsv') if os.path.exists('results/cases.tsv') else []
+          for c in cases:
+              c['exit'] = int(c['exit'])
+              c['ok'] = (c['ok'] == 'true')
+          arm64_identifiable = [k for k in kernels if k['true_arch'] == 'arm64' and k['descriptor_arch'] == 'arm64']
+          amd64_identifiable = [k for k in kernels if k['true_arch'] == 'amd64' and k['descriptor_arch'] == 'amd64']
+          notes = []
+          if kernels and not arm64_identifiable:
+              notes.append('Real Debian arm64 vmlinuz descriptors carry no arm64/aarch64 token; validate-image.sh fails closed on them by design. A decompression or EFI-header inspection step is required before ARM64 Gate 2 validation of real Debian Live images.')
+          if kernels and not amd64_identifiable:
+              notes.append('Real Debian amd64 vmlinuz descriptors carry no x86 token; investigate before AMD64 Gate 2.')
+          data = {
+              'schema': 'radar-os-real-kernel-validation/v1',
+              'generated_at_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'github_run_id': os.environ.get('GITHUB_RUN_ID', ''),
+              'head_sha': os.environ.get('GITHUB_SHA', ''),
+              'snapshot_timestamp': os.environ.get('RADAR_OS_SNAPSHOT', ''),
+              'toolchain': open('toolchain.txt').read() if os.path.exists('toolchain.txt') else '',
+              'kernels': kernels,
+              'cases': cases,
+              'summary': {
+                  'cases_total': len(cases),
+                  'cases_ok': sum(1 for c in cases if c['ok']),
+                  'all_cases_ok': bool(cases) and all(c['ok'] for c in cases),
+                  'amd64_descriptors_identifiable': bool(amd64_identifiable),
+                  'arm64_descriptors_identifiable': bool(arm64_identifiable),
+                  'descriptor_less_kernels': [k['package'] for k in kernels if k['descriptor_arch'] == 'none'],
+              },
+              'notes': notes,
+          }
+          os.makedirs('os/radar-os/evidence', exist_ok=True)
+          with open('os/radar-os/evidence/real-kernel-validation.json', 'w') as f:
+              json.dump(data, f, indent=2)
+              f.write('
+')
+          print(json.dumps(data['summary'], indent=2))
+          PY
+
+      - name: Enforce real-kernel expectations
+        run: |
+          set -euo pipefail
+          test -s results/cases.tsv
+          if awk -F'	' 'NR>1 && $8 != "true"' results/cases.tsv | grep -q .; then
+            echo "FAIL: at least one real-kernel case behaved unexpectedly" >&2
+            exit 1
+          fi
+          echo "PASS: every real-kernel case behaved as expected"
+
+      - name: Commit evidence record and restore executable bits
+        if: always()
+        run: |
+          set -euo pipefail
+          [ -f os/radar-os/evidence/real-kernel-validation.json ] || { echo "no evidence to commit"; exit 0; }
+          git config user.name "radar-os-ci"
+          git config user.email "action@users.noreply.github.com"
+          git add os/radar-os/evidence/real-kernel-validation.json
+          git update-index --chmod=+x \
+            os/radar-os/scripts/build-live.sh \
+            os/radar-os/scripts/validate-image.sh \
+            os/radar-os/scripts/run-qemu.sh \
+            os/radar-os/scripts/boot-qemu-amd64.sh \
+            os/radar-os/scripts/boot-qemu-arm64.sh \
+            os/radar-os/live/auto/config \
+            os/radar-os/tests/manifest.test.sh \
+            os/radar-os/tests/distribution.test.sh \
+            os/radar-os/tests/image-validation.test.sh \
+            os/radar-os/tests/qemu-validation.test.sh \
+            os/radar-os/tests/build-live.test.sh \
+            os/radar-os/tests/harness-fail-closed.test.sh
+          if git diff --cached --quiet; then
+            echo "no changes to commit"
+          else
+            git commit -m "chore(os): record BLK-2 real-kernel validation evidence; restore executable bits"
+            git push
+          fi
+
+      - name: Upload validation records
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-kernel-validation-records
+          path: |
+            toolchain.txt
+            kernels/debs.sha256
+            results/*.tsv
+            fixtures/*/descriptor.txt
+            fixtures/*/stderr.txt
+            fixtures/*/validation.json
+          retention-days: 30
+          if-no-files-found: warn

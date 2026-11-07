@@ -40,3 +40,14 @@
 - Cloudflare returned three asset buckets for the four verified build files.
 - Asset upload did not start because the Cloudflare execution runtime cannot read the sandbox filesystem and its outbound policy rejects the temporary CDN/GitHub mirrors used to bridge raw bytes.
 - No partial asset upload, Worker version, deployment, route, DNS record, or secret was created.
+
+## Checkpoint: RADAR OS Stage 1 setup (BLK-2 real-kernel evidence)
+
+- Branch: `stage-1/blk2-real-kernel-validation`, stacked on the Stage 0.1.2 branch (`architecture/stage-0-1-2-image-validation-corrections`, PR #18) at head `6caadd8`.
+- PR lineage preserved: #14 -> #15 -> #16 -> #18; PR #17 (Halo OS PWA) remains a separate workstream. No merges, closes, rebases, DNS, or deploy actions taken.
+- Executable-bit incident (transport artifact): the GitHub contents API resets mode 100755 -> 100644 on pushed files. Red runs 42331593152, 42348935554 (exit 1) and 42349265380, 42349323490 (exit 126) never reached an assertion. Heals: `f85287a`, `c4601e3`, `6caadd8` (same content also applied to the Stage 1 branch as `81001c8`). All internal invocations now use explicit interpreter prefixes; repository-tree mode restoration lands via the real-kernel validation workflow's git-client commit.
+- New CI (push to `stage-1/**` only): `.github/workflows/radar-os-real-kernel-validation.yml` downloads four pinned REAL Debian kernels (bookworm/trixie x amd64/arm64) from immutable snapshot `20261101T000000Z`, records their actual file(1) descriptors, and runs the real `validate-image.sh` end-to-end against ISO fixtures built with xorriso from those kernels. Same-architecture kernels must validate; cross-architecture metadata and descriptor-less (compressed) kernels must fail closed. Machine-generated evidence is committed to `os/radar-os/evidence/real-kernel-validation.json`.
+- Prepared, owner-gated: `.github/workflows/radar-os-stage1-build.yml` (workflow_dispatch ONLY, hard gate `owner_base_approval`). Real live-build from the immutable snapshot, real validation, QEMU boot (SeaBIOS for amd64, AAVMF for arm64), full logs/ISO/evidence artifacts, optional two-build reproducibility comparison that fails on differing digests. It has NOT been dispatched.
+- `auto/config` now honors `RADAR_OS_DISTRIBUTION` (bookworm|trixie, default trixie); unsupported suites fail closed; `os/radar-os/tests/distribution.test.sh` covers default, explicit passthrough, and fail-closed.
+- Debian base decision: PENDING owner approval. Assessment: `docs/os/DEBIAN-BASE-ASSESSMENT.md` (recommendation: Debian 13 trixie). No production Stage 1 build has run.
+- Honest boundary: no genuine Debian Live ISO has been built and no QEMU boot of a real image has run yet; the earlier BusyBox initramfs ISO remains historical illustration only and does not count as Debian Live evidence.

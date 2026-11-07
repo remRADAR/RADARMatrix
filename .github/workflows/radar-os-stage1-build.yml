@@ -1,0 +1,235 @@
+name: RADAR OS Stage 1 build and QEMU boot (dispatch only)
+
+# Real-evidence pipeline. This workflow NEVER runs automatically: it is
+# manually dispatched, and only after the project owner has approved the Debian
+# base suite (docs/os/DEBIAN-BASE-ASSESSMENT.md). The owner_base_approval input
+# is a hard gate; without it no build, no boot, and no image exists.
+#
+# Evidence produced per run: full unedited build log, ISO + SHA-256 sidecar +
+# metadata sidecar, build environment record, real file/xorriso validation,
+# full serial log + QEMU stderr, machine-readable boot evidence JSON, and the
+# ISO itself as an artifact. Optional: two independent builds with a digest
+# comparison that fails the run when the digests differ.
+
+on:
+  workflow_dispatch:
+    inputs:
+      owner_base_approval:
+        description: "Owner gate: only run after the Debian base decision is recorded"
+        required: true
+        type: choice
+        options:
+          - "not-yet-approved"
+          - "owner-has-approved"
+        default: "not-yet-approved"
+      base:
+        description: "Debian base suite (owner decision)"
+        required: true
+        type: choice
+        options: [trixie, bookworm]
+        default: trixie
+      arch:
+        description: "Target architecture"
+        required: true
+        type: choice
+        options: [amd64, arm64]
+        default: amd64
+      snapshot:
+        description: "Immutable Debian snapshot timestamp (YYYYMMDDTHHMMSSZ)"
+        required: true
+        default: "20261101T000000Z"
+      run_reproducibility:
+        description: "Build twice and compare digests"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stage1-build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-boot:
+    name: Build, validate, and boot (real evidence)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Owner gate
+        run: |
+          if [ "${{ inputs.owner_base_approval }}" != "owner-has-approved" ]; then
+            echo "BLOCKED: the Debian base decision has not been approved by the project owner."
+            echo "No build was executed. See docs/os/DEBIAN-BASE-ASSESSMENT.md."
+            exit 1
+          fi
+
+      - name: Install the pinned build and validation toolchain
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends \
+            live-build live-tools xorriso file python3 binutils \
+            qemu-system-x86 qemu-system-arm qemu-efi-aarch64 ovmf seabios
+          if [ "${{ inputs.arch }}" = "arm64" ]; then
+            sudo apt-get install -y -qq --no-install-recommends qemu-user-static binfmt-support
+          fi
+
+      - name: Record the build environment and toolchain versions
+        run: |
+          set -euo pipefail
+          {
+            echo "source_sha: $GITHUB_SHA"
+            echo "base: ${{ inputs.base }}"
+            echo "arch: ${{ inputs.arch }}"
+            echo "snapshot: ${{ inputs.snapshot }}"
+            echo "live-build: $(lb --version 2>/dev/null | head -n1)"
+            echo "xorriso: $(xorriso --version 2>&1 | head -n1)"
+            echo "file: $(file --version | head -n1)"
+            echo "python: $(python3 --version)"
+            echo "qemu_x86: $(qemu-system-x86_64 --version | head -n1)"
+            echo "qemu_arm: $(qemu-system-aarch64 --version | head -n1)"
+            if [ -f /usr/share/seabios/bios-256k.bin ]; then
+              echo "firmware_seabios: /usr/share/seabios/bios-256k.bin $(sha256sum /usr/share/seabios/bios-256k.bin | awk '{print $1}')"
+            fi
+            if [ -f /usr/share/AAVMF/AAVMF_CODE.fd ]; then
+              echo "firmware_aavmf: /usr/share/AAVMF/AAVMF_CODE.fd $(sha256sum /usr/share/AAVMF/AAVMF_CODE.fd | awk '{print $1}')"
+            fi
+          } | tee build-environment.txt
+
+      - name: Build the Debian Live image (real live-build)
+        run: |
+          set -euo pipefail
+          sudo -E env \
+            RADAR_OS_ARCH="${{ inputs.arch }}" \
+            RADAR_OS_DISTRIBUTION="${{ inputs.base }}" \
+            RADAR_OS_RUN_LB=1 \
+            RADAR_OS_SNAPSHOT_TIMESTAMP="${{ inputs.snapshot }}" \
+            RADAR_OS_OUT_DIR="$GITHUB_WORKSPACE/out" \
+            bash os/radar-os/scripts/build-live.sh
+          sudo chown -R "$(id -u):$(id -g)" out
+          ls -la out
+          cat out/*.sha256
+
+      - name: Select firmware
+        id: firmware
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.arch }}" = "amd64" ]; then
+            test -f /usr/share/seabios/bios-256k.bin
+            echo "path=/usr/share/seabios/bios-256k.bin" >> "$GITHUB_OUTPUT"
+          else
+            test -f /usr/share/AAVMF/AAVMF_CODE.fd
+            echo "path=/usr/share/AAVMF/AAVMF_CODE.fd" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Boot the exact built ISO under QEMU
+        run: |
+          set -euo pipefail
+          ISO="$(find out -maxdepth 1 -name '*.iso' -print -quit)"
+          test -n "$ISO" || { echo "no ISO produced" >&2; exit 1; }
+          echo "booting ISO: $ISO"
+          RADAR_OS_QEMU_TIMEOUT=600 \
+            bash "os/radar-os/scripts/boot-qemu-${{ inputs.arch }}.sh" \
+            "$PWD/$ISO" "$PWD/out/serial.log" "${{ steps.firmware.outputs.path }}" "$PWD/out/qemu-boot-evidence.json"
+          cat out/qemu-boot-evidence.json
+
+      - name: Upload evidence bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage1-${{ inputs.arch }}-evidence
+          path: |
+            build-environment.txt
+            out/build.log
+            out/serial.log
+            out/serial.log.qemu-stderr
+            out/*.sha256
+            out/*.radar-os.json
+            out/build-metadata.txt
+            out/qemu-boot-evidence.json
+            out/*.iso
+          retention-days: 7
+          if-no-files-found: warn
+
+  reproducibility:
+    name: Two independent builds, digest comparison
+    if: ${{ inputs.run_reproducibility }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Owner gate
+        run: |
+          if [ "${{ inputs.owner_base_approval }}" != "owner-has-approved" ]; then
+            echo "BLOCKED: owner approval missing; no builds executed."
+            exit 1
+          fi
+
+      - name: Install toolchain
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends live-build live-tools xorriso file python3
+
+      - name: Build twice from the same source SHA, snapshot, and configuration
+        run: |
+          set -euo pipefail
+          for i in 1 2; do
+            sudo -E env \
+              RADAR_OS_ARCH="${{ inputs.arch }}" \
+              RADAR_OS_DISTRIBUTION="${{ inputs.base }}" \
+              RADAR_OS_RUN_LB=1 \
+              RADAR_OS_SNAPSHOT_TIMESTAMP="${{ inputs.snapshot }}" \
+              RADAR_OS_OUT_DIR="$GITHUB_WORKSPACE/out-$i" \
+              bash os/radar-os/scripts/build-live.sh
+            sudo chown -R "$(id -u):$(id -g)" "out-$i"
+          done
+          A="$(find out-1 -maxdepth 1 -name '*.iso' -exec sha256sum {} \; | awk '{print $1}')"
+          B="$(find out-2 -maxdepth 1 -name '*.iso' -exec sha256sum {} \; | awk '{print $1}')"
+          echo "build1_sha256=$A"
+          echo "build2_sha256=$B"
+          if [ "$A" = "$B" ]; then verdict=reproducible; else verdict=differs; fi
+          python3 - "$A" "$B" "$verdict" reproducibility.json <<'PY'
+          import json, sys, datetime, os
+          a, b, verdict, out = sys.argv[1:5]
+          data = {
+              'schema': 'radar-os-reproducibility/v1',
+              'timestamp_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'head_sha': os.environ.get('GITHUB_SHA', ''),
+              'base': os.environ.get('RADAR_OS_REPRO_BASE', ''),
+              'arch': os.environ.get('RADAR_OS_REPRO_ARCH', ''),
+              'snapshot': os.environ.get('RADAR_OS_REPRO_SNAPSHOT', ''),
+              'build1_sha256': a,
+              'build2_sha256': b,
+              'verdict': verdict,
+          }
+          with open(out, 'w') as f:
+              json.dump(data, f, indent=2)
+              f.write('
+')
+          PY
+          sudo env RADAR_OS_REPRO_BASE="${{ inputs.base }}" RADAR_OS_REPRO_ARCH="${{ inputs.arch }}" RADAR_OS_REPRO_SNAPSHOT="${{ inputs.snapshot }}" true
+          cat reproducibility.json
+          if [ "$verdict" != "reproducible" ]; then
+            echo "NOT REPRODUCIBLE: digests differ; timestamps or other nondeterministic inputs must be investigated. Recorded, never silently downgraded." >&2
+            exit 1
+          fi
+
+      - name: Upload reproducibility records
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage1-${{ inputs.arch }}-reproducibility
+          path: |
+            reproducibility.json
+            out-1/build.log
+            out-2/build.log
+            out-1/*.sha256
+            out-2/*.sha256
+          retention-days: 7
+          if-no-files-found: warn
