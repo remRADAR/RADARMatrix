@@ -44,5 +44,5 @@ with open(path,'w') as f:
     json.dump({'architecture':arch,'format':'iso','image':image,'debian_snapshot_timestamp':snapshot},f,indent=2)
     f.write('\n')
 PY
-"$ROOT/scripts/validate-image.sh" "$DEST" "$ARCH"
+bash "$ROOT/scripts/validate-image.sh" "$DEST" "$ARCH"
 printf '%s\n' "architecture=$ARCH" "image=$(basename "$IMAGE")" "debian_snapshot_timestamp=$SNAPSHOT" > "$OUT_DIR/build-metadata.txt"

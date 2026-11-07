@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# All internal script invocations use an explicit "bash" prefix: executable bits
+# can be lost when files are pushed through the GitHub contents API (mode
+# 100644), and transport artifacts must never break the boot/build pipeline.
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 IMAGE="$TMP/dummy.iso"
@@ -9,7 +12,7 @@ printf 'synthetic image fixture\n' > "$IMAGE"
 printf 'synthetic firmware fixture\n' > "$FIRMWARE"
 for arch in amd64 arm64; do
   WRAPPER="$ROOT/scripts/boot-qemu-$arch.sh"
-  if "$WRAPPER" "$IMAGE" "$TMP/$arch-missing.log" "$TMP/no-firmware.fd" "$TMP/$arch-missing.json" 2>"$TMP/$arch-missing.err"; then
+  if bash "$WRAPPER" "$IMAGE" "$TMP/$arch-missing.log" "$TMP/no-firmware.fd" "$TMP/$arch-missing.json" 2>"$TMP/$arch-missing.err"; then
     echo "expected missing firmware to block $arch QEMU" >&2; exit 1
   fi
   grep -q 'explicit firmware file is required' "$TMP/$arch-missing.err"
@@ -53,7 +56,7 @@ cat > "$IMAGE.radar-os.json" <<'JSON'
 {"architecture":"amd64","format":"iso","image":"dummy.iso"}
 JSON
 (cd "$TMP" && sha256sum dummy.iso > dummy.iso.sha256)
-PATH="$TMP/bin:$PATH" MOCK_QEMU_ARGS="$TMP/amd64.args" MOCK_KERNEL_ARCH=amd64 MOCK_QEMU_READY=1 RADAR_OS_QEMU_TIMEOUT=3 "$ROOT/scripts/boot-qemu-amd64.sh" "$IMAGE" "$TMP/amd64.serial.log" "$FIRMWARE" "$TMP/amd64.evidence.json" >/dev/null
+PATH="$TMP/bin:$PATH" MOCK_QEMU_ARGS="$TMP/amd64.args" MOCK_KERNEL_ARCH=amd64 MOCK_QEMU_READY=1 RADAR_OS_QEMU_TIMEOUT=3 bash "$ROOT/scripts/boot-qemu-amd64.sh" "$IMAGE" "$TMP/amd64.serial.log" "$FIRMWARE" "$TMP/amd64.evidence.json" >/dev/null
 grep -qx -- '-cdrom' "$TMP/amd64.args"
 ! grep -qx -- '-drive' "$TMP/amd64.args"
 python3 - "$TMP/amd64.evidence.json" <<'PY'
@@ -64,7 +67,7 @@ PY
 cat > "$IMAGE.radar-os.json" <<'JSON'
 {"architecture":"arm64","format":"iso","image":"dummy.iso"}
 JSON
-PATH="$TMP/bin:$PATH" MOCK_QEMU_ARGS="$TMP/arm64.args" MOCK_KERNEL_ARCH=arm64 MOCK_QEMU_READY=0 RADAR_OS_QEMU_TIMEOUT=3 "$ROOT/scripts/boot-qemu-arm64.sh" "$IMAGE" "$TMP/arm64.serial.log" "$FIRMWARE" "$TMP/arm64.evidence.json" >"$TMP/not-ready.out" 2>"$TMP/not-ready.err" && {
+PATH="$TMP/bin:$PATH" MOCK_QEMU_ARGS="$TMP/arm64.args" MOCK_KERNEL_ARCH=arm64 MOCK_QEMU_READY=0 RADAR_OS_QEMU_TIMEOUT=3 bash "$ROOT/scripts/boot-qemu-arm64.sh" "$IMAGE" "$TMP/arm64.serial.log" "$FIRMWARE" "$TMP/arm64.evidence.json" >"$TMP/not-ready.out" 2>"$TMP/not-ready.err" && {
   echo "expected QEMU process start without readiness to fail" >&2; exit 1;
 }
 grep -q 'QEMU process started but OS readiness marker was not observed' "$TMP/not-ready.err"
