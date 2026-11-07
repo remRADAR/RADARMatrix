@@ -117,10 +117,16 @@ export interface StorageAdapter {
   appendAudit(event: AuditEvent): Promise<void>;
 }
 
+/**
+ * RM-IEP/1 execution request shape. Arbitrary command strings are
+ * deliberately not representable at this boundary: adapters receive an
+ * allowlisted named tool and validated object arguments only.
+ */
 export interface RuntimeExecutionRequest {
-  command: string;
-  cwd?: string;
-  timeoutMs?: number;
+  protocol: "RM-IEP/1";
+  tool: ToolName;
+  arguments: Record<string, unknown>;
+  session_id: string;
   /** Required for any consequential operation. Absence means deny. */
   approvalToken?: string;
 }
