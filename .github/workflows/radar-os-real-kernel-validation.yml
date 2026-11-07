@@ -205,8 +205,7 @@ jobs:
           os.makedirs('os/radar-os/evidence', exist_ok=True)
           with open('os/radar-os/evidence/real-kernel-validation.json', 'w') as f:
               json.dump(data, f, indent=2)
-              f.write('
-')
+              f.write('\n')
           print(json.dumps(data['summary'], indent=2))
           PY
 

@@ -68,8 +68,7 @@ python3 - "$EVIDENCE" "$ARCH" "$IMAGE" "$IMAGE_SHA" "$FIRMWARE" "$FIRMWARE_SHA" 
 import json,sys,datetime,os
 p,arch,image,sha,fw,fwsha,version,machine,marker,log,err,ok,duration,exit_code,terminated=sys.argv[1:]
 data={'schema':'radar-os-qemu-evidence/v1','timestamp_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'architecture':arch,'machine':machine,'qemu_version':version,'image':os.path.abspath(image),'image_sha256':sha,'firmware':os.path.abspath(fw),'firmware_sha256':fwsha,'readiness_marker':marker,'serial_log':os.path.abspath(log),'qemu_stderr_log':os.path.abspath(err),'qemu_process_started':True,'qemu_exit_code':int(exit_code),'terminated_after_readiness':terminated=='1','os_ready':ok=='1','duration_seconds':int(duration)}
-with open(p,'w') as f: json.dump(data,f,indent=2); f.write('
-')
+with open(p,'w') as f: json.dump(data,f,indent=2); f.write('\n')
 PY
 if [[ "$BOOT_OK" != 1 ]]; then
   echo "FAIL: QEMU process started but OS readiness marker was not observed; evidence=$EVIDENCE" >&2

@@ -45,8 +45,7 @@ import json,sys
 path,arch,image,snapshot=sys.argv[1:]
 with open(path,'w') as f:
     json.dump({'architecture':arch,'format':'iso','image':image,'debian_snapshot_timestamp':snapshot},f,indent=2)
-    f.write('
-')
+    f.write('\n')
 PY
 bash "$ROOT/scripts/validate-image.sh" "$DEST" "$ARCH"
 printf '%s

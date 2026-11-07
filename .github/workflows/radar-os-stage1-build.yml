@@ -194,26 +194,24 @@ jobs:
           echo "build1_sha256=$A"
           echo "build2_sha256=$B"
           if [ "$A" = "$B" ]; then verdict=reproducible; else verdict=differs; fi
-          python3 - "$A" "$B" "$verdict" reproducibility.json <<'PY'
+          python3 - "$A" "$B" "$verdict" "${{ inputs.base }}" "${{ inputs.arch }}" "${{ inputs.snapshot }}" reproducibility.json <<'PY'
           import json, sys, datetime, os
-          a, b, verdict, out = sys.argv[1:5]
+          a, b, verdict, base, arch, snapshot, out = sys.argv[1:8]
           data = {
               'schema': 'radar-os-reproducibility/v1',
               'timestamp_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
               'head_sha': os.environ.get('GITHUB_SHA', ''),
-              'base': os.environ.get('RADAR_OS_REPRO_BASE', ''),
-              'arch': os.environ.get('RADAR_OS_REPRO_ARCH', ''),
-              'snapshot': os.environ.get('RADAR_OS_REPRO_SNAPSHOT', ''),
+              'base': base,
+              'arch': arch,
+              'snapshot': snapshot,
               'build1_sha256': a,
               'build2_sha256': b,
               'verdict': verdict,
           }
           with open(out, 'w') as f:
               json.dump(data, f, indent=2)
-              f.write('
-')
+              f.write('\n')
           PY
-          sudo env RADAR_OS_REPRO_BASE="${{ inputs.base }}" RADAR_OS_REPRO_ARCH="${{ inputs.arch }}" RADAR_OS_REPRO_SNAPSHOT="${{ inputs.snapshot }}" true
           cat reproducibility.json
           if [ "$verdict" != "reproducible" ]; then
             echo "NOT REPRODUCIBLE: digests differ; timestamps or other nondeterministic inputs must be investigated. Recorded, never silently downgraded." >&2
