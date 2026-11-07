@@ -192,8 +192,15 @@
 - Added `docs/M2-2-4-TRUSTED-COMPOSITION-BOUNDARY.md`, which distinguishes API restriction, CI/import enforcement, and runtime isolation. A separate process, protected worker/service, or equivalent capability boundary remains required before treating arbitrary same-process malicious execution as in scope.
 - Gateway execution remains unwired. No production, deployment, secret, DNS, database, M3, or historical-branch changes occurred.
 
+## OWNER-DIRECTED MERGE AND M3 RESUMPTION (2026-11-05)
+- PR #9 (`M2.2.4 — Enforce Trusted Composition Boundary`) was marked ready and merged by owner direction as merge commit `0246fe04d3fdc386ef629d76be75d311f2269f93` into `security/m2-2-3-authority-hardening` (the PR #8 head/base chain). It was NOT merged to `main`.
+- Local M3 continuation branch: `runtime/m3-github-readonly-resumed`, based on the merged PR #9 commit. The security branch already carried the hardened M3 adapter, but did not register the original M3 deterministic regression suite.
+- Resumption adds the 26-test M3 suite to the runner and uses the server-bound test registry, verified actor context, and HMAC-sealed grants. It asserts missing-integrity denial, concurrent one-use reservation before dispatch, and the documented no-refund behavior when approval verification fails. Caller-supplied registries and the removed `recordGrantUse` path are not restored.
+- Local verification on this branch: 14 suites passed; the M3 suite passed 26 tests; typecheck, authority-boundary check, deployment smoke, failure-marker guard, and `git diff --check` passed.
+- M3 continuation changes are on `runtime/m3-github-readonly-resumed`, based on `security/m2-2-3-authority-hardening`; they are separate from PR #5 and are not merged to `main`. PR #5 and PRs #6–#8 remain draft/open. No gateway integration, live GitHub credentials, or production deployment occurred; the adapter remains standalone, not a connected production capability.
+
 ## PENDING OWNER APPROVALS / DECISIONS
-0. Review M2.2.4 (`security/m2-2-4-trusted-composition-boundary`; draft PR targeting PR #8), including the explicit residual same-process limitation and future runtime-isolation requirement.
+0. M2.2.4 disposition: PR #9 was merged into the PR #8 head by owner direction; the same-process residual limitation remains documented and unresolved. `main` is untouched.
 1. Review of M2.2.3 (`security/m2-2-3-authority-hardening`; docs/M2-2-3-AUTHORITY-HARDENING.md; draft PR #8, base `security/m2-2-2-provenance`) and its disposition — the newest link in the chain; it presumes the PR #7 disposition.
 2. Review of M2.2.2 (`security/m2-2-2-provenance`; docs/M2-2-2-PROVENANCE.md) and its disposition (draft PR #7 is owner-gated; it is based on the M2.2.1 head and presumes the PR #6 disposition).
 2. Review of M2.2.1 (`security/m2-2-hardening`; docs/M2-2-1-CORRECTIONS.md) and its disposition (merge into the M2 branch via draft PR #6; PR #3 is not ready for another review until then).

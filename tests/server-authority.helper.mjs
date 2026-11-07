@@ -18,9 +18,9 @@
  * supply any of it.
  *
  * The canonical registry for tests is the MERGED registry: the real
- * TOOL_REGISTRY plus the two read-only github adapter tools used by
- * the M2.2.1 compatibility-adapter suites (both viewer-level, read
- * only) — so grants for them derive legally from every role.
+ * TOOL_REGISTRY plus all six M3 GitHub read-only operations and the
+ * synthetic approval-gated test operation. Each added operation is
+ * viewer-level and read-only; these are test-only policy entries.
  *
  * IMPORTANT: setMembershipState REPLACES the whole state (no
  * merging) so no test can leak a stale fixture into the next one.
@@ -42,9 +42,14 @@ import {
   isServerAuthorityComposed,
 } from "../apps/mcp-server/src/auth/server-composition.ts";
 
-/** Canonical test registry: TOOL_REGISTRY + read-only github adapter tools. */
+/** Canonical test registry: TOOL_REGISTRY + M3 read-only and synthetic approval tools. */
 export const TEST_REGISTRY = Object.freeze(Object.assign({}, TOOL_REGISTRY, {
+  "github.read.file": { required_role: "viewer", is_write_operation: false },
+  "github.read.directory": { required_role: "viewer", is_write_operation: false },
   "github.read.branches": { required_role: "viewer", is_write_operation: false },
+  "github.read.branch": { required_role: "viewer", is_write_operation: false },
+  "github.read.pull_request": { required_role: "viewer", is_write_operation: false },
+  "github.read.commit": { required_role: "viewer", is_write_operation: false },
   "github.read.sensitive": { required_role: "viewer", is_write_operation: false },
 }));
 
