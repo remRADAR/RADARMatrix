@@ -4,12 +4,26 @@ name: CI
 # workflow. main carries only deploy-staging.yml (push to `staging`, no tests),
 # so PR #14's only check run was "Vercel Preview Comments". The exit-code
 # enforced suite therefore had no automated consumer.
+#
+# TRIGGER FIX (this change): `docs/**` was missing from the push branches, so
+# this workflow never ran on THIS branch — `docs/pr15-final-housekeeping` — or
+# on any other `docs/*` branch. The workflow file was present and correct but
+# nothing ever fired it, which is why PR #16's Actions run list was empty and
+# its only check run was "Vercel Preview Comments". The pattern is added so the
+# job actually executes on the branch it ships with. No job, step or assertion
+# is changed by this fix.
+#
+# NOTE: the only CI run ever attributed to this branch's head SHA came from
+# branch `architecture/stage-0-1-2-image-validation-corrections`, which
+# inherited the identical `ci.yml`. That run proves the file works; it does not
+# prove this branch was ever tested.
 
 on:
   push:
     branches:
       - main
       - "architecture/**"
+      - "docs/**"
       - "security/**"
       - "runtime/**"
       - "stage-1/**"

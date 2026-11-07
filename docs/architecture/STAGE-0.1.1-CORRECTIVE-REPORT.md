@@ -129,8 +129,10 @@ PR #14 and the baseline both state that `lb`, QEMU, and firmware are absent, so 
 | Userspace | BusyBox 1.35.0 static, custom `/init` PID 1 |
 | Firmware used | `/usr/share/seabios/bios-256k.bin` |
 | Firmware SHA-256 | `2da2018c7555e50b660a84a273a14a79cb87b9070fe6a90e9f151a53e357f7e6` |
-| QEMU | 7.2.22, `-machine q35`, 1024 MB |
+| QEMU | 7.2.22, `-machine q35`; the tracked evidence JSON does not record guest memory |
 | Readiness marker | `BOOT_EVIDENCE_OK` |
+
+**Memory evidence reconciliation.** The earlier `1024 MB` value in this report is unsupported by the retained artifacts and is withdrawn. The QEMU runner at the evidence commit (`880efc1`) and at the audited PR #15 head (`d863939`) specifies `-m 2048`, but `qemu-boot-amd64.json` and the captured serial excerpts do not record the actual QEMU argv or guest RAM. Therefore 2048 MB is verified as the runner configuration at those revisions, not as a directly evidenced runtime fact. The archived evidence files are unchanged; do not infer the executed RAM value from the script alone.
 
 Serial output captured from the guest, via the repository's **own** `os/radar-os/scripts/run-qemu.sh`:
 
@@ -175,10 +177,10 @@ test harness tests passed: clean run exits 0 and a single injected assertion fai
 
 ## What is still not done — stated plainly
 
-1. **No independent review.** PR #14 asked Mistral Vibe to review `5e00162`; this report is the implementer's own work and cannot substitute for that.
+1. **Independent review completed.** Mistral Vibe's verdict on PR #15's exact head `d863939` is **ACCEPTED WITH NON-BLOCKING FINDINGS**. This report remains implementer-authored evidence; the verdict does not certify the unverified Stage 1 requirements below.
 2. **No merge, no deployment, no DNS/secret/credential/paid-resource change.** `main` is untouched.
 3. **ARM64 boot not attempted.** `qemu-system-aarch64`, an ARM64 kernel, and AArch64 firmware are not provisioned here.
 4. **`live-build` not used.** The image was assembled manually (kernel + initramfs + isolinux + xorriso). A `live-build`-produced Debian Live image remains unbuilt.
 5. **Halo OS, Matrix IDE, Cloud Computer, and Operator Screen are not implemented** beyond the pre-existing Console prototype from merged PR #11.
 6. **Production OAuth/OIDC remains NOT IMPLEMENTED**, as PR #14 correctly states.
-7. **The M2 security stack is still unmerged** (#3, #5, #6, #7, #8, #10, #12, #13 all open), so no trusted-authority or execution-isolation control is in `main`.
+7. **The M2 security-related work remains unmerged** (PRs #3, #5, #6, #7, #8, #10, and #12 are open drafts); PR #13 is the separate Stage 0.1 OS closure proposal, not part of that M2 list. No trusted-authority or execution-isolation control from those drafts is in `main`.
