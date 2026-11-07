@@ -1,5 +1,6 @@
 /**
- * RADARMatrix Delegated Authority (M2, Phase P4; hardened M2.2, corrected M2.2.1)
+ * RADARMatrix Delegated Authority (M2, Phase P4; hardened M2.2, corrected
+ * M2.2.1, provenance-corrected M2.2.2)
  *
  * Owner-approved M2 architecture: a specialist agent must never
  * inherit every permission of the human (or RADAR orchestration
@@ -25,15 +26,6 @@
  *   context that must verify a grant ("integrity_unavailable").
  *   The secret never appears in grant objects, request data, results
  *   or errors.
- * - M2.2.1 SECURITY CORRECTION C (trusted actor provenance): a
- *   TypeScript interface does not authenticate a JavaScript object.
- *   TrustedActorContext is now a RUNTIME-BRANDED object minted ONLY
- *   by createTrustedActorContext(principal, membership), which
- *   verifies workspace membership and derives the role from the
- *   trusted membership layer. A plain object literal constructed by
- *   a caller (even one shaped exactly like TrustedActorContext, with
- *   "admin" roles) carries no brand and is rejected at runtime —
- *   the compile-time type is NEVER the security boundary.
  * - M2.2.1 SECURITY CORRECTION B (atomic grant-use enforcement):
  *   reserveGrantUse() is the ATOMIC reservation primitive — a
  *   synchronous check-and-consume (validate limit -> increment uses
@@ -48,6 +40,39 @@
  *   (single-threaded synchronous section); it is NOT a distributed
  *   lock. Cross-process capacity enforcement requires the durable
  *   transactional store (D1, M7) — unchanged roadmap.
+ * - M2.2.2 PROVENANCE CORRECTION A (membership provider provenance):
+ *   createTrustedActorContext previously accepted a membership
+ *   provider as an ARGUMENT — a caller able to supply a fabricated
+ *   provider ({isMember:()=>true, getRole:()=>"admin"}) could mint a
+ *   runtime-branded admin context. The brand alone is not proof of
+ *   authentic membership. The membership provider is now bound ONCE
+ *   at the trusted server composition boundary via
+ *   initializeServerAuthority({membershipProvider, toolRegistry}):
+ *   a module-scoped, set-once, frozen binding. The mint function
+ *   takes NO provider argument and reads ONLY the bound provider;
+ *   a second argument is rejected outright (legacy caller-supplied
+ *   providers fail LOUDLY, not silently). Uninitialized => every
+ *   mint fails closed (null). Untrusted request payloads can
+ *   neither supply nor replace the provider.
+ * - M2.2.2 PROVENANCE CORRECTION B (tool registry provenance):
+ *   createDelegatedGrant previously accepted the tool registry
+ *   through its input — a caller-controlled registry could redefine
+ *   which tools exist or which roles they require, granting itself
+ *   authority. The registry is now part of the SAME set-once server
+ *   authority binding; an input that still carries a `registry`
+ *   field is rejected outright, tool-permission checks use ONLY the
+ *   server-bound canonical registry, and unknown tools fail closed.
+ *   Write permission remains strictly derived (a write grant
+ *   requires the actor's derived write capability from the
+ *   canonical registry).
+ * - The composition binding is dependency injection at a trusted
+ *   server composition boundary — NOT global mutable state: it is
+ *   set once per process, then frozen and read-only for the
+ *   module's lifetime. In production the gateway composition code
+ *   is the only caller; request handlers never touch it. (The
+ *   durable D1/M7 membership/registry successors slot in behind the
+ *   SAME ActorMembershipSource/RegistryInput abstractions — the
+ *   provider abstraction is preserved unchanged.)
  * - allowed_actions must be a non-empty subset of {read, write}
  *   containing only known actions. No "admin", no wildcard.
  * - Expiry and use limits are enforced on EVERY validation and on
@@ -63,11 +88,15 @@
  *   compatibility adapter on THIS branch (apps/mcp-server/src/
  *   runtime/github-readonly.ts) uses the reservation API, and the
  *   original M3 branch is untouched (see docs/M2-2-1-CORRECTIONS.md).
+ * - M2.2.2 CONTRACT NOTE: createTrustedActorContext no longer takes
+ *   a membership-source argument, and CreateGrantInput no longer
+ *   carries `registry`. Both provenance inputs moved to the
+ *   set-once server authority binding. This is a deliberate
+ *   breaking correction of the trusted-authority boundary —
+ *   callers passing them are rejected (fail-closed, loudly).
  *
  * Zero runtime npm dependencies. Erasable-syntax TypeScript only
- * (Node type-stripping compatible). The tool registry is an explicit
- * input rather than an import so this module does not widen the
- * type-check scope.
+ * (Node type-stripping compatible).
  */
 
 import { createHmac, timingSafeEqual } from "node:crypto";
@@ -200,7 +229,97 @@ export function createGrantIntegrityService(
 }
 
 // ---------------------------------------------------------------------------
-// M2.2.1 CORRECTION C — runtime-branded trusted actor provenance.
+// M2.2.2 — the trusted server composition boundary.
+// ---------------------------------------------------------------------------
+
+/**
+ * The trusted membership/authentication surface this module may draw
+ * provenance from. In production this is the real membership
+ * provider (FileMembershipProvider or its durable successor); it is
+ * NEVER request data. The D1/M7 durable membership adapter slots in
+ * behind this SAME abstraction — the interface is unchanged.
+ */
+export interface ActorMembershipSource {
+  /** Is the principal a member of the workspace? */
+  isMember(callerId: string, workspaceId: string): boolean;
+  /** The principal's role in the workspace, or null when absent/unknown. */
+  getRole(callerId: string, workspaceId: string): string | null;
+}
+
+/**
+ * M2.2: the minimal tool-registry entry shape this module relies on.
+ * The canonical registry lives in the set-once server authority
+ * binding — callers can no longer supply their own.
+ */
+export interface RegistryToolEntry {
+  required_role?: unknown;
+  is_write_operation?: unknown;
+}
+
+export interface RegistryInput {
+  [tool: string]: RegistryToolEntry | unknown;
+}
+
+/**
+ * The server authority binding: the membership provider and the
+ * canonical tool registry, injected ONCE at the trusted server
+ * composition boundary (gateway startup). Set-once, then frozen and
+ * read-only for the module's lifetime — this is dependency injection
+ * at the composition boundary, not global mutable state, and not a
+ * permissive fallback: before initialization every trusted mint and
+ * grant creation fails closed.
+ */
+export interface ServerAuthorityConfig {
+  membershipProvider: ActorMembershipSource;
+  toolRegistry: RegistryInput;
+}
+
+let serverAuthority: Readonly<ServerAuthorityConfig> | null = null;
+
+/**
+ * Binds the server authority (membership provider + canonical tool
+ * registry). Returns true on the FIRST successful call; returns
+ * false forever after — the binding cannot be replaced, swapped or
+ * reset by any later caller (a request handler can never re-point
+ * the trusted provenance at a fabricated provider or registry).
+ * Malformed configs are rejected and leave the module unbound.
+ */
+export function initializeServerAuthority(config: unknown): boolean {
+  if (serverAuthority !== null) return false;
+  if (!config || typeof config !== "object") return false;
+  const provider = (config as { membershipProvider?: unknown }).membershipProvider;
+  const registry = (config as { toolRegistry?: unknown }).toolRegistry;
+  if (
+    !provider ||
+    typeof provider !== "object" ||
+    typeof (provider as ActorMembershipSource).isMember !== "function" ||
+    typeof (provider as ActorMembershipSource).getRole !== "function"
+  ) {
+    return false;
+  }
+  if (!registry || typeof registry !== "object" || Array.isArray(registry)) {
+    return false;
+  }
+  serverAuthority = Object.freeze({
+    membershipProvider: provider as ActorMembershipSource,
+    toolRegistry: registry as RegistryInput,
+  });
+  return true;
+}
+
+/**
+ * Whether the trusted server composition boundary has been bound.
+ * False => every trusted-context mint and every grant creation fails
+ * closed.
+ */
+export function isServerAuthorityInitialized(): boolean {
+  return serverAuthority !== null;
+}
+
+// ---------------------------------------------------------------------------
+// M2.2.1 CORRECTION C + M2.2.2 CORRECTION A — runtime-branded trusted
+// actor provenance, minted ONLY from the server-bound membership
+// provider.
 // ---------------------------------------------------------------------------
 
 /**
@@ -212,10 +331,12 @@ const TRUSTED_ACTOR_BRAND = Symbol("radarmatrix.trusted-actor-context");
 
 /**
  * Trusted server-side actor context. Constructible ONLY by
- * createTrustedActorContext (which verifies membership and derives
- * the role from the trusted membership layer). The brand is enforced
- * AT RUNTIME by deriveActorAuthority and createDelegatedGrant — the
- * TypeScript type alone proves nothing.
+ * createTrustedActorContext (which verifies membership through the
+ * SERVER-BOUND provider and derives the role from it). The brand is
+ * enforced AT RUNTIME by deriveActorAuthority and createDelegatedGrant
+ * — the TypeScript type alone proves nothing, and (M2.2.2) the brand
+ * alone is not proof either: the role data itself now originates
+ * exclusively from the set-once server authority binding.
  */
 export interface TrustedActorContext {
   readonly [TRUSTED_ACTOR_BRAND]: true;
@@ -228,44 +349,44 @@ export interface TrustedActorContext {
 }
 
 /**
- * The trusted membership/authentication surface this module may draw
- * provenance from. In production this is the real membership
- * provider (FileMembershipProvider or its durable successor); it is
- * NEVER request data.
- */
-export interface ActorMembershipSource {
-  /** Is the principal a member of the workspace? */
-  isMember(callerId: string, workspaceId: string): boolean;
-  /** The principal's role in the workspace, or null when absent/unknown. */
-  getRole(callerId: string, workspaceId: string): string | null;
-}
-
-/**
- * Mints the one and only trusted actor context. Fails closed
+ * Mints the one and only trusted actor context — from the
+ * SERVER-BOUND membership provider ONLY (M2.2.2). Fails closed
  * (returns null) when:
+ * - a second argument is supplied (legacy caller-supplied providers
+ *   are rejected LOUDLY — the caller is not the composition
+ *   boundary),
+ * - the server authority is not initialized,
  * - the principal identifiers are missing/malformed,
  * - the actor is NOT a verified member of the workspace
  *   (cross-workspace delegation impossible),
- * - the membership layer yields no role or an unknown role.
+ * - the membership layer yields no role or an unknown role, or the
+ *   membership provider throws.
  *
  * The returned object is frozen and branded; its roles come ONLY
- * from the membership source. A caller can never manufacture it.
+ * from the bound membership provider. A caller can never manufacture
+ * it, and can never substitute the membership source it is minted
+ * from.
  */
 export function createTrustedActorContext(
   principal: { caller_id: unknown; workspace_id: unknown },
-  membership: ActorMembershipSource,
+  ...legacyProvider: unknown[]
 ): TrustedActorContext | null {
+  // M2.2.2: the membership provider is NOT an argument. Any caller
+  // still passing one is attempting to substitute provenance — fail
+  // closed, loudly.
+  if (legacyProvider.length > 0) return null;
   if (!principal || typeof principal !== "object") return null;
-  if (!membership || typeof membership !== "object") return null;
+  if (serverAuthority === null) return null;
+  const membership = serverAuthority.membershipProvider;
+
   const callerId = (principal as { caller_id?: unknown }).caller_id;
   const workspaceId = (principal as { workspace_id?: unknown }).workspace_id;
   if (typeof callerId !== "string" || callerId.trim().length === 0) return null;
   if (typeof workspaceId !== "string" || workspaceId.trim().length === 0) return null;
-  if (typeof membership.isMember !== "function" || typeof membership.getRole !== "function") {
-    return null;
-  }
-  // Membership is verified against the requested workspace — a
-  // request payload can never assert it.
+
+  // Membership is verified against the requested workspace through
+  // the SERVER-BOUND provider — a request payload can never assert
+  // it and can never replace the provider.
   let isMember: boolean = false;
   try {
     isMember = membership.isMember(callerId, workspaceId) === true;
@@ -301,20 +422,6 @@ function isTrustedActorContext(value: unknown): value is TrustedActorContext {
   );
 }
 
-/**
- * M2.2: the minimal tool-registry entry shape this module relies on.
- * The registry stays an explicit input (Record) — this interface only
- * documents the fields deriveActorAuthority reads.
- */
-export interface RegistryToolEntry {
-  required_role?: unknown;
-  is_write_operation?: unknown;
-}
-
-export interface RegistryInput {
-  [tool: string]: RegistryToolEntry | unknown;
-}
-
 export interface CreateGrantInput {
   grant_id: string;
   agent_id: string;
@@ -322,13 +429,12 @@ export interface CreateGrantInput {
   allowed_actions: ("read" | "write")[];
   ttl_seconds: number;
   max_uses?: number;
-  /** Tool registry to validate tool names against (explicit input). */
-  registry: RegistryInput;
   /**
-   * M2.2/M2.2.1: trusted server-side actor context (required, and
-   * now RUNTIME-BRANDED — plain objects are rejected). Actor
-   * authority is DERIVED from the verified membership role + the
-   * registry.
+   * M2.2.2: `registry` is NO LONGER an accepted input. The canonical
+   * tool registry lives in the set-once server authority binding. An
+   * input still carrying this field is rejected outright (fail-closed,
+   * loudly) so a caller-controlled registry can never redefine which
+   * tools exist or which roles they require.
    */
   actor: TrustedActorContext;
 }
@@ -354,9 +460,15 @@ function isNonEmptyString(v: unknown): boolean {
 
 /**
  * Derives the actor's tool authority from the TRUSTED (branded) actor
- * context and the tool registry. A role unlocks a tool exactly when
+ * context and a tool registry. A role unlocks a tool exactly when
  * the authorization boundary would unlock it:
  * roleLevel(actor) >= roleLevel(tool.required_role).
+ *
+ * NOTE (M2.2.2): grant creation passes ONLY the server-bound
+ * canonical registry here. The registry parameter remains so this
+ * stays a pure, testable derivation function — but it grants no
+ * authority by itself: createDelegatedGrant never forwards a
+ * caller-supplied registry.
  *
  * Returns null (fail-closed) when the context is missing the runtime
  * brand (a caller-constructed object), is malformed, or the actor
@@ -408,17 +520,23 @@ export function deriveActorAuthority(
  * HMAC integrity service, or returns null (fail-closed) when:
  * - the integrity service is missing/invalid (M2.2.1: fail closed —
  *   there is no unkeyed fallback),
- * - the input still carries caller-supplied actor authority,
+ * - the input still carries caller-supplied actor authority
+ *   (actor_tools / actor_can_write),
+ * - the input still carries a caller-supplied registry (M2.2.2: the
+ *   canonical registry is server-owned — reject loudly),
+ * - the server authority is not initialized (no bound membership
+ *   provider / canonical registry),
  * - the actor context is not a runtime-branded trusted context,
  * - the requested grant would exceed the actor's own authority.
  *
- * Subset rule: every requested tool must (a) exist in the tool
- * registry and (b) be within the actor's DERIVED tool authority.
- * Requesting "write" requires the actor to hold derived write
- * capability. This is the agent-privilege-escalation control: an
- * agent can never receive more authority than its delegating actor
- * already had — and self-delegation can never exceed the actor's
- * own permissions.
+ * Subset rule: every requested tool must (a) exist in the
+ * SERVER-BOUND canonical registry and (b) be within the actor's
+ * DERIVED tool authority. Requesting "write" requires the actor to
+ * hold derived write capability (from the canonical registry — write
+ * stays strictly harder than read). This is the
+ * agent-privilege-escalation control: an agent can never receive
+ * more authority than its delegating actor already had — and
+ * self-delegation can never exceed the actor's own permissions.
  */
 export function createDelegatedGrant(
   input: CreateGrantInput,
@@ -440,6 +558,16 @@ export function createDelegatedGrant(
     return null;
   }
 
+  // M2.2.2 CORRECTION B: caller-supplied registries are forbidden —
+  // the canonical registry is server-owned. Reject loudly.
+  if (Object.prototype.hasOwnProperty.call(input, "registry")) {
+    return null;
+  }
+
+  // M2.2.2: provenance is the set-once server authority binding.
+  if (serverAuthority === null) return null;
+  const serverRegistry = serverAuthority.toolRegistry;
+
   if (
     !isNonEmptyString(input.grant_id) ||
     !isNonEmptyString(input.agent_id)
@@ -450,8 +578,9 @@ export function createDelegatedGrant(
   // M2.2.1 CORRECTION C: runtime-branded trusted context required.
   if (!isTrustedActorContext(input.actor)) return null;
 
-  // M2.2: derive the actor's authority from the TRUSTED context.
-  const authority = deriveActorAuthority(input.actor, input.registry);
+  // M2.2/M2.2.2: derive the actor's authority from the TRUSTED
+  // context against the SERVER-BOUND canonical registry.
+  const authority = deriveActorAuthority(input.actor, serverRegistry);
   if (!authority) return null;
 
   const actorId = input.actor.actor_id;
@@ -469,12 +598,13 @@ export function createDelegatedGrant(
   }
   if (actionSet.has("write") && authority.actor_can_write !== true) return null;
 
-  // Subset enforcement: every allowed tool must be a registered tool
-  // AND within the actor's DERIVED authority.
+  // Subset enforcement: every allowed tool must be a tool in the
+  // SERVER-BOUND canonical registry AND within the actor's DERIVED
+  // authority. Unknown tools fail closed.
   const actorSet = new Set<string>(authority.actor_tools);
   for (const tool of input.allowed_tools) {
     if (!isNonEmptyString(tool)) return null;
-    if (!Object.prototype.hasOwnProperty.call(input.registry, tool)) return null;
+    if (!Object.prototype.hasOwnProperty.call(serverRegistry, tool)) return null;
     if (!actorSet.has(tool)) return null;
   }
 
