@@ -1,0 +1,72 @@
+name: CI
+
+# Zero-budget test execution: GitHub Actions is free for public repositories.
+#
+# M1a follow-up (Finding E): single-run design.
+# - Primary signal: the test runner's exit code, preserved through the
+#   tee pipe by "set -o pipefail" — a failed test run fails the step.
+# - Captured output is always available: streamed to the step log and
+#   kept in /tmp/suite-output.log; uploaded as an artifact if the job
+#   fails.
+# - The guard step rejects any swallowed failure-marker line in the
+#   output (defense in depth for legacy suites).
+# - actions/upload-artifact is free for public repositories. No paid
+#   services, no dependencies.
+#
+# M2 (P0): type-checking added. typescript + @types/node are DEV-ONLY
+# dependencies (the runtime keeps ZERO npm dependencies). The typecheck
+# step runs "tsc --noEmit" over the contracts package and the M2 auth
+# modules. The claim "contracts are type-checked" begins here.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # Dev-only install (typescript + @types/node). Runtime has zero
+      # npm dependencies; this install does not affect the test suites.
+      - name: Install dev dependencies (typescript + @types/node)
+        run: npm install --no-audit --no-fund
+
+      # M2 P0: compiler-based verification of the contracts package and
+      # the M2 auth modules. No runtime code is emitted (noEmit).
+      - name: Type-check (tsc --noEmit)
+        run: npm run typecheck
+
+      # Repository has zero RUNTIME npm dependencies.
+      # Node >= 22.18 loads the TypeScript gateway/contract sources via
+      # built-in type stripping (erasable syntax only).
+      - name: Run test suites (npm test — exit code enforced, output captured)
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee /tmp/suite-output.log
+
+      - name: Guard — no swallowed failure markers in suite output
+        run: |
+          if grep -n '✗' /tmp/suite-output.log; then
+            echo "::error::Failure markers (✗) present in suite output despite exit-code checks"
+            exit 1
+          fi
+
+      - name: Deployment smoke test
+        run: npm run test:deployment
+
+      - name: Upload test output (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output
+          path: /tmp/suite-output.log
+          if-no-files-found: ignore
