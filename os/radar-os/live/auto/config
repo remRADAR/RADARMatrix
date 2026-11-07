@@ -9,6 +9,13 @@ case "$ARCH" in
   amd64|arm64) ;;
   *) echo "RADAR_OS_ARCH must be explicitly set to amd64 or arm64" >&2; exit 2 ;;
 esac
+# The Debian base suite is an explicit owner decision (docs/os/DEBIAN-BASE-ASSESSMENT.md).
+# Anything outside the two assessed suites fails closed rather than building silently.
+DISTRIBUTION="${RADAR_OS_DISTRIBUTION:-trixie}"
+case "$DISTRIBUTION" in
+  bookworm|trixie) ;;
+  *) echo "RADAR_OS_DISTRIBUTION must be bookworm or trixie" >&2; exit 2 ;;
+esac
 command -v lb >/dev/null 2>&1 || { echo "live-build (lb) is required" >&2; exit 2; }
 mkdir -p config/package-lists
 install -m 0644 "$ROOT/config/package-manifest.common.txt" config/package-lists/radar-common.list.chroot
@@ -21,7 +28,7 @@ esac
 
 set -- \
   --architectures "$ARCH" \
-  --distribution trixie \
+  --distribution "$DISTRIBUTION" \
   --archive-areas "main contrib non-free-firmware" \
   --debian-installer false \
   --binary-images iso-hybrid \
