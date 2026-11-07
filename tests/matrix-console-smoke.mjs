@@ -72,4 +72,20 @@ for (const marker of ['CACHE_VERSION', 'v3', 'caches.delete', 'offline.html', "r
 const offline = readFileSync(join(root, 'dist/offline.html'), 'utf8');
 if (!offline.includes('Retry Halo')) throw new Error('missing offline fallback retry action');
 
-console.log('matrix console smoke passed: build artifacts, routes, wallpaper, glass icon license, browser guidance, manifest/icons, service worker, and offline fallback');
+// Regression guard: Array.prototype.at() requires Chromium 92+, a realistic
+// floor for Android 7-era television browsers; it previously threw on every
+// app load (screenFromLocation) and inside the service-worker navigation
+// handler. Do not reintroduce it on the Halo load path.
+for (const legacyApiFile of ['src/App.tsx', 'public/sw.js']) {
+  const legacySource = readFileSync(join(root, legacyApiFile), 'utf8');
+  if (legacySource.includes('.at(')) throw new Error(`do not use Array.prototype.at() in ${legacyApiFile}: Chromium < 92 / Android 7 target`);
+}
+
+// The stated target television is a 55-inch Android 7 device. The device guide
+// must name that target and must not claim physical TV validation.
+const pwaGuide = readFileSync(join(root, '..', '..', 'docs', 'HALO-OS-PWA.md'), 'utf8');
+for (const marker of ['55-inch Android 7', 'No physical iPhone 13 or Android 7 TV test has been performed', 'no AirPlay receiver']) {
+  if (!pwaGuide.includes(marker)) throw new Error(`missing Android 7 target-device guidance marker: ${marker}`);
+}
+
+console.log('matrix console smoke passed: build artifacts, routes, wallpaper, glass icon license, browser guidance, manifest/icons, service worker, offline fallback, Android 7 load-path compatibility, and target-device guide truthfulness');
