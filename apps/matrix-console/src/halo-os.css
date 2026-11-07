@@ -214,3 +214,48 @@
 @media(max-width:760px){.halo-install-panel{top:calc(58px + env(safe-area-inset-top));right:max(8px,env(safe-area-inset-right));width:min(360px,calc(100% - 16px));max-height:calc(100% - 76px - env(safe-area-inset-top) - env(safe-area-inset-bottom))}}
 @media(max-height:500px) and (max-width:1000px) and (orientation:landscape){.halo-install-panel{top:calc(48px + env(safe-area-inset-top));right:max(10px,env(safe-area-inset-right));max-height:calc(100% - 60px - env(safe-area-inset-top))}}
 @media(min-width:1600px) and (min-aspect-ratio:16/9){.halo-install-panel{top:78px;right:28px;width:min(420px,calc(100% - 80px));padding:24px}.halo-install-checks p,.halo-install-instructions{font-size:15px}.halo-install-checks p{padding:14px 0}}
+
+/* Original RADARCharts wallpaper: full panorama on desktop, framed portrait crop on phones. */
+.halo-wallpaper{background-color:#10151c;background-image:linear-gradient(180deg,rgba(7,11,16,.3),rgba(7,11,16,.48)),url('/assets/halo-stadium-wallpaper.webp'),radial-gradient(ellipse at 78% 18%,rgba(83,133,160,.42),transparent 34%),linear-gradient(130deg,#111923,#1d2935 48%,#10151d);background-size:cover,cover,cover,cover;background-position:center,center,center,center;background-repeat:no-repeat}
+@media(max-width:760px) and (orientation:portrait){.halo-wallpaper{background-image:linear-gradient(180deg,rgba(7,11,16,.3),rgba(7,11,16,.48)),url('/assets/halo-stadium-portrait.webp'),radial-gradient(ellipse at 78% 18%,rgba(83,133,160,.42),transparent 34%),linear-gradient(130deg,#111923,#1d2935 48%,#10151d);background-size:cover,auto 82%,cover,cover;background-position:center,center,center,center}}
+
+/* Layered glass glyphs: compact supplied MIT SVGs with a restrained, category-colored hover bloom. */
+.halo-glass-icon{display:block;width:100%;height:100%;overflow:visible;filter:drop-shadow(0 2px 3px rgba(4,8,14,.32))}
+.halo-app-glyph,.halo-taskbar-glyph,.halo-window-glyph,.halo-window-placeholder-icon{--halo-glow:rgba(255,255,255,.26);position:relative;overflow:hidden;transition:transform .2s cubic-bezier(.2,.8,.2,1),box-shadow .2s ease,filter .2s ease}
+.halo-app-glyph.gold,.halo-taskbar-glyph.gold,.halo-window-glyph.gold,.halo-window-placeholder-icon.gold{--halo-glow:rgba(255,200,94,.52)}
+.halo-app-glyph.blue,.halo-taskbar-glyph.blue,.halo-window-glyph.blue,.halo-window-placeholder-icon.blue{--halo-glow:rgba(79,178,255,.55)}
+.halo-app-glyph.amber,.halo-taskbar-glyph.amber,.halo-window-glyph.amber,.halo-window-placeholder-icon.amber{--halo-glow:rgba(255,166,83,.54)}
+.halo-app-glyph.violet,.halo-taskbar-glyph.violet,.halo-window-glyph.violet,.halo-window-placeholder-icon.violet{--halo-glow:rgba(177,126,255,.55)}
+.halo-app-glyph.green,.halo-taskbar-glyph.green,.halo-window-glyph.green,.halo-window-placeholder-icon.green{--halo-glow:rgba(83,221,157,.5)}
+.halo-app-glyph.cyan,.halo-taskbar-glyph.cyan,.halo-window-glyph.cyan,.halo-window-placeholder-icon.cyan{--halo-glow:rgba(69,220,229,.52)}
+.halo-app-glyph.slate,.halo-taskbar-glyph.slate,.halo-window-glyph.slate,.halo-window-placeholder-icon.slate{--halo-glow:rgba(173,201,236,.42)}
+.halo-app-glyph.pink,.halo-taskbar-glyph.pink,.halo-window-glyph.pink,.halo-window-placeholder-icon.pink{--halo-glow:rgba(255,103,191,.52)}
+.halo-window-glyph .halo-glass-icon{width:100%;height:100%}
+.halo-window-placeholder-icon{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;border:1px solid rgba(255,255,255,.22);border-radius:10px;background:rgba(255,255,255,.08)}
+.halo-window-placeholder-icon .halo-glass-icon{width:100%;height:100%}
+.halo-start-home-icon{width:26px;height:26px;filter:drop-shadow(0 2px 3px rgba(4,8,14,.3))}
+.halo-browser-guidance{margin-top:20px;padding:16px;border:1px solid rgba(255,255,255,.16);border-radius:12px;background:rgba(255,255,255,.055)}
+.halo-browser-status{display:flex;align-items:center;gap:9px;color:#d9f3e4;font-size:12px}.halo-browser-status .halo-live-dot{flex:0 0 6px}
+.halo-browser-guidance>p{margin:12px 0;color:rgba(255,255,255,.7);font-size:12px;line-height:1.6}
+.halo-browser-links{display:grid;gap:8px;margin:14px 0}
+.halo-browser-links a{display:flex;justify-content:space-between;align-items:center;min-height:44px;padding:0 12px;border:1px solid rgba(255,255,255,.14);border-radius:8px;background:rgba(255,255,255,.06);color:#fff;text-decoration:none;font-size:11px;transition:background .18s ease,border-color .18s ease}
+.halo-browser-links a:hover,.halo-browser-links a:focus-visible{outline:none;border-color:rgba(230,199,125,.5);background:rgba(230,199,125,.12)}
+.halo-browser-guidance>small{display:block;color:rgba(255,255,255,.52);font-size:10px;line-height:1.6}
+.halo-desktop-icon .halo-app-glyph,.halo-start-apps button .halo-app-glyph{box-shadow:0 7px 18px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.32)}
+.halo-taskbar-app .halo-taskbar-glyph{box-shadow:0 4px 12px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.2)}
+.halo-desktop-icon:focus-visible .halo-app-glyph,.halo-start-apps button:focus-visible .halo-app-glyph,.halo-taskbar-app:focus-visible .halo-taskbar-glyph{transform:translateY(-3px) scale(1.08);box-shadow:0 0 0 1px rgba(255,255,255,.28),0 9px 24px var(--halo-glow),inset 0 1px 0 rgba(255,255,255,.35)}
+.halo-taskbar-app:focus-visible{outline:2px solid var(--h-gold);outline-offset:2px}
+@media(hover:hover) and (pointer:fine){
+  .halo-desktop-icon:hover .halo-app-glyph,.halo-start-apps button:hover .halo-app-glyph{transform:translateY(-4px) scale(1.08) rotate(-3deg);filter:saturate(1.16);box-shadow:0 0 0 1px rgba(255,255,255,.24),0 10px 28px var(--halo-glow),inset 0 1px 0 rgba(255,255,255,.4)}
+  .halo-taskbar-app:hover .halo-taskbar-glyph{transform:translateY(-2px) scale(1.1);box-shadow:0 8px 22px var(--halo-glow),inset 0 1px 0 rgba(255,255,255,.3)}
+}
+@media(prefers-reduced-motion:reduce){.halo-app-glyph,.halo-taskbar-glyph,.halo-window-glyph,.halo-window-placeholder-icon,.halo-browser-links a{transition:none!important}}
+
+
+/* Console-inspired 16:9 launcher shelf: horizontal focus flow, without copying console artwork. */
+@media(min-width:1600px) and (min-aspect-ratio:16/9){
+  .halo-icon-grid{position:absolute;left:50%;bottom:132px;z-index:2;transform:translateX(-50%);grid-template-columns:repeat(8,124px);grid-auto-rows:140px;gap:14px;width:max-content}
+  .halo-desktop-icon{width:124px;height:132px;justify-content:center;gap:10px;padding:10px 8px;border:1px solid rgba(255,255,255,.15);border-radius:16px;background:rgba(10,16,24,.28);font-size:13px;transition:background .2s ease,border-color .2s ease,transform .2s cubic-bezier(.2,.8,.2,1)}
+  .halo-desktop-icon:hover,.halo-desktop-icon:focus-visible{background:rgba(255,255,255,.11);border-color:rgba(255,255,255,.3);transform:translateY(-6px) scale(1.03)}
+  .halo-app-glyph{width:70px;height:70px;border-radius:19px}
+}

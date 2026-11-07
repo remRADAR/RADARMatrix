@@ -1,6 +1,6 @@
 /* Halo PWA service worker. Bump CACHE_VERSION when the shell/cache contract changes. */
 const CACHE_PREFIX = 'radarmatrix-halo-';
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v3';
 const CACHE_NAME = `${CACHE_PREFIX}${CACHE_VERSION}`;
 const ROOT_URL = `${self.location.origin}/`;
 const REQUIRED_FILES = [
@@ -10,6 +10,8 @@ const REQUIRED_FILES = [
   '/icons/halo-192.png',
   '/icons/halo-512.png',
   '/icons/halo-maskable-512.png',
+  '/assets/halo-stadium-wallpaper.webp',
+  '/assets/halo-stadium-portrait.webp',
 ];
 const APP_ROUTES = new Set([
   'overview', 'chat', 'agents', 'skills', 'knowledge', 'tasks',

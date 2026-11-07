@@ -1,19 +1,29 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ComponentType, SVGProps } from 'react';
 import './halo-os.css';
+import LgComboChart from './vendor/icons8-liquid-glass-icons/combo-chart';
+import LgFolderInvoices from './vendor/icons8-liquid-glass-icons/folder-invoices';
+import LgHome from './vendor/icons8-liquid-glass-icons/home';
+import LgInfo from './vendor/icons8-liquid-glass-icons/info';
+import LgPicture from './vendor/icons8-liquid-glass-icons/picture';
+import LgPuzzle from './vendor/icons8-liquid-glass-icons/puzzle';
+import LgSearch from './vendor/icons8-liquid-glass-icons/search';
+import LgSettings from './vendor/icons8-liquid-glass-icons/settings';
+import LgSynchronize from './vendor/icons8-liquid-glass-icons/synchronize';
 
 type AppId = 'matrix' | 'browser' | 'files' | 'gallery' | 'terminal' | 'settings' | 'network' | 'store' | 'about';
-type DesktopApp = { id: AppId; label: string; glyph: string; tint: string; description: string };
+type DesktopApp = { id: AppId; label: string; glyph: string; icon?: ComponentType<SVGProps<SVGSVGElement>>; tint: string; description: string };
 
 const apps: DesktopApp[] = [
-  { id: 'matrix', label: 'RADARMatrix', glyph: '◈', tint: 'gold', description: 'Your command environment for agents, skills and workflows.' },
-  { id: 'browser', label: 'Browser', glyph: '◎', tint: 'blue', description: 'A browser surface reserved for a future connected browser session.' },
-  { id: 'files', label: 'Files', glyph: '▰', tint: 'amber', description: 'A clean workspace for projects, files and shared resources.' },
-  { id: 'gallery', label: 'Gallery', glyph: '▧', tint: 'violet', description: 'Your wallpapers, visual assets and creative references.' },
+  { id: 'matrix', label: 'RADARMatrix', glyph: '◈', icon: LgComboChart, tint: 'gold', description: 'Your command environment for agents, skills and workflows.' },
+  { id: 'browser', label: 'Browser', glyph: '◎', icon: LgSearch, tint: 'blue', description: 'A guide to the real browser running Halo; extensions and desktop-site mode remain host-controlled.' },
+  { id: 'files', label: 'Files', glyph: '▰', icon: LgFolderInvoices, tint: 'amber', description: 'A clean workspace for projects, files and shared resources.' },
+  { id: 'gallery', label: 'Gallery', glyph: '▧', icon: LgPicture, tint: 'violet', description: 'Your wallpapers, visual assets and creative references.' },
   { id: 'terminal', label: 'Terminal', glyph: '>_', tint: 'green', description: 'A terminal surface. No shell is connected in this preview.' },
-  { id: 'network', label: 'Network', glyph: '⌁', tint: 'cyan', description: 'Connection status for the RADARMatrix environment.' },
-  { id: 'settings', label: 'Settings', glyph: '⚙', tint: 'slate', description: 'Personalise the Halo desktop experience.' },
-  { id: 'store', label: 'App Library', glyph: '▦', tint: 'pink', description: 'A future home for approved applications and extensions.' },
-  { id: 'about', label: 'About Halo', glyph: '✧', tint: 'gold', description: 'Halo OS — an ambient desktop experience within RADARMatrix.' },
+  { id: 'network', label: 'Network', glyph: '⌁', icon: LgSynchronize, tint: 'cyan', description: 'Connection status for the RADARMatrix environment.' },
+  { id: 'settings', label: 'Settings', glyph: '⚙', icon: LgSettings, tint: 'slate', description: 'Personalise the Halo desktop experience.' },
+  { id: 'store', label: 'App Library', glyph: '▦', icon: LgPuzzle, tint: 'pink', description: 'A future home for approved applications and extensions.' },
+  { id: 'about', label: 'About Halo', glyph: '✧', icon: LgInfo, tint: 'gold', description: 'Halo OS — an ambient desktop experience within RADARMatrix.' },
 ];
 
 function getTime() {
@@ -21,6 +31,11 @@ function getTime() {
 }
 function getDate() {
   return new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date());
+}
+
+function AppGlyph({ app, className }: { app: DesktopApp; className: string }) {
+  const Icon = app.icon;
+  return <span className={`${className} ${app.tint}`} aria-hidden="true">{Icon ? <Icon className="halo-glass-icon" focusable="false" /> : app.glyph}</span>;
 }
 
 function isStandaloneDisplay() {
@@ -172,7 +187,7 @@ export function HaloDesktop({ onExit }: { onExit?: () => void }) {
         <div className="halo-icon-grid" role="group" aria-label="Desktop applications">
           {apps.slice(0, 8).map((app) => (
             <button className="halo-desktop-icon" key={app.id} onClick={() => openApp(app.id)} aria-label={`Open ${app.label}`}>
-              <span className={`halo-app-glyph ${app.tint}`}>{app.glyph}</span>
+              <AppGlyph app={app} className="halo-app-glyph" />
               <span>{app.label}</span>
             </button>
           ))}
@@ -197,7 +212,7 @@ export function HaloDesktop({ onExit }: { onExit?: () => void }) {
         {selected && (
           <section className="halo-window" role="dialog" aria-labelledby="halo-window-title">
             <div className="halo-window-titlebar">
-              <div className="halo-window-app"><span className={`halo-window-glyph ${selected.tint}`}>{selected.glyph}</span><strong>{selected.label}</strong></div>
+              <div className="halo-window-app"><AppGlyph app={selected} className="halo-window-glyph" /><strong>{selected.label}</strong></div>
               <div className="halo-window-controls">
                 <button aria-label="Minimise window" onClick={() => setActiveApp(null)}>−</button>
                 <button aria-label="Close window" onClick={() => setActiveApp(null)}>×</button>
@@ -207,14 +222,24 @@ export function HaloDesktop({ onExit }: { onExit?: () => void }) {
               <span className="halo-window-eyebrow">HALO APPLICATION</span>
               <h2 id="halo-window-title">{selected.label}</h2>
               <p>{selected.description}</p>
-              {selected.id === 'settings' ? (
+              {selected.id === 'browser' ? (
+                <div className="halo-browser-guidance">
+                  <div className="halo-browser-status"><span className="halo-live-dot" /><strong>Host browser manages extensions</strong></div>
+                  <p>Halo runs inside this browser. It cannot install or manage extensions, embed a separate browser engine, or force desktop-site mode.</p>
+                  <div className="halo-browser-links">
+                    <a href="https://support.apple.com/en-ph/guide/iphone/iphab0432bf6/ios" target="_blank" rel="noreferrer">iPhone Safari extension setup <span>↗</span></a>
+                    <a href="https://chromewebstore.google.com/" target="_blank" rel="noreferrer">Desktop Chrome extension catalog <span>↗</span></a>
+                  </div>
+                  <small>On iPhone, use Safari's Page Menu → Request Desktop Website for desktop-site mode. Install Safari extensions separately and enable them in Settings → Apps → Safari → Extensions. Standalone Home Screen behavior depends on the extension and iOS version; test the ones you rely on. For full desktop browser controls, open Halo in a desktop browser.</small>
+                </div>
+              ) : selected.id === 'settings' ? (
                 <div className="halo-settings-preview">
-                  <label><span>Wallpaper</span><b>Gradient fallback</b></label>
-                  <label><span>Interface</span><b>Glass · Dark</b></label>
+                  <label><span>Wallpaper</span><b>RADARCharts stadium</b></label>
+                  <label><span>Interface</span><b>Liquid Glass · Dark</b></label>
                   <label><span>Taskbar</span><b>Compact · Floating</b></label>
                 </div>
               ) : (
-                <div className="halo-window-placeholder"><span>{selected.glyph}</span><div><b>Surface preview</b><small>This app is a visual shell only. Live services will be connected in a later integration phase.</small></div></div>
+                <div className="halo-window-placeholder"><AppGlyph app={selected} className="halo-window-placeholder-icon" /><div><b>Surface preview</b><small>This app is a visual shell only. Live services will be connected in a later integration phase.</small></div></div>
               )}
             </div>
           </section>
@@ -227,7 +252,7 @@ export function HaloDesktop({ onExit }: { onExit?: () => void }) {
           <label className="halo-search"><span aria-hidden="true">⌕</span><input aria-label="Search apps and workspace" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search apps and workspace…" /></label>
           <div className="halo-start-label">PINNED APPLICATIONS</div>
           <div className="halo-start-apps">
-            {filteredApps.map((app) => <button key={app.id} onClick={() => openApp(app.id)}><span className={`halo-app-glyph ${app.tint}`}>{app.glyph}</span><span>{app.label}</span></button>)}
+            {filteredApps.map((app) => <button key={app.id} onClick={() => openApp(app.id)}><AppGlyph app={app} className="halo-app-glyph" /><span>{app.label}</span></button>)}
           </div>
           <div className="halo-start-footer"><span>RADARMatrix · Halo OS</span><button onClick={() => openApp('settings')}>⚙ Settings</button></div>
         </section>
@@ -248,12 +273,12 @@ export function HaloDesktop({ onExit }: { onExit?: () => void }) {
       )}
 
       <footer className="halo-taskbar">
-        <button className={`halo-taskbar-start ${startOpen ? 'is-active' : ''}`} onClick={() => { setStartOpen((v) => !v); setQuickOpen(false); }} aria-label="Open Start menu" aria-controls="halo-start-panel" aria-expanded={startOpen}><span>✧</span></button>
+        <button className={`halo-taskbar-start ${startOpen ? 'is-active' : ''}`} onClick={() => { setStartOpen((v) => !v); setQuickOpen(false); }} aria-label="Open Start menu" aria-controls="halo-start-panel" aria-expanded={startOpen}><LgHome className="halo-start-home-icon" aria-hidden="true" focusable="false" /></button>
         <div className="halo-taskbar-divider" />
         <div className="halo-taskbar-apps">
           {apps.slice(0, 7).map((app) => (
             <button key={app.id} className={`halo-taskbar-app ${activeApp === app.id ? 'is-running' : ''}`} onClick={() => openApp(app.id)} aria-label={app.label} title={app.label}>
-              <span className={`halo-taskbar-glyph ${app.tint}`}>{app.glyph}</span>
+              <AppGlyph app={app} className="halo-taskbar-glyph" />
               {activeApp === app.id && <i />}
             </button>
           ))}

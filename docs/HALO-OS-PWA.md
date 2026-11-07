@@ -23,9 +23,19 @@ The manifest includes an iOS touch icon and the page opts into safe-area-aware v
 3. If the specific TV supports a browser-based PWA, also test the hosted app directly with the TV remote. Arrow-key focus navigation, native Enter activation, Escape dismissal, visible focus, readable distance sizing and fullscreen are prepared as browser foundations, but remote key mapping varies by model/browser. Fullscreen is feature-detected and may be unavailable.
 4. If AirPlay is not supported, stop and choose an explicitly supported AirPlay receiver (for example, a compatible Apple TV) for the first demonstration. A cast protocol is not an equivalent substitute for the requested iPhone screen mirroring path.
 
+## Browser extensions, Bluetooth and TV input
+
+The Browser tile is a guide to the browser hosting Halo, not a second browser engine. A web app cannot silently add browser extensions or force the host browser's desktop-site mode. Apple's iPhone guide installs Safari extensions through Safari's Manage Extensions/App Store flow and enables them under **Settings → Apps → Safari → Extensions** ([Apple's setup guide](https://support.apple.com/en-ph/guide/iphone/iphab0432bf6/ios)). A desktop extension set belongs in the desktop browser (for example, Chrome's [extension runtime and distribution](https://developer.chrome.com/docs/extensions/get-started)). Standalone Home Screen extension behavior can vary; verify the specific extensions and iOS version relied on.
+
+Halo does not pair a Bluetooth mouse itself. Web Bluetooth is a secure-context, permission-gated API for BLE GATT devices, and current [Safari on iOS support data](https://caniuse.com/web-bluetooth) shows no native Web Bluetooth; the separate [WebHID API](https://caniuse.com/webhid) is also unsupported in Safari on iOS. Normal mouse pairing is an operating-system action. For TV mouse use, pair the mouse in the TV's own settings and run Halo in that TV's browser; the browser can then deliver its supported pointer/click events to the UI. Confirm this on the exact TV/browser.
+
+AirPlay is an iPhone-to-receiver screen-mirroring path ([Apple's steps](https://support.apple.com/en-us/102661)); it does not give this PWA a general reverse-input channel. A mouse paired to a TV must not be assumed to control the mirrored iPhone. Use the iPhone's own paired pointer for local interaction, or run Halo directly on a TV/browser that supports pointer input. AirPlay smoothness depends on the Wi-Fi network, receiver, and devices, so the web UI can minimize heavy animation but cannot promise zero lag or a fixed FPS. The supplied wallpaper uses the full 16:9 composition on wide screens and a dedicated 820×1440 left-of-center portrait crop scaled to 82% screen height, preserving the statue and stadium sign together; each image is responsive-preloaded and both are precached for offline orientation changes. Large 16:9 screens use a console-inspired horizontal launcher shelf with larger focusable app tiles and an existing bottom taskbar; the styling is original and does not reuse console artwork. Desktop icons use selected MIT-licensed [Icons8 Liquid Glass components](https://github.com/icons8/liquid-glass-icons), with the license included in source and deployed notices.
+
+For model-specific mirroring, check the [LG AirPlay 2 model list](https://www.lg.com/us/support/help-library/lg-tv-which-tvs-support-airplay-2--20151097893431) and firmware; same-network and AirPlay-enabled conditions apply.
+
 ## Verification checklist
 
-Automated browser-emulation targets: 390×844 portrait, 844×390 landscape, a 16:9 1920×1080 television-sized viewport, and a desktop viewport. Check no horizontal overflow, visible taskbar and panels, safe-area-aware CSS, keyboard focus/arrow navigation, manifest/service-worker availability, direct Halo launch, offline reload after initial cache, and reduced-motion behavior. Emulation and automated checks do not establish physical-device compatibility.
+Automated browser-emulation targets: 390×844 portrait, 844×390 landscape, a 16:9 1920×1080 television-sized viewport, and a desktop viewport. Check no horizontal overflow, visible taskbar and panels, safe-area-aware CSS, keyboard focus/arrow navigation, manifest/service-worker availability, direct Halo launch, both responsive wallpaper preloads and offline copies, browser-host guidance, and reduced-motion behavior. Emulation and automated checks do not establish physical-device compatibility.
 
 ### Automated checks run for this change
 
@@ -34,20 +44,21 @@ Automated browser-emulation targets: 390×844 portrait, 844×390 landscape, a 16
 - `npm run test:matrix-console` — passed; the command builds production assets and then checks the PWA artifacts.
 - `npm test` — passed (repository foundation tests).
 - `npm run test:deployment` — passed; production API returned the expected fail-closed 503, with no listener or deployment.
-- Headless Chromium against the production Vite preview — passed at 390×844, 844×390, 1920×1080, and 1365×900: no horizontal overflow, taskbar and phone menu/window panels stayed within the viewport, Halo start route loaded, installability checks reported HTTPS/manifest/service-worker readiness, touch tap and keyboard arrows moved controls, Halo and existing Matrix Console route/history behavior worked, reduced-motion preference was respected, and a controlled offline reload of `/halo` rendered the cached shell.
-- axe-core WCAG 2.1/2.2 A/AA scan — no violations found on the Halo main surface or installability panel.
-- Lighthouse 13.6 mobile-emulated performance run against the local production preview — 100/100 lab score; FCP 1.5 s, LCP 1.5 s, TBT 0 ms, CLS 0.002. This is a simulated local lab result, not an iPhone measurement.
-- Production build output — 255.95 kB JavaScript (77.85 kB gzip) and 42.10 kB CSS (8.93 kB gzip). The repository does not define a lint script; no separate lint command was available.
+- Headless Chromium against the production Vite preview — passed at 390×844, 844×390, 1920×1080, and 1365×900: no horizontal overflow, taskbar and phone menu/window panels stayed within the viewport, the portrait crop preserved the statue/sign framing, the 16:9 TV viewport showed eight horizontal app tiles above the taskbar, responsive high-priority preloads selected the expected image, both wallpaper files loaded offline from the service worker, installability checks reported HTTPS/manifest/service-worker readiness, touch/keyboard interactions and existing Matrix Console route/history behavior worked, and reduced motion was respected.
+- Desktop-pointer Chromium check — passed; hovering a glass app icon produces the category-colored glow and transform.
+- axe-core WCAG 2.1/2.2 A/AA scan — no violations found on the Halo main surface, installability panel, or Browser guidance window.
+- Lighthouse 13.6 mobile-emulated performance run against the local production preview — 96/100 lab score; FCP 1.5 s, LCP 2.7 s, TBT 30 ms, CLS 0.002. The wallpaper is the LCP element and is now discovered with `fetchpriority=high`; this is a simulated local lab result, not an iPhone measurement.
+- Production build output — 282.41 kB JavaScript (83.32 kB gzip) and 47.26 kB CSS (9.77 kB gzip); wallpaper WebP assets are 300,970 bytes (wide) and 172,228 bytes (portrait). The repository does not define a lint script; no separate lint command was available.
 
 Browser emulation checks CSS/layout and simulated touch/keyboard input; it does not simulate actual iOS safe-area insets, Safari's Home Screen lifecycle or LG webOS. Physical checks still required: iPhone 13 Safari installation and standalone launch; iPhone portrait/landscape, notch, home indicator, keyboard and offline relaunch; exact LG model AirPlay discovery/mirroring; TV browser and remote behavior; viewing-distance legibility and performance on the television.
 
 ## Known limitations
 
 - No physical iPhone 13 or LG TV test has been performed as part of this implementation task.
-- There is no wallpaper file in the starter ZIP, so the gradient wallpaper fallback is displayed.
+- The user-supplied RADARCharts stadium image is now the Halo wallpaper; the full wide and 820×1440 portrait WebP derivatives are preserved in `public/assets/`.
 - Halo tiles, quick-setting toggles and sliders are a visual prototype and do not control iOS, tvOS/webOS, networking, audio or display settings.
 - The prototype uses standard touch controls and keyboard focus rather than a native iOS gesture layer; TV remote Back-key mapping depends on the browser/remote.
-- Browser/terminal/files/gallery/store windows are explanatory previews only; no native apps, shell, persistent storage, agent, model or cloud services are connected.
-- Offline support covers the app shell and same-origin assets cached during the initial successful online load. External fonts and any future network-backed functions can be unavailable offline.
+- Browser/terminal/files/gallery/store windows are explanatory previews only; the Browser tile links to system-browser extension guidance but does not embed an independent browser or install extensions. No native apps, shell, persistent storage, agent, model or cloud services are connected.
+- Offline support precaches the app shell, both responsive wallpaper variants and PWA icons; same-origin assets are also cached after their first successful online load. External fonts and any future network-backed functions can be unavailable offline.
 - The current repository-level Vercel routing targets Brand Studio rather than Matrix Console. Root-hosting and SPA fallback for the Matrix Console must be selected and verified before installation links are shared.
 - Future cache contract changes must increment `CACHE_VERSION` in `apps/matrix-console/public/sw.js`.
