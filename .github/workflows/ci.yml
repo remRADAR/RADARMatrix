@@ -1,0 +1,103 @@
+name: CI
+
+# Why this workflow exists: main carries only deploy-staging.yml (push to
+# `staging`, no tests), so PR #17 (Halo OS PWA) had no automated checks at all —
+# its only check run was "Vercel Preview Comments". This workflow gives the
+# Halo lineage the same exit-code-enforced gates as the Stage 0.1.1 lineage
+# (see .github/workflows/ci.yml on architecture/stage-0-1-1-corrections-verified),
+# plus the Matrix Console build + PWA smoke that the Halo work needs.
+
+on:
+  push:
+    branches:
+      - main
+      - "fix/**"
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Tests and typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Matrix Console dependencies
+        run: |
+          if [ -f apps/matrix-console/package-lock.json ]; then
+            npm ci --prefix apps/matrix-console --ignore-scripts --no-audit --no-fund
+          else
+            echo "no console lockfile on this ref; skipping install"
+          fi
+
+      - name: Run test suite (exit code enforced)
+        shell: bash
+        run: |
+          set +e
+          npm test 2>&1 | tee /tmp/test.log
+          status=${PIPESTATUS[0]}
+          set -e
+          echo "npm test exit code: $status"
+          exit "$status"
+
+      - name: Guard against swallowed failures
+        shell: bash
+        run: |
+          # The failure marker is U+2717; the pass marker is U+2713. They are
+          # adjacent codepoints, so the character class [^ -~] alone matched
+          # BOTH and failed a green run (run 42253877282, step 6). Build the
+          # exact codepoint from octal so this file stays pure ASCII.
+          MARKER=$(printf '\342\234\227')
+          if grep -qE "^[[:space:]]*${MARKER} " /tmp/test.log; then
+            echo "::error::Test output contains failure markers"
+            exit 1
+          fi
+          echo "no swallowed failure markers found"
+
+      - name: Assert runner reported PASSED
+        shell: bash
+        run: |
+          grep -q "RESULT: PASSED" /tmp/test.log || {
+            echo "::error::Runner did not report RESULT: PASSED"
+            exit 1
+          }
+
+      - name: Typecheck Matrix Console
+        run: npm run typecheck
+
+  matrix-console:
+    name: Matrix Console PWA build and smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Matrix Console dependencies
+        run: npm ci --prefix apps/matrix-console --ignore-scripts --no-audit --no-fund
+
+      - name: Build and run PWA smoke
+        run: npm run test:matrix-console
+
+      - name: Fail-closed deployment smoke
+        run: npm run test:deployment
+
+      - name: State the device-evidence boundary
+        run: |
+          echo "NOT RUN HERE: physical iPhone or Android 7 television testing,"
+          echo "real offline launches, install prompts, or hosting verification."
+          echo "This job proves build artifacts and source contracts only."
