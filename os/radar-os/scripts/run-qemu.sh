@@ -10,7 +10,10 @@ case "$ARCH" in amd64|arm64) ;; *) echo "usage: $0 amd64|arm64 IMAGE SERIAL_LOG 
 [[ -f "$FIRMWARE" ]] || { echo "explicit firmware file is required and must exist: $FIRMWARE" >&2; exit 2; }
 command -v sha256sum >/dev/null 2>&1 || { echo "sha256sum is required" >&2; exit 2; }
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-"$ROOT/scripts/validate-image.sh" "$IMAGE" "$ARCH" >/dev/null
+# Invoke validate-image via an explicit "bash": the executable bit can be lost
+# when files are pushed through the GitHub contents API, and the boot pipeline
+# must not break on a transport artifact.
+bash bash "$ROOT/scripts/validate-image.sh" "$IMAGE" "$ARCH" >/dev/null
 case "$ARCH" in
   amd64) QEMU="qemu-system-x86_64"; MACHINE="q35" ;;
   arm64) QEMU="qemu-system-aarch64"; MACHINE="virt" ;;
