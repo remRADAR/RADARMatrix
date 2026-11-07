@@ -1,6 +1,6 @@
 {
   "name": "radarmatrix",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "RADARMatrix brand asset command center and MCP integration foundation",
   "type": "module",
   "main": "apps/mcp-server/src/mcp-gateway.ts",
@@ -12,11 +12,13 @@
     "brand:dev": "node apps/brand-studio/server.mjs",
     "brand:start": "node apps/brand-studio/server.mjs",
     "test:deployment": "RADARMATRIX_RUNTIME_MODE=production RADARMATRIX_NO_LISTEN=1 node tests/deployment-smoke.mjs",
-    "typecheck": "npm --prefix apps/matrix-console run typecheck",
+    "typecheck": "tsc -p tsconfig.json",
     "build:matrix-console": "npm --prefix apps/matrix-console run build",
     "test:matrix-console": "node tests/matrix-console-smoke.mjs",
     "create:cloudflare-manifest": "node scripts/create-cloudflare-assets-manifest.mjs",
-    "deploy:matrix-console:wrangler": "bash scripts/deploy-matrix-console-wrangler.sh"
+    "deploy:matrix-console:wrangler": "bash scripts/deploy-matrix-console-wrangler.sh",
+    "test:security": "node tests/gateway-integration-security.test.mjs",
+    "typecheck:matrix-console": "npm --prefix apps/matrix-console run typecheck"
   },
   "keywords": [
     "radarmatrix",
@@ -26,6 +28,12 @@
   ],
   "author": "remRADAR",
   "license": "MIT",
-  "devDependencies": {},
-  "dependencies": {}
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  },
+  "dependencies": {},
+  "engines": {
+    "node": ">=22.18"
+  }
 }
