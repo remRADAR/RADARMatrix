@@ -5,10 +5,10 @@
   "type": "module",
   "main": "apps/mcp-server/src/mcp-gateway.ts",
   "scripts": {
-    "test": "node tests/test-runner.mjs",
-    "test:gateway": "node tests/v0.7-gateway.test.mjs",
+    "test": "RADARMATRIX_RUNTIME_MODE=test node tests/test-runner.mjs",
+    "test:gateway": "RADARMATRIX_RUNTIME_MODE=test node tests/v0.7-gateway.test.mjs",
     "test:contract": "node tests/v0.8-chatgpt-contract.test.mjs",
-    "test:agents": "node tests/agent-routing.test.mjs && node tests/brand-gateway-routing.test.mjs",
+    "test:agents": "RADARMATRIX_RUNTIME_MODE=test node tests/agent-routing.test.mjs && RADARMATRIX_RUNTIME_MODE=test node tests/brand-gateway-routing.test.mjs",
     "brand:dev": "node apps/brand-studio/server.mjs",
     "brand:start": "node apps/brand-studio/server.mjs",
     "test:deployment": "RADARMATRIX_RUNTIME_MODE=production RADARMATRIX_NO_LISTEN=1 node tests/deployment-smoke.mjs",
@@ -17,7 +17,7 @@
     "test:matrix-console": "node tests/matrix-console-smoke.mjs",
     "create:cloudflare-manifest": "node scripts/create-cloudflare-assets-manifest.mjs",
     "deploy:matrix-console:wrangler": "bash scripts/deploy-matrix-console-wrangler.sh",
-    "test:security": "node tests/gateway-integration-security.test.mjs",
+    "test:security": "RADARMATRIX_RUNTIME_MODE=test node tests/gateway-integration-security.test.mjs",
     "typecheck:matrix-console": "npm --prefix apps/matrix-console run typecheck"
   },
   "keywords": [

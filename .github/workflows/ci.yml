@@ -17,6 +17,10 @@ name: CI
 # dependencies (the runtime keeps ZERO npm dependencies). The typecheck
 # step runs "tsc --noEmit" over the contracts package and the M2 auth
 # modules. The claim "contracts are type-checked" begins here.
+#
+# M2.2: on failure the captured suite output is ALSO published to the
+# job step summary — visible on the run page without log access, so
+# the exact failing tests are diagnosable from the run page alone.
 
 on:
   push:
@@ -62,6 +66,30 @@ jobs:
 
       - name: Deployment smoke test
         run: npm run test:deployment
+
+      # M2.2: publish the captured suite output to the job summary on
+      # failure so the failing tests are visible from the run page.
+      - name: Publish suite output to job summary (on failure)
+        if: failure()
+        run: |
+          echo "# Test suite output" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat /tmp/suite-output.log >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      # M2.2: ALSO annotate the failing lines so they are readable from
+      # the run-page annotations table even without log/summary access.
+      - name: Annotate failing tests (on failure)
+        if: failure()
+        run: |
+          if [ -f /tmp/suite-output.log ]; then
+            if grep -q '✗' /tmp/suite-output.log; then
+              grep '✗' /tmp/suite-output.log | while IFS= read -r line; do echo "::error::${line}"; done
+            else
+              echo "No failure markers found — annotating log tail (possible runner crash):"
+              tail -n 10 /tmp/suite-output.log | while IFS= read -r line; do echo "::error::${line}"; done
+            fi
+          fi
 
       - name: Upload test output (on failure)
         if: failure()
