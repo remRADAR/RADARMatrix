@@ -51,7 +51,10 @@ if [ -n "${RADAR_OS_SNAPSHOT_TIMESTAMP:-}" ]; then
     --mirror-binary-security "$SECURITY_SNAPSHOT"
 fi
 
-lb config "$@"
+# Debian Live requires the `noauto` argument here: auto/config is re-invoked by
+# lb itself, and without `noauto` the call recurses infinitely, so no dispatched
+# build can ever complete. See the Debian Live manual, "auto/config".
+lb config noauto "$@"
 
 # Package selection, branding, service units, signing, and image metadata remain
 # explicit Stage 1 work. No privileged RADAR service is enabled here.
