@@ -34,7 +34,7 @@ jobs:
           node-version: 22
 
       - name: Install Matrix Console dependencies
-        run: npm install --prefix apps/matrix-console --ignore-scripts --no-audit --no-fund
+        run: npm ci --prefix apps/matrix-console --ignore-scripts --no-audit --no-fund
 
       - name: Verify deployment target
         shell: bash
