@@ -46,11 +46,20 @@ for candidate in /live/vmlinuz /live/vmlinuz-* /vmlinuz /vmlinuz-* /boot/vmlinuz
 done
 [[ -n "$KERNEL_PATH" ]] || { echo "FAIL: no kernel found in image (searched /live/vmlinuz, /vmlinuz, /boot/vmlinuz, /casper/vmlinuz); architecture cannot be verified" >&2; exit 1; }
 KERNEL_INFO="$(file -b "$TMP/vmlinuz")"
-case "$EXPECTED_ARCH:$KERNEL_INFO" in
-  amd64:*'x86 boot'*) ;;
-  amd64:*'x86_64'*) ;;
-  arm64:*'ARM64'*) ;;
-  arm64:*'AArch64'*) ;;
+# Real file(1) kernel descriptors vary by kernel packaging and file version:
+#   Debian amd64 vmlinuz      -> "Linux kernel x86 boot executable bzImage, version ..."
+#   Debian arm64 vmlinuz      -> "Linux kernel ARM64 boot executable Image (little-endian)"
+#   EFI-stub kernels (PE/COFF)-> "PE32+ executable (EFI application) AArch64 ..." / "... x86-64 ..."
+#   arm64 ELF objects         -> "ELF 64-bit LSB executable, ARM aarch64, ..."
+# Matching is therefore case-insensitive over the real descriptor set (this
+# includes lowercase "aarch64" and the hyphenated "x86-64" PE form). This widens
+# the accepted *descriptors* only: an unknown, ambiguous, or compressed kernel
+# (e.g. "gzip compressed data") still fails closed below, because no
+# architecture token can be established from it.
+KERNEL_INFO_LC="${KERNEL_INFO,,}"
+case "$EXPECTED_ARCH:$KERNEL_INFO_LC" in
+  amd64:*'x86 boot'*|amd64:*x86_64*|amd64:*x86-64*) ;;
+  arm64:*arm64*|arm64:*aarch64*) ;;
   *) echo "FAIL: kernel architecture could not be verified; expected=$EXPECTED_ARCH detected='$KERNEL_INFO'" >&2; exit 1 ;;
 esac
 HASH="$(sha256sum "$IMAGE" | awk '{print $1}')"
