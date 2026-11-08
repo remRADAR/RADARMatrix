@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - 'feat/matrix-ide-surface'
+      - 'feat/**'
+      - 'fix/**'
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests and typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Matrix Console dependencies
+        run: npm install --prefix apps/matrix-console --ignore-scripts --no-audit --no-fund
+
+      - name: Typecheck Matrix Console
+        run: npm run typecheck
+
+      - name: Build Matrix Console
+        run: npm run build:matrix-console
+
+      - name: Matrix Console smoke (build artifacts, routes, IDE surface)
+        run: npm run test:matrix-console
+
+      - name: Repository test suite (exit-code enforced)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          npm test 2>&1 | tee /tmp/test-output.txt
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            echo "npm test exited $status" >&2
+            exit "$status"
+          fi
+          if grep -E '^\s*✗|FAILED:' /tmp/test-output.txt; then
+            echo "A test suite reported a failure marker" >&2
+            exit 1
+          fi
+          echo "No failure markers found"
+
+      - name: Deployment smoke (production mode fails closed)
+        run: npm run test:deployment
+
+      - name: Whitespace check
+        run: git diff --check
