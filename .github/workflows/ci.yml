@@ -13,6 +13,14 @@ on:
       - "security/**"
       - "runtime/**"
       - "stage-1/**"
+      # feat/** and fix/** were missing, so feature branches (the IDE surface,
+      # the social connectors, the browser/knowledge track, this OS bootability
+      # track) pushed with NO CI at all and their "CI green" claims could not be
+      # checked. Every branch that can carry a PR to main must be tested.
+      - "feat/**"
+      - "fix/**"
+      - "docs/**"
+      - "chore/**"
   pull_request:
     branches:
       - main
@@ -98,4 +106,8 @@ jobs:
         run: |
           echo "NOT RUN HERE: real ISO build and QEMU boot."
           echo "This job proves script behaviour only, not that an OS boots."
-          echo "Real boot evidence is committed under os/radar-os/evidence/."
+          echo "No real boot evidence exists yet: the previously committed boot"
+          echo "records were fabricated and are quarantined under"
+          echo "os/radar-os/evidence/quarantined/ (see docs/os/EVIDENCE-INTEGRITY.md)."
+          echo "Real evidence requires dispatching radar-os-stage1-build.yml after"
+          echo "the owner records docs/os/DEBIAN-BASE-DECISION.json as approved."
