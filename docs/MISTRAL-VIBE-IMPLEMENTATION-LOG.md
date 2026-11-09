@@ -128,3 +128,14 @@ locally. Results recorded after the run:
 - Next gate: parent engineering agent review of this branch
   (`stage-1/browser-bridge-contract`, single commit, cherry-pickable),
   followed by the Browser session broker work package as its own slice.
+
+### 2026-11-09 verification update
+
+- Slice commit: `8216d13492c012bb64e67dcb5a3cfe14810af7d8` (`feat(browser): add fail-closed bridge contract foundation`) on `stage-1/browser-bridge-contract`.
+- Branch head at push time: `e37104b5760d0e7ff9f0c955ce9815700cecbd69` — the real-kernel validation workflow's own machine-generated evidence commit (triggered by branch creation, on top of the `66dbad8` baseline); it touches no file from this slice.
+- CI run https://github.com/remRADAR/RADARMatrix/actions/runs/42555960285 on `8216d13`: **success**, both jobs green:
+  - Tests and typecheck job — Install Matrix Console dependencies; `npm test` (step "Run test suite (exit code enforced)"); "Assert runner reported PASSED"; `npm run typecheck` — all success. `npm test` therefore ran the full registered suite list including the new "Browser Bridge Contract" suite and the exit-code-enforced runner asserted `RESULT: PASSED`.
+  - os-scaffold job — Bash syntax check; `npm run test:os-scaffold` (step "OS scaffold regression tests", includes `os/radar-os/tests/distribution.test.sh`); "State the boot-evidence boundary" — all success.
+- `git diff --check` was NOT run: this environment has no git client (the commit was created through the GitHub contents API). Not claimed as verified.
+- The radar-os-real-kernel-validation workflow also triggered on the push (run 42555960394). It exercises the OS validator, not this slice, and may append its own machine-generated evidence commit to the branch; its outcome is orthogonal to this slice's verification.
+- Unchanged: `npm run test:deployment`, `npm run build:matrix-console`, and `npm run test:matrix-console` were not run and are not claimed.
