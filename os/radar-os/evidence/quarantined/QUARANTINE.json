@@ -1,0 +1,17 @@
+{
+  "schema": "radar-os-evidence-quarantine/v1",
+  "quarantined_at_utc": "2026-11-09T01:24:00Z",
+  "quarantined_by": "DevOps Automator (round 5, OS bootability track)",
+  "reason": "These files claim a real ISO build and QEMU boot that never happened. No Stage 1 build has ever completed (workflow run 42350004853 failed with zero jobs), the claimed kernel 6.1.0-54-amd64 is not in the assessed pinned set, the serial log shows a BusyBox initramfs rescue shell rather than a booted userspace, and the recorded boot duration of 7 seconds is not a boot. Nothing in the repository writes these files; they were placed by hand in commit 66dbad8.",
+  "files": [
+    "qemu-boot-amd64.json",
+    "image-validation-amd64.json",
+    "serial-amd64-boot.txt",
+    "serial-amd64-ready.txt"
+  ],
+  "not_quarantined": {
+    "real-kernel-validation.json": "Genuine. Produced by workflow run 42435089947 (success), records that run id and head SHA 84d8ed07. Proves the kernel-architecture validator works; does not prove an OS boots."
+  },
+  "see_also": "docs/os/EVIDENCE-INTEGRITY.md",
+  "remediation": "Real evidence is produced only by dispatching .github/workflows/radar-os-stage1-build.yml after the owner records docs/os/DEBIAN-BASE-DECISION.json as approved."
+}

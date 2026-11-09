@@ -59,13 +59,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Owner gate
+      - name: Owner gate (verifiable decision record)
         run: |
+          set -euo pipefail
+          # The dispatch input is only a CLAIM. The authority is the committed
+          # decision record, which the owner approves through normal review.
+          # This gate fails closed unless the record is approved AND its base
+          # and snapshot match what was dispatched, so a dispatcher cannot
+          # build a base the owner did not choose.
           if [ "${{ inputs.owner_base_approval }}" != "owner-has-approved" ]; then
-            echo "BLOCKED: the Debian base decision has not been approved by the project owner."
+            echo "BLOCKED: the dispatch input does not claim owner approval."
             echo "No build was executed. See docs/os/DEBIAN-BASE-ASSESSMENT.md."
             exit 1
           fi
+          bash os/radar-os/scripts/check-owner-base-approval.sh \
+            --base "${{ inputs.base }}" \
+            --snapshot "${{ inputs.snapshot }}" \
+            --record docs/os/DEBIAN-BASE-DECISION.json
 
       - name: Install the pinned build and validation toolchain
         run: |
@@ -137,6 +147,25 @@ jobs:
             "$PWD/$ISO" "$PWD/out/serial.log" "${{ steps.firmware.outputs.path }}" "$PWD/out/qemu-boot-evidence.json"
           cat out/qemu-boot-evidence.json
 
+      - name: Assert the boot evidence is a real PASS
+        run: |
+          set -euo pipefail
+          # The harness already exits non-zero on a non-PASS verdict, but this
+          # step re-asserts the contract on the artifact itself so a future
+          # harness change cannot silently weaken it. An initramfs rescue shell
+          # is never a boot.
+          python3 - out/qemu-boot-evidence.json <<'PY'
+          import json, sys
+          d = json.load(open(sys.argv[1]))
+          assert d.get('verdict') == 'PASS', f"verdict is {d.get('verdict')!r}, not PASS: {d.get('verdict_reason')}"
+          assert d.get('os_ready') is True, "os_ready is not true"
+          assert d.get('initramfs_failure_signatures') == [], f"initramfs failure signatures present: {d.get('initramfs_failure_signatures')}"
+          stages = d.get('stages') or {}
+          assert stages.get('kernel_started') is True, "kernel_started is not true"
+          assert stages.get('userspace_ready') is True, "userspace_ready is not true"
+          print('boot evidence verified: verdict=PASS, userspace reached, no initramfs failure')
+          PY
+
       - name: Upload evidence bundle
         if: always()
         uses: actions/upload-artifact@v4
@@ -147,6 +176,7 @@ jobs:
             out/build.log
             out/serial.log
             out/serial.log.qemu-stderr
+            out/serial.log.command
             out/*.sha256
             out/*.radar-os.json
             out/build-metadata.txt
@@ -163,12 +193,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Owner gate
+      - name: Owner gate (verifiable decision record)
         run: |
+          set -euo pipefail
           if [ "${{ inputs.owner_base_approval }}" != "owner-has-approved" ]; then
-            echo "BLOCKED: owner approval missing; no builds executed."
+            echo "BLOCKED: the dispatch input does not claim owner approval."
+            echo "No build was executed."
             exit 1
           fi
+          bash os/radar-os/scripts/check-owner-base-approval.sh \
+            --base "${{ inputs.base }}" \
+            --snapshot "${{ inputs.snapshot }}" \
+            --record docs/os/DEBIAN-BASE-DECISION.json
 
       - name: Install toolchain
         run: |

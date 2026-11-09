@@ -1,9 +1,31 @@
 # Debian base decision: Bookworm (12) vs Trixie (13)
 
 **Status: PENDING owner approval.** No Stage 1 production build has executed.
-This document exists so the owner can decide; the Stage 1 build workflow
-(`.github/workflows/radar-os-stage1-build.yml`) hard-gates every dispatched run
-on the `owner_base_approval` input and refuses to build without it.
+This document exists so the owner can decide.
+
+## How the owner records the decision
+
+The gate is no longer a workflow dropdown that anyone can self-assert. It reads
+a committed decision record, `docs/os/DEBIAN-BASE-DECISION.json`, which the owner
+approves through normal review. To approve, change that file to:
+
+```json
+{
+  "schema": "radar-os-owner-base-decision/v1",
+  "status": "approved",
+  "base": "trixie",
+  "snapshot": "20261101T000000Z",
+  "decided_by": "<owner name or handle>",
+  "decided_at_utc": "<ISO-8601 timestamp>",
+  "decision_ref": "<issue/PR/comment that records the decision>"
+}
+```
+
+`os/radar-os/scripts/check-owner-base-approval.sh` enforces it. The workflow
+refuses to build unless the record is `approved`, names an assessed suite, pins
+an immutable snapshot, carries an attributable author and reference, **and**
+agrees with the dispatched `base`/`snapshot`. A dispatcher cannot build a base
+the owner did not choose.
 
 ## Verified facts (checked 2026-11-07 against snapshot.debian.org)
 

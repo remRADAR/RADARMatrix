@@ -47,7 +47,17 @@ done
 EXPECTED=virt
 [[ "$0" == *x86_64* ]] && EXPECTED=q35
 [[ "$MACHINE" == "$EXPECTED" ]] || { echo "wrong machine: $MACHINE expected $EXPECTED" >&2; exit 11; }
-if [[ "${MOCK_QEMU_READY:-0}" == 1 ]]; then echo 'Reached target multi-user.target - Multi-User System.' > "$SERIAL"; else echo 'QEMU process started; no guest readiness signal.' > "$SERIAL"; fi
+if [[ "${MOCK_QEMU_READY:-0}" == 1 ]]; then
+  # A real boot has a kernel banner before userspace. The harness now requires
+  # it, so the fixture must model a genuine boot rather than only the marker.
+  printf '%s\n' '[    0.000000] Linux version 6.12.113+deb13-amd64 (debian-kernel@lists.debian.org)' > "$SERIAL"
+  echo 'Reached target multi-user.target - Multi-User System.' >> "$SERIAL"
+else
+  # Kernel started but userspace never signalled readiness: the harness must
+  # distinguish this from "no kernel at all".
+  printf '%s\n' '[    0.000000] Linux version 6.12.113+deb13-amd64 (debian-kernel@lists.debian.org)' > "$SERIAL"
+  echo '[    1.000000] Run /init as init process' >> "$SERIAL"
+fi
 SH
 chmod +x "$TMP/bin/file" "$TMP/bin/xorriso" "$TMP/bin/fake-qemu"
 ln -s "$TMP/bin/fake-qemu" "$TMP/bin/qemu-system-x86_64"
@@ -70,7 +80,7 @@ JSON
 PATH="$TMP/bin:$PATH" MOCK_QEMU_ARGS="$TMP/arm64.args" MOCK_KERNEL_ARCH=arm64 MOCK_QEMU_READY=0 RADAR_OS_QEMU_TIMEOUT=3 bash "$ROOT/scripts/boot-qemu-arm64.sh" "$IMAGE" "$TMP/arm64.serial.log" "$FIRMWARE" "$TMP/arm64.evidence.json" >"$TMP/not-ready.out" 2>"$TMP/not-ready.err" && {
   echo "expected QEMU process start without readiness to fail" >&2; exit 1;
 }
-grep -q 'QEMU process started but OS readiness marker was not observed' "$TMP/not-ready.err"
+grep -q 'FAIL_NO_READY_MARKER' "$TMP/not-ready.err"
 grep -qx -- '-drive' "$TMP/arm64.args"
 grep -qx -- 'virtio-scsi-device' "$TMP/arm64.args"
 grep -qx -- 'scsi-cd,drive=radar_cdrom' "$TMP/arm64.args"

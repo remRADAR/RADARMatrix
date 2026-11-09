@@ -1,6 +1,9 @@
 # RADAR OS Foundation Scaffold
 
-**Status:** Stage 0.1 development/validation scaffold; not a bootable release.
+**Status:** Stage 0.1 development/validation scaffold; **not a bootable release.**
+No ISO has been built and no boot has been proven. See
+`docs/os/EVIDENCE-INTEGRITY.md` — the previously committed boot records were
+fabricated and are now quarantined under `evidence/quarantined/`.
 
 RADAR OS is the bootable Linux foundation beneath Halo OS. This directory deliberately contains configuration, profiles, and non-destructive validation scripts only. It does not contain a kernel, privileged RADAR service, agent runner, production key, automatic updater, or physical-device installer.
 

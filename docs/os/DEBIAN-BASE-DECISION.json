@@ -1,0 +1,1 @@
+{"schema":"radar-os-owner-base-decision/v1","status":"pending","base":null,"snapshot":null,"decided_by":null,"decided_at_utc":null,"decision_ref":null,"notes":"Owner decision not yet recorded. The Stage 1 build workflow refuses to build until this record is approved. See docs/os/DEBIAN-BASE-ASSESSMENT.md for the comparison and the recommendation (trixie)."}
