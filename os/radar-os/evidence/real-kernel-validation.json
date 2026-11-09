@@ -1,8 +1,8 @@
 {
   "schema": "radar-os-real-kernel-validation/v1",
-  "generated_at_utc": "2026-11-08T01:38:38.584594+00:00",
-  "github_run_id": "42435089947",
-  "head_sha": "84d8ed076daea33a686fb3b9ff85e9b3c39c2e93",
+  "generated_at_utc": "2026-11-09T03:16:47.650692+00:00",
+  "github_run_id": "42555445090",
+  "head_sha": "66dbad87bec1ef53e07a2190ca9231b79c05130e",
   "snapshot_timestamp": "20261101T000000Z",
   "toolchain": "file: file-5.45\nxorriso: xorriso 1.5.6 : RockRidge filesystem manipulator, libburnia project.\npython: Python 3.12.3\n",
   "kernels": [
