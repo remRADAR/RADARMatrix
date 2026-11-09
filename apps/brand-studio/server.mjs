@@ -11,7 +11,7 @@ const port = Number(process.env.PORT || 4173);
 const workspaceId = process.env.RADARMATRIX_WORKSPACE_ID || 'w_dev';
 const runtimeMode = process.env.RADARMATRIX_RUNTIME_MODE || 'development';
 const callerId = process.env.RADARMATRIX_CALLER_ID || (runtimeMode === 'development' ? 'admin_123' : '');
-const contentTypes = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml' };
+const contentTypes = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml' };
 
 export async function createRuntime() {
   const storageMode = process.env.RADARMATRIX_STORAGE || (runtimeMode === 'production' ? 'supabase' : 'json');
@@ -135,3 +135,4 @@ if (process.env.RADARMATRIX_NO_LISTEN !== '1') {
     console.log(`Development caller: ${callerId || 'not configured'}`);
   });
 }
+

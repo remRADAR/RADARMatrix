@@ -77,7 +77,7 @@
           <div class="agent-system-note"><span class="alert-mark">i</span><p>Route plans are temporary and are not saved. Every profile currently has an empty MCP tool allowlist. A separate execution service and explicit approval policy are required before agents can act.</p></div>
         </section>
 
-        <section class="view" id="view-preview">
+        <section class="view" id="view-preview" data-workspace="remRADAR">
           <div class="view-header"><div><p class="eyebrow">VIBE CODING WORKSPACE <span>·</span> ISOLATED PREVIEW</p><h1>Live preview</h1><p class="lede">Load a development URL in a sandboxed frame. Browser takeover remains disabled until a trusted session bridge is configured.</p></div></div>
           <div class="preview-grid">
             <section class="panel preview-panel"><div class="panel-heading"><div><h3>Running page</h3><p>Cross-origin and sandboxed; no page DOM is exposed to RADARMatrix.</p></div><span class="panel-kicker">PREVIEW</span></div>
@@ -86,11 +86,11 @@
               <div class="preview-footer"><span id="preview-status" role="status">Not loaded</span><a id="preview-new-tab" href="#" target="_blank" rel="noopener noreferrer" hidden>Open in new tab ↗</a></div>
             </section>
             <aside class="panel browser-control-panel"><div class="panel-heading"><div><h3>Browser takeover</h3><p>Human-controlled session handoff.</p></div><span class="panel-kicker">BRIDGE STATUS</span></div>
-              <div class="bridge-status" role="status"><span class="bridge-indicator"></span><div><strong id="bridge-status-title">Control bridge not configured</strong><p id="bridge-status-copy">No trusted browser-session provider is connected to this build.</p></div></div>
-              <div class="control-capabilities"><div><span>Mouse and keyboard</span><b>UNAVAILABLE</b></div><div><span>Authenticated browser context</span><b>NOT SHARED</b></div><div><span>Session recording</span><b>OFF</b></div></div>
+              <div class="bridge-status" role="status"><span class="bridge-indicator"></span><div><strong id="bridge-status-title">Unavailable</strong><p id="bridge-status-copy">No trusted browser bridge is present until a host injects one.</p></div></div>
+              <div class="control-capabilities"><div><span>Requested capabilities</span><b>read_view · navigate</b></div><div><span>Authenticated browser context</span><b>NOT SHARED</b></div><div><span>Session recording</span><b>OFF</b></div></div>
               <button class="secondary-button" id="browser-connect" type="button" disabled title="A trusted browser-session bridge is not configured">Take over session</button>
               <button class="ghost-button" id="browser-disconnect" type="button" hidden>Return control</button>
-              <p class="bridge-help">This is a real integration point, not a simulated control. A host may enable it by injecting the documented <code>RADAR_BROWSER_BRIDGE</code> adapter after authenticating the operator.</p>
+              <p class="bridge-help">This is a real integration point, not a simulated control. A host may enable it by injecting the documented <code>RADAR_BROWSER_BRIDGE</code> adapter (protocol <code>radar-browser-bridge/1</code>) after authenticating the operator.</p>
             </aside>
           </div>
           <div class="agent-system-note preview-safety-note"><span class="alert-mark">i</span><p>The preview iframe does not inherit OpenCode/Chrome cookies and may be blocked by a target site's frame policy. The takeover control can only be enabled by a separately deployed, authenticated browser-session service with short-lived session grants, explicit operator consent, and scoped controls. Never put credentials in the preview URL.</p></div>
@@ -105,3 +105,4 @@
     <script type="module" src="/app.js"></script>
   </body>
 </html>
+

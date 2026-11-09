@@ -28,6 +28,7 @@ import { runAllTests as runGatewayTests } from "./v0.7-gateway.test.mjs";
 import { runAllTests as runContractTests } from "./v0.8-chatgpt-contract.test.mjs";
 import { runAllTests as runAgentRoutingTests } from "./agent-routing.test.mjs";
 import { runAllTests as runBrandGatewayRoutingTests } from "./brand-gateway-routing.test.mjs";
+import { runAllTests as runBrowserBridgeTests } from "./browser-bridge.test.mjs";
 
 const FAILURE_MARKER = "✗";
 const PASS_MARKER = "✓";
@@ -37,6 +38,7 @@ const SUITES = [
   { name: "ChatGPT Contract (v0.8)", run: () => runContractTests() },
   { name: "RADAR Agent Routing", run: () => runAgentRoutingTests() },
   { name: "Brand Gateway Routing", run: () => runBrandGatewayRoutingTests() },
+  { name: "Browser Bridge Contract", run: () => runBrowserBridgeTests() },
 ];
 
 /**
@@ -152,3 +154,4 @@ if (failedSuites.length > 0) {
 
 console.log("\nRESULT: PASSED (all suites green, zero recorded failures)");
 process.exit(0);
+

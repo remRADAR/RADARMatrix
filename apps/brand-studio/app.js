@@ -1,3 +1,11 @@
+import {
+  BRIDGE_CAPABILITIES,
+  connectBrowserBridge,
+  describeBridgeAvailability,
+  disconnectBrowserBridge,
+  subscribeBridgeReady,
+} from './browser-bridge.mjs';
+
 const views = [...document.querySelectorAll('.view')];
 const navItems = [...document.querySelectorAll('.nav-item')];
 const breadcrumb = document.querySelector('#page-breadcrumb');
@@ -112,24 +120,74 @@ async function loadAgents() {
 }
 
 
-function getBrowserBridge() {
-  const bridge = window.RADAR_BROWSER_BRIDGE;
-  return bridge && typeof bridge.connect === 'function' && typeof bridge.disconnect === 'function' ? bridge : null;
+// Browser Takeover status. The contract in browser-bridge.mjs is fail-closed:
+// a session only exists after an explicit operator action and a truthful
+// `connected` response from a host-injected bridge. No connected state is ever
+// fabricated, and no real browser control is wired in this build.
+const bridgeWorkspace = document.querySelector('#view-preview')?.dataset.workspace || '';
+let browserBridgeStatus = 'unavailable'; // 'unavailable' | 'ready' | 'connecting' | 'connected' | 'disconnected'
+let browserBridgeNotice = '';
+let browserBridgeOperatorLabel = null;
+
+function renderBrowserBridgeStatus() {
+  const connect = document.querySelector('#browser-connect');
+  const disconnect = document.querySelector('#browser-disconnect');
+  const title = document.querySelector('#bridge-status-title');
+  const copy = document.querySelector('#bridge-status-copy');
+  if (!connect || !disconnect || !title || !copy) return;
+  const hasPreview = Boolean(document.querySelector('#preview-frame')?.getAttribute('src'));
+
+  if (browserBridgeStatus === 'connected') {
+    connect.hidden = true;
+    connect.disabled = true;
+    disconnect.hidden = false;
+    title.textContent = 'Connected';
+    copy.textContent = browserBridgeOperatorLabel
+      ? `A scoped browser session is active (${browserBridgeOperatorLabel}).`
+      : 'The trusted host confirmed a scoped browser session.';
+    return;
+  }
+
+  connect.hidden = false;
+  disconnect.hidden = true;
+  if (browserBridgeStatus === 'unavailable' || !bridgeWorkspace) {
+    connect.disabled = true;
+    title.textContent = 'Unavailable';
+    copy.textContent = !bridgeWorkspace
+      ? 'This page does not declare a workspace scope, so no session can be requested.'
+      : (browserBridgeNotice || 'No trusted, protocol-compatible browser bridge is present on this page.');
+    return;
+  }
+  if (!hasPreview) {
+    connect.disabled = true;
+    title.textContent = 'Preview required before takeover';
+    copy.textContent = 'Load the development page the authenticated browser should open.';
+    return;
+  }
+  connect.disabled = browserBridgeStatus === 'connecting';
+  title.textContent = browserBridgeStatus === 'connecting'
+    ? 'Requesting session…'
+    : (browserBridgeStatus === 'disconnected' ? 'Disconnected' : 'Ready for approval');
+  copy.textContent = browserBridgeStatus === 'connecting'
+    ? 'Waiting for the trusted host to confirm or deny the session.'
+    : (browserBridgeNotice || 'A validated host bridge is present. No browser session exists until you approve one.');
 }
 
 function refreshBrowserBridgeState() {
-  const connect = document.querySelector('#browser-connect');
-  const frame = document.querySelector('#preview-frame');
-  const title = document.querySelector('#bridge-status-title');
-  const copy = document.querySelector('#bridge-status-copy');
-  if (!connect || !frame || !title || !copy) return;
-  const available = Boolean(getBrowserBridge());
-  const hasPreview = Boolean(frame.getAttribute('src'));
-  connect.disabled = !available || !hasPreview;
-  if (available) {
-    title.textContent = hasPreview ? 'Trusted bridge ready' : 'Preview required before takeover';
-    copy.textContent = hasPreview ? 'A host-provided bridge is available; take-over still requires your explicit confirmation.' : 'Load the development page the authenticated browser should open.';
+  const availability = describeBridgeAvailability(window);
+  if (browserBridgeStatus === 'connected') {
+    // An active host session is only ended by an explicit disconnect.
+    renderBrowserBridgeStatus();
+    return;
   }
+  if (availability.status !== 'available') {
+    browserBridgeStatus = 'unavailable';
+    browserBridgeNotice = availability.message;
+  } else {
+    browserBridgeStatus = browserBridgeStatus === 'disconnected' ? 'disconnected' : 'ready';
+    if (browserBridgeStatus === 'ready') browserBridgeNotice = '';
+  }
+  renderBrowserBridgeStatus();
 }
 
 document.querySelector('#preview-load-form')?.addEventListener('submit', (event) => {
@@ -168,56 +226,52 @@ document.querySelector('#preview-frame')?.addEventListener('load', (event) => {
 });
 
 document.querySelector('#browser-connect')?.addEventListener('click', async () => {
-  const bridge = getBrowserBridge();
-  const frame = document.querySelector('#preview-frame');
-  const title = document.querySelector('#bridge-status-title');
-  const copy = document.querySelector('#bridge-status-copy');
-  const connect = document.querySelector('#browser-connect');
-  const disconnect = document.querySelector('#browser-disconnect');
-  if (!bridge || !frame.getAttribute('src')) return;
-  if (!window.confirm('Connect the configured browser session to this preview? The provider will receive the preview URL.')) return;
-  connect.disabled = true;
-  title.textContent = 'Connecting…';
-  copy.textContent = 'Waiting for the trusted host provider to confirm the session.';
-  try {
-    const result = await bridge.connect({ previewUrl: frame.src, requestedCapabilities: ['viewport', 'mouse', 'keyboard'] });
-    if (!result || result.connected !== true) throw new Error('The browser provider did not confirm an active session.');
-    title.textContent = 'Browser control connected';
-    copy.textContent = result.operatorLabel ? `Control is available to ${result.operatorLabel}.` : 'The host provider confirmed an active session.';
-    connect.hidden = true;
-    disconnect.hidden = false;
-  } catch (error) {
-    title.textContent = 'Browser session not connected';
-    copy.textContent = error.message || 'The host provider rejected the session request.';
-    connect.hidden = false;
-    refreshBrowserBridgeState();
+  if (browserBridgeStatus !== 'ready' && browserBridgeStatus !== 'disconnected') return;
+  const previewUrl = document.querySelector('#preview-frame')?.getAttribute('src');
+  if (!bridgeWorkspace || !previewUrl) return;
+  if (!window.confirm('Connect a scoped browser session to this preview? The trusted host receives the preview URL, the workspace scope, and the requested capabilities.')) return;
+  browserBridgeStatus = 'connecting';
+  browserBridgeNotice = '';
+  renderBrowserBridgeStatus();
+  const outcome = await connectBrowserBridge(window, {
+    scope: { workspace: bridgeWorkspace },
+    requestedCapabilities: [...BRIDGE_CAPABILITIES],
+    reason: 'Brand Studio live preview takeover',
+    previewUrl,
+  });
+  if (outcome.status === 'connected') {
+    browserBridgeStatus = 'connected';
+    browserBridgeOperatorLabel = outcome.operatorLabel;
+    browserBridgeNotice = '';
+  } else if (outcome.status === 'denied') {
+    browserBridgeStatus = 'disconnected';
+    browserBridgeOperatorLabel = null;
+    browserBridgeNotice = outcome.reason ? `The trusted host denied the session: ${outcome.reason}.` : 'The trusted host denied the session request.';
+  } else {
+    browserBridgeOperatorLabel = null;
+    browserBridgeNotice = outcome.message;
+    browserBridgeStatus = describeBridgeAvailability(window).status === 'available' ? 'ready' : 'unavailable';
   }
+  renderBrowserBridgeStatus();
 });
 
 document.querySelector('#browser-disconnect')?.addEventListener('click', async () => {
-  const bridge = getBrowserBridge();
-  const connect = document.querySelector('#browser-connect');
+  if (browserBridgeStatus !== 'connected') return;
   const disconnect = document.querySelector('#browser-disconnect');
-  const title = document.querySelector('#bridge-status-title');
-  const copy = document.querySelector('#bridge-status-copy');
-  if (!bridge) return;
   disconnect.disabled = true;
-  try {
-    await bridge.disconnect();
-    title.textContent = 'Browser control returned';
-    copy.textContent = 'The host provider has ended the interactive control session.';
-  } catch (error) {
-    title.textContent = 'Could not end browser session';
-    copy.textContent = error.message || 'The host provider could not confirm session termination.';
-  } finally {
-    disconnect.disabled = false;
-    disconnect.hidden = true;
-    connect.hidden = false;
-    refreshBrowserBridgeState();
-  }
+  const outcome = await disconnectBrowserBridge(window);
+  // The connected state is cleared either way: an error result must never
+  // leave the panel claiming an active session.
+  browserBridgeStatus = 'disconnected';
+  browserBridgeOperatorLabel = null;
+  browserBridgeNotice = outcome.status === 'error' ? outcome.message : 'The browser session has ended. No browser control is active.';
+  disconnect.disabled = false;
+  renderBrowserBridgeStatus();
 });
 
-window.addEventListener('radar-browser-bridge-ready', refreshBrowserBridgeState);
+// The host may inject the bridge after the page loads; the ready event only
+// re-evaluates readiness. It never connects automatically.
+subscribeBridgeReady(window, refreshBrowserBridgeState);
 function renderRoutePlan(plan) {
   const result = document.querySelector('#task-route-result');
   result.replaceChildren();
@@ -324,3 +378,4 @@ document.querySelector('.search-field input')?.addEventListener('input', (event)
 
 showView(labels[window.location.hash.replace('#', '')] ? window.location.hash.replace('#', '') : 'overview');
 hydrate();
+
