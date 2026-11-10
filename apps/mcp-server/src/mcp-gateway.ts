@@ -25,6 +25,14 @@
  * IMPORTANT:
  * This remains a development/foundation gateway.
  * Production authentication must use verified OAuth/OIDC tokens.
+ *
+ * M1a (2026-11-01):
+ * - Converted to ESM imports/exports (the package declares
+ *   "type": "module"). Provider implementations remain CommonJS
+ *   (.cjs) behind ESM re-export wrappers. Security semantics are
+ *   unchanged: strict, fail-closed, allowlist-only.
+ * - The development membership provider is now wired with an
+ *   explicit development membership fixture. Still fail-closed.
  */
 
 interface MCPRequest {
@@ -79,26 +87,27 @@ interface AuditEvent {
  *
  * Production replacements must preserve these interfaces.
  */
-const {
+import {
   DevelopmentAuthenticationProvider,
-} = require("./providers/authentication");
+} from "./providers/authentication.cjs";
 
-const {
+import {
   DefaultAuthorizationProvider,
-} = require("./providers/authorization");
+} from "./providers/authorization.cjs";
 
-const {
+import {
   DevelopmentMembershipProvider,
-} = require("./providers/membership");
+  defaultDevelopmentMembership,
+} from "./providers/membership.cjs";
 
-const {
+import {
   TOOL_REGISTRY,
-} = require("./chatgpt-app-contract");
+} from "./chatgpt-app-contract.ts";
 
-const {
+import {
   getAgentDirectory,
   planTask,
-} = require("./runtime/agent-routing.cjs");
+} from "./runtime/agent-routing.cjs";
 
 const authProvider =
   new DevelopmentAuthenticationProvider();
@@ -106,8 +115,27 @@ const authProvider =
 const authorizationProvider =
   new DefaultAuthorizationProvider();
 
+/**
+ * Development membership fixture.
+ *
+ * Mirrors defaultDevelopmentPrincipals(): the four development
+ * principals are explicit members of the development workspace.
+ *
+ * M1a fix: the previous default wiring constructed the membership
+ * provider with NO members, which (given the fail-closed explicit
+ * map) would have rejected every request with WORKSPACE_FORBIDDEN.
+ * The gateway had never been executed at runtime, so this latent
+ * defect went unnoticed until M1a.
+ *
+ * This remains a strict, fail-closed, explicit map:
+ * - Unknown callers are members of nothing.
+ * - Unknown workspaces are accessible to no one.
+ * - No wildcard or fallback membership exists.
+ */
 const membershipProvider =
-  new DevelopmentMembershipProvider();
+  new DevelopmentMembershipProvider({
+    members: defaultDevelopmentMembership(),
+  });
 
 /**
  * --------------------------------------------------------------------------
@@ -868,7 +896,7 @@ function normalizeError(
  * --------------------------------------------------------------------------
  */
 
-module.exports = {
+export {
   authenticate,
   authorize,
   validateWorkspaceIsolation,

@@ -16,3 +16,7 @@ os/radar-os/live/config/
 os/radar-os/live/chroot/
 os/radar-os/live/binary/
 os/radar-os/live/.build/
+
+# Local environment files (secrets must never be committed)
+.env
+.env.*
