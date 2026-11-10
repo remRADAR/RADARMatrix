@@ -11,6 +11,12 @@ apps/matrix-console/node_modules/
 apps/matrix-console/dist/
 apps/matrix-console/*.tsbuildinfo
 
+# Generated Debian Live build configuration/work products
+os/radar-os/live/config/
+os/radar-os/live/chroot/
+os/radar-os/live/binary/
+os/radar-os/live/.build/
+
 # Local environment files (secrets must never be committed)
 .env
 .env.*

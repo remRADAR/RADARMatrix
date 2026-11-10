@@ -1,44 +1,91 @@
 name: CI
 
-# Zero-budget test execution: GitHub Actions is free for public repositories.
-#
-# M1a: the test runner is now fail-fast — suites report failures via
-# return values or throwing, and the runner exits non-zero on any
-# failure. The PRIMARY CI signal is therefore the process exit code.
-# A secondary guard re-runs the suites and rejects any swallowed
-# failure lines in the output (defense in depth for legacy suites).
-
+# Stage 0.1.1 verification workflow.
+# Combines the branch-specific OS and Matrix Console checks with the
+# deployment smoke test carried by current main. This does not claim to build
+# an ISO or boot QEMU; those remain separate evidence gates.
 on:
   push:
-    branches: ['**']
+    branches:
+      - main
+      - "architecture/**"
+      - "security/**"
+      - "runtime/**"
+      - "stage-1/**"
   pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test:
+  tests:
+    name: Tests and typecheck
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 24
-
-      # Repository has zero npm dependencies; no install step needed.
-      # Node >= 22.18 loads the TypeScript gateway/contract sources via
-      # built-in type stripping (erasable syntax only).
-      - name: Run test suites (npm test — exit code enforced)
-        run: npm test
-
-      - name: Deployment smoke test
-        run: npm run test:deployment
-
-      - name: Secondary guard — no swallowed failure lines in output
+          node-version: 22
+      - name: Install Matrix Console dependencies
+        run: |
+          if [ -f apps/matrix-console/package-lock.json ]; then
+            npm ci --prefix apps/matrix-console --ignore-scripts --no-audit --no-fund
+          else
+            echo "no console lockfile on this ref; skipping install"
+          fi
+      - name: Run test suite (exit code enforced)
+        shell: bash
         run: |
           set +e
-          npm test > /tmp/suite-output.log 2>&1
-          if grep -n '✗' /tmp/suite-output.log; then
-            echo "::error::Failure lines present in suite output despite exit-code checks"
+          npm test 2>&1 | tee /tmp/test.log
+          status=${PIPESTATUS[0]}
+          set -e
+          echo "npm test exit code: $status"
+          exit "$status"
+      - name: Deployment smoke test
+        run: npm run test:deployment
+      - name: Guard against swallowed failures
+        shell: bash
+        run: |
+          MARKER=$(printf '\342\234\227')
+          if grep -qE "^[[:space:]]*${MARKER} " /tmp/test.log; then
+            echo "::error::Test output contains failure markers"
             exit 1
           fi
+          echo "no swallowed failure markers found"
+      - name: Assert the suite actually executed
+        shell: bash
+        run: |
+          grep -q "Test Run Complete" /tmp/test.log || {
+            echo "::error::Runner did not report Test Run Complete"
+            exit 1
+          }
+          echo "suite executed to completion"
+      - name: Typecheck Matrix Console
+        run: npm run typecheck
+
+  os-scaffold:
+    name: RADAR OS script checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Bash syntax check
+        run: bash -n os/radar-os/scripts/*.sh os/radar-os/live/auto/config
+      - name: OS scaffold regression tests
+        run: npm run test:os-scaffold
+      - name: State the boot-evidence boundary
+        run: |
+          echo "NOT RUN HERE: real ISO build and QEMU boot."
+          echo "This job proves script behaviour only, not that an OS boots."
+          echo "Real boot evidence is committed under os/radar-os/evidence/."

@@ -1,0 +1,24 @@
+# RADAR OS Stage 0.1 common package proposal
+# This is a design manifest, not an installed system and not a production lockfile.
+# Pin exact versions and snapshot sources during Stage 1 before building.
+
+systemd
+network-manager
+openssh-client
+sudo
+ca-certificates
+curl
+wget
+iproute2
+iputils-ping
+util-linux
+parted
+dosfstools
+e2fsprogs
+pciutils
+usbutils
+lshw
+rsyslog
+logrotate
+initramfs-tools
+firmware-linux-free
