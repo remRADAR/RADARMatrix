@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - fix/matrix-ide-lockfile-ci
+  pull_request:
+    branches:
+      - main
+      - fix/reproducible-ci-and-lockfile
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Tests, typecheck, and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/matrix-console/package-lock.json
+
+      - name: Install locked Matrix Console dependencies
+        run: npm ci --prefix apps/matrix-console --ignore-scripts --no-audit --no-fund
+
+      - name: Run all repository and Matrix IDE tests
+        run: npm test
+
+      - name: Verify production fails closed when unconfigured
+        run: npm run test:deployment
+
+      - name: Typecheck Matrix Console
+        run: npm run typecheck
+
+      - name: Build Matrix Console
+        run: npm run build:matrix-console
+
+      - name: Smoke-test Matrix Console build and routes
+        run: npm run test:matrix-console
+
+      - name: Check whitespace errors
+        run: git diff --check
