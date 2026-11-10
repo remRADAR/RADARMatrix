@@ -111,6 +111,35 @@ export async function runAllTests() {
     assert.equal(outcome.code, BRIDGE_ERROR_CODES.MALFORMED_BRIDGE);
   }
 
+  // Throwing bridge-method accessors are malformed, never uncaught exceptions.
+  {
+    const bridge = { protocol: BRIDGE_PROTOCOL, disconnect() {} };
+    Object.defineProperty(bridge, 'connect', { get() { throw new Error('connect getter exploded'); } });
+    const scope = makeScope({ bridge });
+    assert.equal(resolveBrowserBridge(scope), null);
+    assert.equal(describeBridgeAvailability(scope).code, BRIDGE_ERROR_CODES.MALFORMED_BRIDGE);
+    const outcome = await connectBrowserBridge(scope, validRequest());
+    assert.equal(outcome.status, 'error');
+    assert.equal(outcome.code, BRIDGE_ERROR_CODES.MALFORMED_BRIDGE);
+  }
+
+  // Resolution and invocation use the same validated bridge snapshot.
+  {
+    const { bridge, calls } = makeBridge();
+    const scope = makeScope();
+    let reads = 0;
+    Object.defineProperty(scope, BRIDGE_GLOBAL_KEY, {
+      get() {
+        reads += 1;
+        return reads === 1 ? bridge : {};
+      },
+    });
+    const outcome = await connectBrowserBridge(scope, validRequest());
+    assert.equal(outcome.status, 'connected');
+    assert.equal(calls.connect.length, 1);
+    assert.equal(reads, 1, 'the validated bridge must not be replaced by a second global-property read');
+  }
+
   // --- Fail-closed resolution: unsupported protocol -------------------------
   {
     const { bridge } = makeBridge({ protocol: 'radar-browser-bridge/0' });
@@ -216,6 +245,22 @@ export async function runAllTests() {
     const outcome = await connectBrowserBridge(makeScope({ bridge }), validRequest());
     assert.equal(outcome.status, 'error');
     assert.equal(outcome.code, BRIDGE_ERROR_CODES.MALFORMED_BRIDGE, 'a truthy non-boolean connected flag is not a session');
+  }
+  {
+    const response = {};
+    Object.defineProperty(response, 'connected', { get() { throw new Error('connected getter exploded'); } });
+    const { bridge } = makeBridge({ connect: async () => response });
+    const outcome = await connectBrowserBridge(makeScope({ bridge }), validRequest());
+    assert.equal(outcome.status, 'error');
+    assert.equal(outcome.code, BRIDGE_ERROR_CODES.MALFORMED_BRIDGE, 'a throwing response accessor is a structured error, not a rejected promise');
+  }
+  {
+    const response = { connected: true };
+    Object.defineProperty(response, 'operatorLabel', { get() { throw new Error('label getter exploded'); } });
+    const { bridge } = makeBridge({ connect: async () => response });
+    const outcome = await connectBrowserBridge(makeScope({ bridge }), validRequest());
+    assert.equal(outcome.status, 'error');
+    assert.equal(outcome.code, BRIDGE_ERROR_CODES.MALFORMED_BRIDGE);
   }
   {
     const { bridge } = makeBridge({ connect: async () => ({ connected: false, reason: 'operator quota reached' }) });

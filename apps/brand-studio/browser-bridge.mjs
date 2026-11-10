@@ -197,16 +197,48 @@ export function validateConnectRequest(request, options = {}) {
  * @returns {{ ok: true, value: object } | { ok: false, code: string, message: string }}
  */
 export function validateBridge(candidate) {
-  if (!isPlainObject(candidate) || typeof candidate.connect !== 'function' || typeof candidate.disconnect !== 'function') {
+  try {
+    if (!isPlainObject(candidate) || typeof candidate.connect !== 'function' || typeof candidate.disconnect !== 'function') {
+      return { ok: false, code: BRIDGE_ERROR_CODES.MALFORMED_BRIDGE, message: ERROR_MESSAGES[BRIDGE_ERROR_CODES.MALFORMED_BRIDGE] };
+    }
+    if (candidate.protocol !== BRIDGE_PROTOCOL) {
+      return { ok: false, code: BRIDGE_ERROR_CODES.UNSUPPORTED_PROTOCOL, message: ERROR_MESSAGES[BRIDGE_ERROR_CODES.UNSUPPORTED_PROTOCOL] };
+    }
+  } catch {
     return { ok: false, code: BRIDGE_ERROR_CODES.MALFORMED_BRIDGE, message: ERROR_MESSAGES[BRIDGE_ERROR_CODES.MALFORMED_BRIDGE] };
-  }
-  if (candidate.protocol !== BRIDGE_PROTOCOL) {
-    return { ok: false, code: BRIDGE_ERROR_CODES.UNSUPPORTED_PROTOCOL, message: ERROR_MESSAGES[BRIDGE_ERROR_CODES.UNSUPPORTED_PROTOCOL] };
   }
   return { ok: true, value: candidate };
 }
 
 /** @typedef {{ status: 'unavailable', code: string, message: string } | { status: 'available' }} BridgeAvailability */
+
+function inspectBrowserBridge(globalScope) {
+  try {
+    if (!isPlainObject(globalScope)) {
+      return {
+        availability: { status: 'unavailable', code: BRIDGE_ERROR_CODES.MISSING_BRIDGE, message: ERROR_MESSAGES[BRIDGE_ERROR_CODES.MISSING_BRIDGE] },
+        bridge: null,
+      };
+    }
+    const raw = globalScope[BRIDGE_GLOBAL_KEY];
+    if (raw === undefined || raw === null) {
+      return {
+        availability: { status: 'unavailable', code: BRIDGE_ERROR_CODES.MISSING_BRIDGE, message: ERROR_MESSAGES[BRIDGE_ERROR_CODES.MISSING_BRIDGE] },
+        bridge: null,
+      };
+    }
+    const validation = validateBridge(raw);
+    if (!validation.ok) {
+      return { availability: { status: 'unavailable', code: validation.code, message: validation.message }, bridge: null };
+    }
+    return { availability: { status: 'available' }, bridge: validation.value };
+  } catch {
+    return {
+      availability: { status: 'unavailable', code: BRIDGE_ERROR_CODES.MALFORMED_BRIDGE, message: ERROR_MESSAGES[BRIDGE_ERROR_CODES.MALFORMED_BRIDGE] },
+      bridge: null,
+    };
+  }
+}
 
 /**
  * Read the host-injected bridge from a global scope (the page passes
@@ -217,20 +249,7 @@ export function validateBridge(candidate) {
  * @returns {BridgeAvailability}
  */
 export function describeBridgeAvailability(globalScope) {
-  if (!isPlainObject(globalScope)) return { status: 'unavailable', code: BRIDGE_ERROR_CODES.MISSING_BRIDGE, message: ERROR_MESSAGES[BRIDGE_ERROR_CODES.MISSING_BRIDGE] };
-  let raw;
-  let threw = false;
-  try {
-    raw = globalScope[BRIDGE_GLOBAL_KEY];
-  } catch {
-    threw = true;
-  }
-  if (!threw && (raw === undefined || raw === null)) {
-    return { status: 'unavailable', code: BRIDGE_ERROR_CODES.MISSING_BRIDGE, message: ERROR_MESSAGES[BRIDGE_ERROR_CODES.MISSING_BRIDGE] };
-  }
-  const validation = validateBridge(threw ? null : raw);
-  if (!validation.ok) return { status: 'unavailable', code: validation.code, message: validation.message };
-  return { status: 'available' };
+  return inspectBrowserBridge(globalScope).availability;
 }
 
 /**
@@ -242,13 +261,7 @@ export function describeBridgeAvailability(globalScope) {
  * @returns {object | null}
  */
 export function resolveBrowserBridge(globalScope) {
-  const availability = describeBridgeAvailability(globalScope);
-  if (availability.status !== 'available') return null;
-  try {
-    return globalScope[BRIDGE_GLOBAL_KEY];
-  } catch {
-    return null;
-  }
+  return inspectBrowserBridge(globalScope).bridge;
 }
 
 /**
@@ -286,13 +299,11 @@ export function subscribeBridgeReady(globalScope, handler) {
 }
 
 function bridgeForConnection(globalScope) {
-  const availability = describeBridgeAvailability(globalScope);
-  if (availability.status !== 'available') return { error: errorResult(availability.code, availability.message), bridge: null };
-  try {
-    return { error: null, bridge: globalScope[BRIDGE_GLOBAL_KEY] };
-  } catch {
-    return { error: errorResult(BRIDGE_ERROR_CODES.MALFORMED_BRIDGE), bridge: null };
+  const inspected = inspectBrowserBridge(globalScope);
+  if (inspected.availability.status !== 'available') {
+    return { error: errorResult(inspected.availability.code, inspected.availability.message), bridge: null };
   }
+  return { error: null, bridge: inspected.bridge };
 }
 
 function codeFromThrown(thrown) {
@@ -341,7 +352,11 @@ export async function connectBrowserBridge(globalScope, request, options = {}) {
   } catch (thrown) {
     return errorResult(codeFromThrown(thrown));
   }
-  return interpretConnectResponse(response);
+  try {
+    return interpretConnectResponse(response);
+  } catch {
+    return errorResult(BRIDGE_ERROR_CODES.MALFORMED_BRIDGE);
+  }
 }
 
 /**
