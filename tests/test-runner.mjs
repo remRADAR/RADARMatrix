@@ -1,43 +1,33 @@
 /**
- * RADARMatrix Test Runner
- * 
- * Orchestrates all test suites and provides summary reporting.
- * Runs:
- * - v0.7-gateway.test.mjs
- * - v0.8-chatgpt-contract.test.mjs
+ * RADARMatrix test runner. Every suite must propagate assertion failures.
  */
 
 import { runAllTests as runGatewayTests } from "./v0.7-gateway.test.mjs";
 import { runAllTests as runContractTests } from "./v0.8-chatgpt-contract.test.mjs";
 import { runAllTests as runAgentRoutingTests } from "./agent-routing.test.mjs";
 import { runAllTests as runBrandGatewayRoutingTests } from "./brand-gateway-routing.test.mjs";
+import { runAllTests as runMatrixIdeTests } from "./matrix-ide.test.mjs";
 
-console.log("\n");
-console.log("╔════════════════════════════════════════╗");
-console.log("║   RADARMatrix Test Suite (v0.8)      ║");
-console.log("║   Foundation Implementation Tests     ║");
-console.log("╚════════════════════════════════════════╝\n");
-
+console.log("\nRADARMatrix test suite\n");
 const startTime = Date.now();
+let failures = 0;
 
-// Run gateway tests
-console.log("▶ Running MCP Gateway Tests (v0.7)...\n");
-runGatewayTests();
+for (const [name, run] of [
+  ["MCP Gateway", runGatewayTests],
+  ["ChatGPT Contract", runContractTests],
+  ["Agent Routing", runAgentRoutingTests],
+]) {
+  console.log(`▶ Running ${name} tests...\n`);
+  const result = run();
+  if (typeof result === "number") failures += result;
+}
 
-// Run contract tests
-console.log("▶ Running ChatGPT Contract Tests (v0.8)...\n");
-runContractTests();
-
-console.log("▶ Running RADAR Agent Routing Tests...\n");
-runAgentRoutingTests();
+console.log("▶ Running Brand Gateway Routing tests...\n");
 await runBrandGatewayRoutingTests();
 
-// Summary
-const duration = Date.now() - startTime;
-console.log("\n╔════════════════════════════════════════╗");
-console.log("║           Test Run Complete            ║");
-console.log(`║   Duration: ${duration}ms                      ║`);
-console.log("║   All foundation tests executed       ║");
-console.log("╚════════════════════════════════════════╝\n");
+console.log("▶ Running Matrix IDE tests...\n");
+const ideResult = await runMatrixIdeTests();
+failures += ideResult.failed;
 
-process.exit(0);
+console.log(`\nTest run complete in ${Date.now() - startTime}ms: ${failures} failed assertion(s).`);
+if (failures > 0) process.exitCode = 1;

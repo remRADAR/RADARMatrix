@@ -16,6 +16,8 @@
 
 import assert from "assert";
 
+let failedAssertions = 0;
+
 // ============================================================================
 // TEST SUITE: Authentication
 // ============================================================================
@@ -46,6 +48,7 @@ export function testAuthenticationFlow() {
       assert.strictEqual(result, test.expected, `${test.name} failed`);
       console.log(`  ✓ ${test.name}`);
     } catch (error) {
+      failedAssertions += 1;
       console.log(`  ✗ ${test.name}: ${error.message}`);
     }
   }
@@ -119,6 +122,7 @@ export function testAuthorizationChecks() {
       assert.strictEqual(has_access, test.should_allow, test.name);
       console.log(`  ✓ ${test.name}`);
     } catch (error) {
+      failedAssertions += 1;
       console.log(`  ✗ ${test.name}: ${error.message}`);
     }
   }
@@ -151,6 +155,7 @@ export function testWorkspaceIsolation() {
       assert.strictEqual(match, test.should_match, test.name);
       console.log(`  ✓ ${test.name}`);
     } catch (error) {
+      failedAssertions += 1;
       console.log(`  ✗ ${test.name}: ${error.message}`);
     }
   }
@@ -204,6 +209,7 @@ export function testErrorHandling() {
       assert.strictEqual(error_code, test.expected_error, test.name);
       console.log(`  ✓ ${test.name}`);
     } catch (error) {
+      failedAssertions += 1;
       console.log(`  ✗ ${test.name}: ${error.message}`);
     }
   }
@@ -264,6 +270,7 @@ export function testToolContractValidation() {
       assert.strictEqual(is_valid, test.should_pass, test.name);
       console.log(`  ✓ ${test.name}`);
     } catch (error) {
+      failedAssertions += 1;
       console.log(`  ✗ ${test.name}: ${error.message}`);
     }
   }
@@ -301,6 +308,7 @@ export function testRequestResponseFlow() {
       }
       console.log(`  ✓ ${test.name}`);
     } catch (error) {
+      failedAssertions += 1;
       console.log(`  ✗ ${test.name}: ${error.message}`);
     }
   }
@@ -339,6 +347,7 @@ export function testAuditTrail() {
       assert(test.should_audit === true, test.name);
       console.log(`  ✓ ${test.name}`);
     } catch (error) {
+      failedAssertions += 1;
       console.log(`  ✗ ${test.name}: ${error.message}`);
     }
   }
@@ -368,6 +377,7 @@ export function testImmutability() {
       assert.strictEqual(test.immutable, true, test.name);
       console.log(`  ✓ ${test.name}`);
     } catch (error) {
+      failedAssertions += 1;
       console.log(`  ✗ ${test.name}: ${error.message}`);
     }
   }
@@ -378,6 +388,7 @@ export function testImmutability() {
 // ============================================================================
 
 export function runAllTests() {
+  failedAssertions = 0;
   console.log("\n===========================================");
   console.log("RADARMatrix MCP Gateway Tests (v0.7)");
   console.log("===========================================");
@@ -395,9 +406,10 @@ export function runAllTests() {
   console.log("\n===========================================");
   console.log("Test suite complete");
   console.log("===========================================");
+  return failedAssertions;
 }
 
 // Run tests if executed directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  runAllTests();
+  process.exitCode = runAllTests() > 0 ? 1 : 0;
 }

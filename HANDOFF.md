@@ -40,3 +40,14 @@
 - Cloudflare returned three asset buckets for the four verified build files.
 - Asset upload did not start because the Cloudflare execution runtime cannot read the sandbox filesystem and its outbound policy rejects the temporary CDN/GitHub mirrors used to bridge raw bytes.
 - No partial asset upload, Worker version, deployment, route, DNS record, or secret was created.
+
+
+## Checkpoint: repository review and reproducible CI (2026-11-08)
+
+- Reviewed `main` at `91d95170a541a2355c409b2a2d0c8f30e1b20e71` (`feat: add RADARMatrix console and staging deployment`). The repository is an integration foundation plus demo/staging console; it is not a live MCP service or production-connected data platform.
+- GitHub currently has separate, unmerged development tracks. The newest product surface is PR #22 (Matrix IDE); PR #21 is a draft ordered security-stack integration. Halo OS, kernel, security/authentication and other work remains in additional PRs. These were not merged or copied into `main` as their branch dependencies, owners' review gates and draft status are meaningful.
+- Implemented locally: pinned Matrix Console dependencies to versions already present in the lockfile; changed the staging workflow to `npm ci`; added a read-only `main`/PR CI workflow covering tests, fail-closed deployment smoke, typecheck, build, console smoke and whitespace checks.
+- Local verification passed after `npm ci --prefix apps/matrix-console --ignore-scripts --no-audit --no-fund`: `npm test`, `npm run test:deployment`, `npm run typecheck`, `npm run build:matrix-console`, `npm run test:matrix-console`, and `git diff --check`.
+- The initial typecheck failure was caused by absent `node_modules` in the clean sandbox, not by source errors; the committed lockfile install resolved it.
+- No remote push/PR, production deployment, Cloudflare resource, secret, route, DNS, schema, or data change was made.
+- Next sequence: verify this CI workflow on GitHub; review PR #22 on its merits and integrate only after the owner/review gates; continue the security PR chain in its documented order; separately gate real OAuth/OIDC, storage, live MCP endpoint and production deployment. Do not call the project complete until those acceptance criteria are implemented and tested.

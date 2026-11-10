@@ -14,6 +14,8 @@
 
 import assert from "assert";
 
+let failedAssertions = 0;
+
 // ============================================================================
 // TOOL REGISTRY (mirrors chatgpt-app-contract.ts)
 // ============================================================================
@@ -99,6 +101,7 @@ export function testToolExistence() {
       assert(tool !== undefined, `Tool ${tool_name} not found`);
       console.log(`  ✓ Tool exists: ${tool_name}`);
     } catch (error) {
+      failedAssertions += 1;
       console.log(`  ✗ Tool missing: ${tool_name}`);
     }
   }
@@ -143,6 +146,7 @@ export function testToolContracts() {
       );
       console.log(`  ✓ ${test.name}`);
     } catch (error) {
+      failedAssertions += 1;
       console.log(`  ✗ ${test.name}: ${error.message}`);
     }
   }
@@ -215,6 +219,7 @@ export function testRoleBasedAccess() {
         `  ✓ Role ${test.role} ${test.should_allow ? "can" : "cannot"} use ${test.tool}`
       );
     } catch (error) {
+      failedAssertions += 1;
       console.log(`  ✗ ${error.message}`);
     }
   }
@@ -246,6 +251,7 @@ export function testToolDescriptions() {
       );
       console.log(`  ✓ ${test.tool} has description`);
     } catch (error) {
+      failedAssertions += 1;
       console.log(`  ✗ ${error.message}`);
     }
   }
@@ -313,6 +319,7 @@ export function testRequestValidation() {
       assert.strictEqual(is_valid, test.should_pass, test.name);
       console.log(`  ✓ ${test.name}`);
     } catch (error) {
+      failedAssertions += 1;
       console.log(`  ✗ ${test.name}: ${error.message}`);
     }
   }
@@ -343,6 +350,7 @@ export function testResponseStructure() {
       assert(metadata[test.field] !== undefined, test.name);
       console.log(`  ✓ ${test.name}`);
     } catch (error) {
+      failedAssertions += 1;
       console.log(`  ✗ ${test.name}: ${error.message}`);
     }
   }
@@ -380,6 +388,7 @@ export function testWriteOperationGating() {
       assert.strictEqual(has_access, test.should_allow, test.name);
       console.log(`  ✓ ${test.name}`);
     } catch (error) {
+      failedAssertions += 1;
       console.log(`  ✗ ${test.name}: ${error.message}`);
     }
   }
@@ -416,6 +425,7 @@ export function testToolRegistry() {
       assert.strictEqual(test.actual, test.expected, test.name);
       console.log(`  ✓ ${test.name}`);
     } catch (error) {
+      failedAssertions += 1;
       console.log(`  ✗ ${test.name}: ${error.message}`);
     }
   }
@@ -463,6 +473,7 @@ export function testSecurityRequirements() {
       assert(test.check(), test.name);
       console.log(`  ✓ ${test.name}`);
     } catch (error) {
+      failedAssertions += 1;
       console.log(`  ✗ ${test.name}: ${error.message}`);
     }
   }
@@ -473,6 +484,7 @@ export function testSecurityRequirements() {
 // ============================================================================
 
 export function runAllTests() {
+  failedAssertions = 0;
   console.log("\n===========================================");
   console.log("RADARMatrix ChatGPT Contract Tests (v0.8)");
   console.log("===========================================");
@@ -491,9 +503,10 @@ export function runAllTests() {
   console.log("\n===========================================");
   console.log("Test suite complete");
   console.log("===========================================");
+  return failedAssertions;
 }
 
 // Run tests if executed directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  runAllTests();
+  process.exitCode = runAllTests() > 0 ? 1 : 0;
 }
