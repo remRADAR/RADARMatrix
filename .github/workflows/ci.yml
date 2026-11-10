@@ -1,10 +1,6 @@
 name: CI
-
-# Why this workflow exists: neither main nor the Stage 0.1.1 branch had a test
-# workflow. main carries only deploy-staging.yml (push to `staging`, no tests),
-# so PR #14's only check run was "Vercel Preview Comments". The exit-code
-# enforced suite therefore had no automated consumer.
-
+# PR #25's fail-closed test accounting and OS scaffold checks are retained;
+# Matrix IDE and reproducible console validations from PR #24 are included.
 on:
   push:
     branches:
@@ -13,37 +9,30 @@ on:
       - "security/**"
       - "runtime/**"
       - "stage-1/**"
+      - "review/**"
   pull_request:
     branches:
       - main
-
 permissions:
   contents: read
-
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
-
 jobs:
   tests:
-    name: Tests and typecheck
+    name: Repository, IDE, deployment and console checks
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-
-      - name: Install Matrix Console dependencies
-        run: |
-          if [ -f apps/matrix-console/package-lock.json ]; then
-            npm ci --prefix apps/matrix-console --ignore-scripts --no-audit --no-fund
-          else
-            echo "no console lockfile on this ref; skipping install"
-          fi
-
-      - name: Run test suite (exit code enforced)
+          cache: npm
+          cache-dependency-path: apps/matrix-console/package-lock.json
+      - name: Clean locked Matrix Console install
+        run: npm ci --prefix apps/matrix-console --ignore-scripts --no-audit --no-fund
+      - name: Run repository, IDE and OS scaffold tests
         shell: bash
         run: |
           set +e
@@ -52,32 +41,32 @@ jobs:
           set -e
           echo "npm test exit code: $status"
           exit "$status"
-
       - name: Guard against swallowed failures
         shell: bash
         run: |
-          # The failure marker is U+2717; the pass marker is U+2713. They are
-          # adjacent codepoints, so the character class [^ -~] alone matched
-          # BOTH and failed a green run (run 42253877282, step 6). Build the
-          # exact codepoint from octal so this file stays pure ASCII.
           MARKER=$(printf '\342\234\227')
           if grep -qE "^[[:space:]]*${MARKER} " /tmp/test.log; then
             echo "::error::Test output contains failure markers"
             exit 1
           fi
           echo "no swallowed failure markers found"
-
-      - name: Assert runner reported PASSED
+      - name: Assert fail-closed runner reported PASSED
         shell: bash
         run: |
           grep -q "RESULT: PASSED" /tmp/test.log || {
             echo "::error::Runner did not report RESULT: PASSED"
             exit 1
           }
-
+      - name: Verify deployment fails closed when unconfigured
+        run: npm run test:deployment
       - name: Typecheck Matrix Console
         run: npm run typecheck
-
+      - name: Build Matrix Console
+        run: npm run build:matrix-console
+      - name: Smoke-test Matrix Console
+        run: npm run test:matrix-console
+      - name: Check whitespace errors
+        run: git diff --check
   os-scaffold:
     name: RADAR OS script checks
     runs-on: ubuntu-latest
@@ -87,13 +76,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-
       - name: Bash syntax check
         run: bash -n os/radar-os/scripts/*.sh os/radar-os/live/auto/config
-
       - name: OS scaffold regression tests
         run: npm run test:os-scaffold
-
       - name: State the boot-evidence boundary
         run: |
           echo "NOT RUN HERE: real ISO build and QEMU boot."
