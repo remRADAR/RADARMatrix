@@ -1,0 +1,60 @@
+#!/bin/sh
+# Stage 0.1 design scaffold for Debian Live.
+# Requires live-build and pinned Debian snapshot/source policy in Stage 1.
+set -eu
+
+ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
+ARCH="${RADAR_OS_ARCH:-}"
+case "$ARCH" in
+  amd64|arm64) ;;
+  *) echo "RADAR_OS_ARCH must be explicitly set to amd64 or arm64" >&2; exit 2 ;;
+esac
+# The Debian base suite is an explicit owner decision (docs/os/DEBIAN-BASE-ASSESSMENT.md).
+# Anything outside the two assessed suites fails closed rather than building silently.
+DISTRIBUTION="${RADAR_OS_DISTRIBUTION:-trixie}"
+case "$DISTRIBUTION" in
+  bookworm|trixie) ;;
+  *) echo "RADAR_OS_DISTRIBUTION must be bookworm or trixie" >&2; exit 2 ;;
+esac
+command -v lb >/dev/null 2>&1 || { echo "live-build (lb) is required" >&2; exit 2; }
+mkdir -p config/package-lists
+install -m 0644 "$ROOT/config/package-manifest.common.txt" config/package-lists/radar-common.list.chroot
+install -m 0644 "$ROOT/config/package-manifest.$ARCH.txt" config/package-lists/radar-architecture.list.chroot
+
+case "$ARCH" in
+  amd64) SERIAL_CONSOLE="console=tty0 console=ttyS0,115200n8" ;;
+  arm64) SERIAL_CONSOLE="console=tty0 console=ttyAMA0,115200n8" ;;
+esac
+
+set -- \
+  --architectures "$ARCH" \
+  --distribution "$DISTRIBUTION" \
+  --archive-areas "main contrib non-free-firmware" \
+  --debian-installer false \
+  --binary-images iso-hybrid \
+  --bootappend-live "$SERIAL_CONSOLE systemd.show_status=1 systemd.unit=multi-user.target" \
+  --apt-recommends false \
+  --memtest none
+
+if [ -n "${RADAR_OS_SNAPSHOT_TIMESTAMP:-}" ]; then
+  case "$RADAR_OS_SNAPSHOT_TIMESTAMP" in
+    ????????T??????Z) ;;
+    *) echo "RADAR_OS_SNAPSHOT_TIMESTAMP must use YYYYMMDDTHHMMSSZ" >&2; exit 2 ;;
+  esac
+  SNAPSHOT="https://snapshot.debian.org/archive/debian/${RADAR_OS_SNAPSHOT_TIMESTAMP}/"
+  SECURITY_SNAPSHOT="https://snapshot.debian.org/archive/debian-security/${RADAR_OS_SNAPSHOT_TIMESTAMP}/"
+  set -- "$@" \
+    --mirror-bootstrap "$SNAPSHOT" \
+    --mirror-chroot "$SNAPSHOT" \
+    --mirror-binary "$SNAPSHOT" \
+    --mirror-chroot-security "$SECURITY_SNAPSHOT" \
+    --mirror-binary-security "$SECURITY_SNAPSHOT"
+fi
+
+# Debian Live requires the `noauto` argument here: auto/config is re-invoked by
+# lb itself, and without `noauto` the call recurses infinitely, so no dispatched
+# build can ever complete. See the Debian Live manual, "auto/config".
+lb config noauto "$@"
+
+# Package selection, branding, service units, signing, and image metadata remain
+# explicit Stage 1 work. No privileged RADAR service is enabled here.

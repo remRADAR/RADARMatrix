@@ -10,14 +10,14 @@ RADARMatrix provides a foundation for integrating knowledge management, context 
 
 ⚠️ **Integration Foundation v0.8** — This repository contains:
 
-- ✅ MCP gateway architecture with authentication, authorization, and workspace isolation
+- ✅ MCP gateway architecture with development-only identity fixtures, authorization, and workspace isolation
 - ✅ Authentication/authorization boundaries with role-based access control (RBAC)
 - ✅ Workspace isolation model with audit trails
 - ✅ Nine MCP tool contracts: seven foundation tools plus two read-only agent directory/routing tools
 - ✅ Versioned RADAR specialist skill registry and deterministic, plan-only task routing in Brand Studio
 - ✅ Sandboxed live-preview UI and explicit-consent browser-control integration point
 - ✅ Comprehensive security model (read/write separation, immutability, audit events)
-- ✅ OAuth protected resource definition
+- ✅ OAuth protected-resource metadata (not an OAuth/OIDC implementation)
 - ✅ Existing foundation checks plus agent-router and BrandGateway API regression tests
 - ⏳ **NOT**: Production Cloudflare (D1/R2/Vectorize) deployment
 - ⏳ **NOT**: Live MCP endpoint
@@ -25,7 +25,7 @@ RADARMatrix provides a foundation for integrating knowledge management, context 
 - ⏳ **NOT**: Live OAuth/OIDC validation
 - ⏳ **NOT**: Database or vector store connectivity
 
-Production connectivity, deployment infrastructure, and live credential validation are not yet implemented.
+Production OAuth/OIDC authentication and token verification are **NOT IMPLEMENTED**. Production connectivity, deployment infrastructure, and live credential validation are not yet implemented.
 
 ## Architecture
 
@@ -98,7 +98,7 @@ Brand Studio now has a Live Preview view with an HTTP(S)-only URL form and isola
 ## Security Model
 
 ### Authentication
-- OAuth 2.0 / OIDC token validation (foundation: caller_id context)
+- **Production OAuth 2.0 / OIDC authentication: NOT IMPLEMENTED.** The current gateway uses deterministic development-only `caller_id` fixtures; caller context is not a verified token.
 - Request context includes: `caller_id`, `workspace_id`, `request_id`, `timestamp`
 
 ### Authorization
@@ -138,7 +138,7 @@ Brand Studio now has a Live Preview view with an HTTP(S)-only URL form and isola
 
 - `apps/mcp-server/src/mcp-gateway.ts` — MCP request handler with full pipeline
 - `apps/mcp-server/src/chatgpt-app-contract.ts` — Tool definitions and schemas
-- `apps/mcp-server/.well-known/oauth-protected-resource.json` — OAuth configuration
+- `apps/mcp-server/.well-known/oauth-protected-resource.json` — protected-resource discovery metadata only; it is not an OAuth provider, login flow, or token validator
 
 ### Testing
 

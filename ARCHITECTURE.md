@@ -233,8 +233,8 @@ VIEWER (1)
 ## Security Model
 
 ### Authentication
-- **Foundation v0.8**: Caller identity via `caller_id` context field
-- **Production v0.9+**: OAuth 2.0 / OIDC token validation
+- **Development foundation only**: deterministic test principals from `caller_id`; this field is not verified authentication.
+- **Production OAuth 2.0 / OIDC: NOT IMPLEMENTED.** Planned for a future milestone; it must include:
   - JWT signature verification
   - Token expiry validation
   - Scope validation
@@ -316,7 +316,7 @@ VIEWER (1)
 ### ChatGPT / AI Applications
 - **Protocol**: Model Context Protocol (MCP)
 - **Tool Invocation**: JSON request/response format
-- **Authentication**: OAuth 2.0 / OIDC tokens (production)
+- **Authentication**: planned OAuth 2.0 / OIDC tokens; production authentication is **NOT IMPLEMENTED**
 
 ### Data Backends
 - **Metadata**: Cloudflare D1 (relational)

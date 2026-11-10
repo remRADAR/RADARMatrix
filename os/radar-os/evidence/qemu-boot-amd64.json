@@ -1,0 +1,19 @@
+{
+  "schema": "radar-os-qemu-evidence/v1",
+  "timestamp_utc": "2026-11-06T16:26:29.774387+00:00",
+  "architecture": "amd64",
+  "machine": "q35",
+  "qemu_version": "QEMU emulator version 7.2.22 (Debian 1:7.2+dfsg-7+deb12u18+b3)",
+  "image": "/workspace/osbuild/radar-os-amd64.iso",
+  "image_sha256": "248574292632e38ed4e94d9e17ffcca55b54214551c7b1aebc8969391cc3cbe4",
+  "firmware": "/usr/share/seabios/bios-256k.bin",
+  "firmware_sha256": "2da2018c7555e50b660a84a273a14a79cb87b9070fe6a90e9f151a53e357f7e6",
+  "readiness_marker": "BOOT_EVIDENCE_OK",
+  "serial_log": "/workspace/osbuild/serial-repo.log",
+  "qemu_stderr_log": "/workspace/osbuild/serial-repo.log.qemu-stderr",
+  "qemu_process_started": true,
+  "qemu_exit_code": 0,
+  "terminated_after_readiness": true,
+  "os_ready": true,
+  "duration_seconds": 7
+}

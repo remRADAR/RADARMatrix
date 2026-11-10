@@ -1,0 +1,101 @@
+name: CI
+
+# Why this workflow exists: neither main nor the Stage 0.1.1 branch had a test
+# workflow. main carries only deploy-staging.yml (push to `staging`, no tests),
+# so PR #14's only check run was "Vercel Preview Comments". The exit-code
+# enforced suite therefore had no automated consumer.
+
+on:
+  push:
+    branches:
+      - main
+      - "architecture/**"
+      - "security/**"
+      - "runtime/**"
+      - "stage-1/**"
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Tests and typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Matrix Console dependencies
+        run: |
+          if [ -f apps/matrix-console/package-lock.json ]; then
+            npm ci --prefix apps/matrix-console --ignore-scripts --no-audit --no-fund
+          else
+            echo "no console lockfile on this ref; skipping install"
+          fi
+
+      - name: Run test suite (exit code enforced)
+        shell: bash
+        run: |
+          set +e
+          npm test 2>&1 | tee /tmp/test.log
+          status=${PIPESTATUS[0]}
+          set -e
+          echo "npm test exit code: $status"
+          exit "$status"
+
+      - name: Guard against swallowed failures
+        shell: bash
+        run: |
+          # The failure marker is U+2717; the pass marker is U+2713. They are
+          # adjacent codepoints, so the character class [^ -~] alone matched
+          # BOTH and failed a green run (run 42253877282, step 6). Build the
+          # exact codepoint from octal so this file stays pure ASCII.
+          MARKER=$(printf '\342\234\227')
+          if grep -qE "^[[:space:]]*${MARKER} " /tmp/test.log; then
+            echo "::error::Test output contains failure markers"
+            exit 1
+          fi
+          echo "no swallowed failure markers found"
+
+      - name: Assert runner reported PASSED
+        shell: bash
+        run: |
+          grep -q "RESULT: PASSED" /tmp/test.log || {
+            echo "::error::Runner did not report RESULT: PASSED"
+            exit 1
+          }
+
+      - name: Typecheck Matrix Console
+        run: npm run typecheck
+
+  os-scaffold:
+    name: RADAR OS script checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Bash syntax check
+        run: bash -n os/radar-os/scripts/*.sh os/radar-os/live/auto/config
+
+      - name: OS scaffold regression tests
+        run: npm run test:os-scaffold
+
+      - name: State the boot-evidence boundary
+        run: |
+          echo "NOT RUN HERE: real ISO build and QEMU boot."
+          echo "This job proves script behaviour only, not that an OS boots."
+          echo "Real boot evidence is committed under os/radar-os/evidence/."

@@ -1,0 +1,35 @@
+# RADAR OS AMD64 serial console — captured from QEMU 7.2.22 (q35, SeaBIOS bios-256k.bin)
+# Booting radar-os-amd64.iso sha256 248574292632e38ed4e94d9e17ffcca55b54214551c7b1aebc8969391cc3cbe4
+# Captured via os/radar-os/scripts/run-qemu.sh; this is the boot-relevant tail of a 22945-byte capture.
+[    1.351458] AppArmor: AppArmor sha1 policy hashing enabled
+[    1.352061] ima: No TPM chip found, activating TPM-bypass!
+[    1.352296] ima: Allocated hash algorithm: sha256
+[    1.353633] ima: No architecture policies found
+[    1.354155] evm: Initialising EVM extended attributes:
+[    1.354324] evm: security.selinux
+[    1.354440] evm: security.SMACK64 (disabled)
+[    1.354566] evm: security.SMACK64EXEC (disabled)
+[    1.354701] evm: security.SMACK64TRANSMUTE (disabled)
+[    1.354848] evm: security.SMACK64MMAP (disabled)
+[    1.354983] evm: security.apparmor
+[    1.355118] evm: security.ima
+[    1.355215] evm: security.capability
+[    1.355330] evm: HMAC attrs: 0x1
+[    1.704643] clk: Disabling unused clocks
+[    1.713929] Freeing unused decrypted memory: 2036K
+[    1.776888] Freeing unused kernel image (initmem) memory: 2816K
+[    1.777347] Write protecting the kernel read-only data: 26624k
+[    1.779825] Freeing unused kernel image (text/rodata gap) memory: 2040K
+[    1.780880] Freeing unused kernel image (data/bss) memory: 1116K
+[    1.928297] x86/mm: Checked W+X mappings: passed, no W+X pages found.
+[    1.928819] Run /init as init process
+RADAR-OS: kernel=6.1.0-54-amd64 arch=x86_64
+RADAR-OS: initramfs unpacked; /proc /sys /dev mounted
+RADAR-OS: Multi-User System. Reached target multi-user.target
+RADAR-OS: BOOT_EVIDENCE_OK
+BusyBox v1.35.0 (Debian 1:1.35.0-4+deb12u1+b1) built-in shell (ash)
+Enter 'help' for a list of built-in commands.
+/bin/sh: can't access tty; job control turned off
+/ # [    2.108218] tsc: Refined TSC clocksource calibration: 3249.939 MHz
+[    2.108886] clocksource: tsc: mask: 0xffffffffffffffff max_cycles: 0x2ed891ea737, max_idle_ns: 440795352519 ns
+[    2.109410] clocksource: Switched to clocksource tsc
