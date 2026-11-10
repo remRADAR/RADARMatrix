@@ -10,3 +10,7 @@
 apps/matrix-console/node_modules/
 apps/matrix-console/dist/
 apps/matrix-console/*.tsbuildinfo
+
+# Local environment files (secrets must never be committed)
+.env
+.env.*
