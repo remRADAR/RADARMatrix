@@ -378,4 +378,3 @@ document.querySelector('.search-field input')?.addEventListener('input', (event)
 
 showView(labels[window.location.hash.replace('#', '')] ? window.location.hash.replace('#', '') : 'overview');
 hydrate();
-

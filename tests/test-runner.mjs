@@ -154,4 +154,3 @@ if (failedSuites.length > 0) {
 
 console.log("\nRESULT: PASSED (all suites green, zero recorded failures)");
 process.exit(0);
-

@@ -1,9 +1,9 @@
 # Stage 0.1.1 audit closure — implementation evidence
 
-**Snapshot date:** 2026-11-06  
-**Repository:** `remRADAR/RADARMatrix`  
-**Main SHA at inventory:** `91d95170a541a2355c409b2a2d0c8f30e1b20e71`  
-**Authoritative corrective workstream:** `architecture/stage-0-1-1-corrections-verified`, stacked on PR #14.  
+**Snapshot date:** 2026-11-06\
+**Repository:** `remRADAR/RADARMatrix`\
+**Main SHA at inventory:** `91d95170a541a2355c409b2a2d0c8f30e1b20e71`\
+**Authoritative corrective workstream:** `architecture/stage-0-1-1-corrections-verified`, stacked on PR #14.\
 **Scope:** source-level fixes and regression evidence only. Mistral Vibe's independent verdict on PR #15 head `d863939` is **ACCEPTED WITH NON-BLOCKING FINDINGS**. That verdict is not release certification, a real ARM64 boot record, or declaration that all operating-system acceptance gates have passed.
 
 ## Repository and PR inventory

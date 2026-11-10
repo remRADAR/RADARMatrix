@@ -135,4 +135,3 @@ if (process.env.RADARMATRIX_NO_LISTEN !== '1') {
     console.log(`Development caller: ${callerId || 'not configured'}`);
   });
 }
-
