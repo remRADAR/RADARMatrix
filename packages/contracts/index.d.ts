@@ -30,9 +30,24 @@ export type WorkspaceId = string;
 export type ToolName = string;
 export type ISO8601Timestamp = string;
 
+/**
+ * The principal emitted by an AuthenticationProvider.
+ *
+ * M1a follow-up (Finding B): roles is string[], NOT Role[]. The
+ * development authentication provider accepts arbitrary non-empty
+ * role strings from configuration (normalizePrincipals), and the
+ * authorization provider correctly filters unknown roles
+ * (getHighestRole). The contract describes the implementation
+ * accurately; the Role union remains the type of validated role
+ * definitions (tool registry, role hierarchy).
+ *
+ * Note: the gateway maps principal.roles to caller_roles on its
+ * internal authenticated request; the authorization provider
+ * accepts either field.
+ */
 export interface Principal {
   caller_id: CallerId;
-  roles: readonly Role[];
+  roles: readonly string[];
   workspace_id: WorkspaceId;
   request_id: string;
   timestamp: ISO8601Timestamp;
@@ -42,8 +57,8 @@ export interface Principal {
 export interface AuthenticationProvider {
   authenticate(request: unknown): Principal | null;
   hasPrincipal(callerId: CallerId): boolean;
-  getPrincipal(callerId: CallerId): { caller_id: CallerId; roles: Role[] } | null;
-  snapshot(): Record<CallerId, { caller_id: CallerId; roles: Role[] }>;
+  getPrincipal(callerId: CallerId): { caller_id: CallerId; roles: string[] } | null;
+  snapshot(): Record<CallerId, { caller_id: CallerId; roles: string[] }>;
 }
 
 /** Mirrors providers/membership.cjs (explicit, fail-closed map). */
@@ -102,10 +117,16 @@ export interface StorageAdapter {
   appendAudit(event: AuditEvent): Promise<void>;
 }
 
+/**
+ * RM-IEP/1 execution request shape. Arbitrary command strings are
+ * deliberately not representable at this boundary: adapters receive an
+ * allowlisted named tool and validated object arguments only.
+ */
 export interface RuntimeExecutionRequest {
-  command: string;
-  cwd?: string;
-  timeoutMs?: number;
+  protocol: "RM-IEP/1";
+  tool: ToolName;
+  arguments: Record<string, unknown>;
+  session_id: string;
   /** Required for any consequential operation. Absence means deny. */
   approvalToken?: string;
 }
@@ -162,4 +183,191 @@ export interface GatewayResponse {
     timestamp: ISO8601Timestamp;
     execution_time_ms: number;
   };
+}
+
+/* ==========================================================================
+ * M2 SECTION (2026-11-01, owner-approved) — production identity architecture
+ * ==========================================================================
+ *
+ * Added in M2 Phase P0. Still TYPE-ONLY: no runtime code in this package.
+ *
+ * The branded ladder below mirrors the gateway's security pipeline at the
+ * type level, so untrusted input cannot flow into authorized execution
+ * unchecked. A brand can only be constructed by the component that owns
+ * the corresponding verification step:
+ *
+ *   UnverifiedIdentity            (raw request context — never trusted)
+ *     -> VerifiedPrincipal        (only from a token-verifying
+ *                                 AuthenticationProvider)
+ *       -> WorkspaceMember       (only from a MembershipProvider)
+ *         -> AuthorizedContext   (only from an AuthorizationProvider)
+ *           -> DelegatedAuthority (only from delegated-grant validation)
+ *             -> VerifiedApproval (only from ApprovalProvider verification)
+ *
+ * Roles and workspace access are NEVER taken from token claims: claims
+ * prove identity only. Authority is resolved from membership records and
+ * the tool registry at request time (fail closed).
+ */
+
+declare const __verifiedPrincipal: unique symbol;
+declare const __workspaceMember: unique symbol;
+declare const __authorizedContext: unique symbol;
+declare const __delegatedAuthority: unique symbol;
+declare const __verifiedApproval: unique symbol;
+
+/** Raw, untrusted request context. Never a basis for access. */
+export interface UnverifiedIdentity {
+  readonly caller_id?: string;
+  readonly workspace_id?: string;
+  readonly token?: string;
+}
+
+/** A principal whose identity was cryptographically verified. */
+export type VerifiedPrincipal = Principal & {
+  readonly [__verifiedPrincipal]: true;
+};
+
+/** A verified principal's validated membership in one workspace. */
+export type WorkspaceMember = {
+  caller_id: CallerId;
+  workspace_id: WorkspaceId;
+  role: Role;
+  readonly [__workspaceMember]: true;
+};
+
+/** A principal + tool pair that passed RBAC authorization. */
+export type AuthorizedContext = {
+  principal: VerifiedPrincipal;
+  tool: ToolName;
+  readonly [__authorizedContext]: true;
+};
+
+/** Authority granted to an agent, strictly narrower than its actor's. */
+export type DelegatedAuthority = {
+  grant: DelegatedGrant;
+  readonly [__delegatedAuthority]: true;
+};
+
+/** An approval token that passed signature, scope, and single-use checks. */
+export type VerifiedApproval = {
+  claims: ApprovalClaims;
+  readonly [__verifiedApproval]: true;
+};
+
+/**
+ * Claims of a control-plane-issued gateway token (Ed25519, compact JWT).
+ * Identity claims only — roles/workspace access are NOT token claims.
+ */
+export interface GatewayTokenClaims {
+  sub: string;
+  iss: string;
+  aud: string;
+  exp: number;
+  iat: number;
+  nbf?: number;
+  jti: string;
+  token_use?: "access" | "service";
+}
+
+export interface TokenService {
+  issue(claims: GatewayTokenClaims, signingKeyPem: string): string;
+  verify(
+    token: string,
+    publicKeyPem: string,
+    expected: { issuer: string; audience: string; isDenied?: (jti: string) => boolean },
+  ): GatewayTokenClaims | null;
+}
+
+/** A registered machine identity (RADAR orchestration, adapters, agents). */
+export interface ServiceIdentity {
+  readonly id: string;
+  readonly kind: "radar" | "agent" | "tool-adapter" | "integration";
+  readonly status: "implemented" | "planned" | "unavailable";
+}
+
+/**
+ * Delegated grant (M2 §7 of the assessment): an explicit, task-scoped,
+ * expiring subset of the delegating actor's authority. An agent NEVER
+ * inherits the actor's full permissions.
+ */
+export interface DelegatedGrant {
+  grant_id: string;
+  actor_id: CallerId;
+  agent_id: string;
+  workspace_id: WorkspaceId;
+  task_id?: string;
+  /** Must be a subset of the actor's permitted tools. */
+  allowed_tools: readonly ToolName[];
+  allowed_actions: readonly ("read" | "write")[];
+  expires_at: number;
+  max_uses: number;
+  uses: number;
+}
+
+/**
+ * Claims of a single-use approval token for a consequential action,
+ * verified by the actual execution adapter (never by an intermediate
+ * layer). Absence of a required approval means deny.
+ */
+export interface ApprovalClaims {
+  jti: string;
+  action: string;
+  resource_ids: readonly string[];
+  workspace_id: WorkspaceId;
+  actor_id: CallerId;
+  grant_id?: string;
+  session_id?: string;
+  iat: number;
+  exp: number;
+}
+
+export interface ApprovalProvider {
+  issue(request: {
+    action: string;
+    resource_ids: readonly string[];
+    workspace_id: WorkspaceId;
+    actor_id: CallerId;
+    grant_id?: string;
+    session_id?: string;
+    ttl_seconds: number;
+  }): Promise<string>;
+  verify(
+    token: string,
+    expected: {
+      action: string;
+      resource_id: string;
+      workspace_id: WorkspaceId;
+      grant_id?: string;
+      now: number;
+    },
+  ): Promise<VerifiedApproval | null>;
+}
+
+/**
+ * Membership with authority semantics (M2): the durable membership record
+ * is the ONLY source of roles. Extends the fail-closed MembershipProvider
+ * law — no wildcard, no fallback, unknown roles never granted.
+ */
+export interface MembershipAuthorityProvider extends MembershipProvider {
+  getRole(callerId: CallerId, workspaceId: WorkspaceId): Role | null;
+  grant(callerId: CallerId, workspaceId: WorkspaceId, role: Role): void;
+  revoke(callerId: CallerId, workspaceId: WorkspaceId): void;
+}
+
+/** Structured authentication-failure event (P1: denial monitoring). */
+export interface AuthFailureEvent {
+  reason:
+    | "missing_token"
+    | "malformed_token"
+    | "bad_signature"
+    | "expired"
+    | "not_yet_valid"
+    | "wrong_issuer"
+    | "wrong_audience"
+    | "revoked"
+    | "identity_mismatch"
+    | "not_a_member"
+    | "no_role";
+  subject: string;
+  timestamp: ISO8601Timestamp;
 }
