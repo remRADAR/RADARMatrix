@@ -108,6 +108,13 @@ export interface GitHubReadonlyOperation {
   readonly optionalParams?: readonly string[];
   /** Params whose value may contain "/" (each segment is encoded). */
   readonly multiSegmentParams?: readonly string[];
+  /**
+   * Params sent as URL QUERY parameters (never as path segments).
+   * Declared explicitly so an accepted argument can never be silently
+   * dropped, and so query syntax can never be smuggled through a path
+   * value. Values are encoded with encodeURIComponent.
+   */
+  readonly queryParams?: readonly string[];
   /** Approval-gated operations demand a verified single-use token. */
   readonly requiresApproval: boolean;
 }
@@ -129,6 +136,7 @@ export const GITHUB_READONLY_OPERATIONS: Record<
     requiredParams: ["owner", "repo", "path"],
     optionalParams: ["ref"],
     multiSegmentParams: ["path"],
+    queryParams: ["ref"],
     requiresApproval: false,
   },
   "github.read.directory": {
@@ -139,6 +147,7 @@ export const GITHUB_READONLY_OPERATIONS: Record<
     requiredParams: ["owner", "repo", "path"],
     optionalParams: ["ref"],
     multiSegmentParams: ["path"],
+    queryParams: ["ref"],
     requiresApproval: false,
   },
   "github.read.branches": {
@@ -230,6 +239,14 @@ export interface GitHubReadonlyConfig {
   token?: string;
   /** Defaults to https://api.github.com. */
   baseUrl?: string;
+  /**
+   * Explicit allowlist of trusted API origins (scheme + host + port).
+   * The configured baseUrl origin MUST appear here. Defaults to
+   * ["https://api.github.com"]. A GitHub Enterprise host must be added
+   * deliberately by the composing server — never inferred from a
+   * request. This is the "validated trusted origin" boundary.
+   */
+  trustedOrigins?: readonly string[];
   /** Transport (injectable for deterministic tests). Defaults to fetch. */
   fetchImpl?: typeof fetch;
   /** Operation registry. Defaults to GITHUB_READONLY_OPERATIONS. */
@@ -311,9 +328,34 @@ function isValidOperation(op: GitHubReadonlyOperation, command: string): boolean
   if (hasUnsafeUrlSyntax(op.pathTemplate) || op.pathTemplate.includes("//")) return false;
   const segments = op.pathTemplate.split("/").slice(1);
   if (segments[0] !== "repos" || segments[1] !== "{owner}" || segments[2] !== "{repo}") return false;
-  return segments.slice(3).every((segment) =>
+  if (!segments.slice(3).every((segment) =>
     /^\{[a-z_]+\}$/u.test(segment) || /^[A-Za-z0-9_-]+$/u.test(segment),
-  );
+  )) return false;
+
+  // Slot integrity: every template slot must be a DECLARED required
+  // parameter, exactly once. Otherwise buildPath() would substitute
+  // `undefined` (a silent wrong-resource read) or leave a literal
+  // "{slot}" in the URL (a malformed request). Duplicate slots are
+  // rejected because buildPath replaces only the first occurrence.
+  const slots = op.pathTemplate.match(/\{([a-z_]+)\}/gu) || [];
+  const slotNames = slots.map((slot) => slot.slice(1, -1));
+  if (new Set(slotNames).size !== slotNames.length) return false;
+  const required = new Set(op.requiredParams || []);
+  if (!slotNames.every((name) => required.has(name))) return false;
+
+  // Query parameters are a separate, explicitly declared surface: they
+  // may never collide with a path slot, and every declared query
+  // parameter must be a known optional/required argument.
+  const queryParams = op.queryParams || [];
+  if (new Set(queryParams).size !== queryParams.length) return false;
+  const known = new Set<string>([...(op.requiredParams || []), ...(op.optionalParams || [])]);
+  if (!queryParams.every((name) => known.has(name) && !slotNames.includes(name))) return false;
+
+  // Every declared argument must be USED: either a path slot or a
+  // declared query parameter. A silently dropped argument (e.g. `ref`
+  // accepted but never sent) would read a different resource than the
+  // caller asked for.
+  return [...known].every((name) => slotNames.includes(name) || queryParams.includes(name));
 }
 
 function parseApiBaseUrl(value: string): URL | undefined {
@@ -353,27 +395,57 @@ function validateArgumentValue(key: string, value: string, multiSegment: boolean
 }
 
 function validateCanonicalRepositoryUrl(apiBase: URL, requestPath: string): string | undefined {
-  if (!requestPath.startsWith("/repos/") || hasUnsafeUrlSyntax(requestPath)) return undefined;
-  const segments = requestPath.split("/");
+  // Split the adapter-built request into its path and (optional) query.
+  // The query is produced ONLY by buildPath from declared queryParams,
+  // so it is already encoded; it is re-verified here rather than trusted.
+  const queryIndex = requestPath.indexOf("?");
+  const pathPart = queryIndex < 0 ? requestPath : requestPath.slice(0, queryIndex);
+  const queryPart = queryIndex < 0 ? "" : requestPath.slice(queryIndex + 1);
+  if (queryIndex >= 0 && queryPart.length === 0) return undefined;
+  if (pathPart.includes("?") || pathPart.includes("#")) return undefined;
+  if (!pathPart.startsWith("/repos/") || hasUnsafeUrlSyntax(pathPart)) return undefined;
+  const segments = pathPart.split("/");
   if (segments.length < 5 || segments[1] !== "repos" || !segments[2] || !segments[3]) return undefined;
+  // No empty segments, no dot segments, no encoded separators survive
+  // into the canonical path.
+  if (!segments.slice(1).every((segment) => segment.length > 0)) return undefined;
+  if (segments.some((segment) => segment === "." || segment === "..")) return undefined;
+
   const basePath = apiBase.pathname === "/" ? "" : apiBase.pathname;
-  const expectedPathname = basePath + requestPath;
+  const expectedPathname = basePath + pathPart;
   let candidate: URL;
   try {
-    candidate = new URL(expectedPathname, apiBase.origin);
+    candidate = new URL(expectedPathname + (queryPart ? "?" + queryPart : ""), apiBase.origin);
   } catch {
     return undefined;
   }
   if (candidate.protocol !== "https:" || candidate.origin !== apiBase.origin) return undefined;
-  if (candidate.username || candidate.password || candidate.search || candidate.hash) return undefined;
+  if (candidate.username || candidate.password || candidate.hash) return undefined;
+  // URL normalization must not have changed the path we intended to
+  // request (this is the dot-segment / escape check that matters).
   if (candidate.pathname !== expectedPathname) return undefined;
   if (!candidate.pathname.startsWith(basePath + "/repos/")) return undefined;
   if (hasUnsafeUrlSyntax(candidate.pathname)) return undefined;
+  // The query must be exactly what buildPath produced: same parameter
+  // names in the same order, no extras, no fragment.
+  if (candidate.search !== (queryPart ? "?" + queryPart : "")) return undefined;
   return candidate.href;
 }
 
 function isNonEmptyString(v: unknown): v is string {
   return typeof v === "string" && v.trim().length > 0;
+}
+
+/**
+ * Query-parameter values are validated with the SAME traversal/encoding
+ * rules as path segments, plus the query-specific separators. A value
+ * that could introduce a second parameter (`&`), a key/value split
+ * (`=`), or a fragment (`#`) is rejected outright rather than merely
+ * escaped — the adapter never forwards ambiguous caller syntax.
+ */
+function isSafeQueryValue(value: string): boolean {
+  if (!isSafePathValue(value)) return false;
+  return !/[&=+]/u.test(value);
 }
 
 /**
@@ -397,7 +469,24 @@ function buildPath(
       : encodeURIComponent(value);
     path = path.replace("{" + key + "}", encoded);
   }
-  return path;
+  // A template slot that survived substitution would be sent literally
+  // to the API. Fail closed instead of issuing a malformed request.
+  if (path.includes("{") || path.includes("}")) {
+    throw new Error("unresolved_path_template_slot");
+  }
+  // Declared query parameters are appended AFTER the path is complete,
+  // each value encoded whole, so a value can never introduce a second
+  // parameter, a fragment, or a path segment.
+  const query: string[] = [];
+  for (const key of op.queryParams || []) {
+    const value = args[key];
+    if (value === undefined) continue;
+    if (!isSafeQueryValue(value)) {
+      throw new Error("unsafe_query_parameter");
+    }
+    query.push(encodeURIComponent(key) + "=" + encodeURIComponent(value));
+  }
+  return query.length > 0 ? path + "?" + query.join("&") : path;
 }
 
 // ---------------------------------------------------------------------------
@@ -420,7 +509,29 @@ export function createGitHubReadOnlyAdapter(
   const token: string | undefined =
     typeof cfg.token === "string" && cfg.token.length > 0 ? cfg.token : undefined;
   const rawBaseUrl: string = cfg.baseUrl === undefined ? DEFAULT_API_BASE_URL : cfg.baseUrl;
-  const apiBase: URL | undefined = typeof rawBaseUrl === "string" ? parseApiBaseUrl(rawBaseUrl) : undefined;
+  const parsedBase: URL | undefined = typeof rawBaseUrl === "string" ? parseApiBaseUrl(rawBaseUrl) : undefined;
+  // Trusted-origin pinning: the base URL's origin must be explicitly
+  // trusted. A syntactically valid but unlisted host (an attacker-chosen
+  // Enterprise host, a look-alike domain) is NOT accepted.
+  // The allowlist is explicit when the composing server supplies one.
+  // Otherwise the trusted set is the public API origin PLUS the origin of
+  // the server-configured baseUrl — the base URL is server configuration,
+  // never request data, so its origin is trusted by construction. A
+  // request can never widen this set.
+  const trustedOrigins: readonly string[] =
+    Array.isArray(cfg.trustedOrigins) && cfg.trustedOrigins.length > 0
+      ? cfg.trustedOrigins
+      : parsedBase !== undefined
+        ? [DEFAULT_API_BASE_URL, parsedBase.origin]
+        : [DEFAULT_API_BASE_URL];
+  const originTrusted: boolean =
+    parsedBase !== undefined &&
+    trustedOrigins.some((origin) => {
+      if (typeof origin !== "string") return false;
+      const parsedOrigin = parseApiBaseUrl(origin);
+      return parsedOrigin !== undefined && parsedOrigin.origin === parsedBase.origin;
+    });
+  const apiBase: URL | undefined = originTrusted ? parsedBase : undefined;
   const operations: Record<string, GitHubReadonlyOperation> =
     cfg.operations && typeof cfg.operations === "object"
       ? cfg.operations
@@ -532,10 +643,23 @@ export function createGitHubReadOnlyAdapter(
           return deny("unsafe_path_parameter", key);
         }
       }
+      // Query-parameter values are held to the same traversal/encoding
+      // rules plus query separators, and are rejected HERE (before any
+      // URL is built) so the denial reason names the offending argument.
+      for (const key of op.queryParams || []) {
+        if (args[key] !== undefined && !isSafeQueryValue(args[key])) {
+          return deny("unsafe_path_parameter", key);
+        }
+      }
 
       // Build and parse the complete URL before grant reservation. Invalid
       // paths therefore neither invoke transport nor consume delegated uses.
-      const requestPath = buildPath(op, args);
+      let requestPath: string;
+      try {
+        requestPath = buildPath(op, args);
+      } catch {
+        return deny("invalid_repository_url");
+      }
       const canonicalUrl = apiBase ? validateCanonicalRepositoryUrl(apiBase, requestPath) : undefined;
       if (!canonicalUrl) return deny("invalid_repository_url");
 
