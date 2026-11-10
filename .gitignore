@@ -5,3 +5,8 @@
 *.log
 *.tmp
 .DS_Store
+
+# Matrix Console generated files
+apps/matrix-console/node_modules/
+apps/matrix-console/dist/
+apps/matrix-console/*.tsbuildinfo

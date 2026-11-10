@@ -1,0 +1,52 @@
+name: Deploy Matrix Console staging
+
+on:
+  push:
+    branches:
+      - staging
+
+permissions:
+  contents: read
+
+concurrency:
+  group: matrix-console-staging
+  cancel-in-progress: false
+
+env:
+  CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || 'f3ea4523accdd48e8469707368b39799' }}
+  CLOUDFLARE_WORKER_NAME: ${{ vars.CLOUDFLARE_WORKER_NAME || 'radarmatrix-prototype' }}
+  WRANGLER_VERSION: '4.157.0'
+
+jobs:
+  deploy:
+    name: Build and deploy staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: staging
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Matrix Console dependencies
+        run: npm install --prefix apps/matrix-console --ignore-scripts --no-audit --no-fund
+
+      - name: Verify deployment target
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[a-f0-9]{32}$ ]] || {
+            echo "CLOUDFLARE_ACCOUNT_ID is missing or invalid" >&2
+            exit 1
+          }
+          echo "Deploying $CLOUDFLARE_WORKER_NAME to Cloudflare account $CLOUDFLARE_ACCOUNT_ID"
+
+      - name: Build, test, and deploy with Wrangler
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npm run deploy:matrix-console:wrangler
