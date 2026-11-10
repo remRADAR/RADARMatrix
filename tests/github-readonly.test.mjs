@@ -290,18 +290,123 @@ test("unknown arguments deny (strict argument contract)", async () => {
   assert.equal(r.notes, "unknown_argument");
 });
 
-test("the adapter builds and encodes the URL itself (path traversal encoded away)", async () => {
+test("the adapter encodes legitimate nested content paths after validation", async () => {
   const { config, transport } = okConfig();
   const adapter = createGitHubReadOnlyAdapter(config);
   await adapter.execute({
     command: "github.read.file",
-    args: { owner: "rem RADAR", repo: "RADARMatrix", path: "docs/a b.md" },
+    args: { owner: "rem-RADAR", repo: "RADARMatrix", path: "docs/a b.md" },
     authority: authorityFor(),
   });
   assert.equal(
     transport.calls[0].url,
-    "https://api.github.com/repos/rem%20RADAR/RADARMatrix/contents/docs/a%20b.md",
+    "https://api.github.com/repos/rem-RADAR/RADARMatrix/contents/docs/a%20b.md",
   );
+});
+
+test("dot segments, encoded traversal, malformed escapes, separators, query, fragment and controls deny before transport", async () => {
+  const badPaths = [
+    ".", "..", "./secret", "../secret", "a/../secret", "a/./secret",
+    "%2e", "%2e%2e", "%2e%2e%2fsecret", "%252e%252e",
+    "%252e%252e%252fsecret", "%25252e%25252e", "%2525252e%2525252e",
+    "a\\..\\secret", "a?ref=main", "a#fragment", "%3fref%3dmain",
+    "%2523fragment", "%00secret", "%0d%0aHeader", "%2", "%zz", "a//b",
+  ];
+  for (const path of badPaths) {
+    const { config, transport } = okConfig();
+    const adapter = createGitHubReadOnlyAdapter(config);
+    const authority = authorityFor();
+    const result = await adapter.execute({
+      command: "github.read.file",
+      args: { owner: "remRADAR", repo: "RADARMatrix", path },
+      authority,
+    });
+    assert.equal(result.status, "denied", `path ${JSON.stringify(path)}`);
+    assert.equal(result.notes, "unsafe_path_parameter", `path ${JSON.stringify(path)}`);
+    assert.equal(transport.calls.length, 0, `path ${JSON.stringify(path)} must not reach transport`);
+    assert.equal(authority.grant.uses, 0, `path ${JSON.stringify(path)} must not consume a grant`);
+  }
+});
+
+test("owner, repository, branch, commit and pull-number parameters use type-specific safe forms", async () => {
+  const cases = [
+    ["github.read.branches", { owner: "..", repo: "RADARMatrix" }],
+    ["github.read.branches", { owner: "remRADAR", repo: "%252e%252e" }],
+    ["github.read.branches", { owner: "rem%2fRADAR", repo: "RADARMatrix" }],
+    ["github.read.branch", { owner: "remRADAR", repo: "RADARMatrix", branch: "feature/../main" }],
+    ["github.read.branch", { owner: "remRADAR", repo: "RADARMatrix", branch: "feature%252f%252e%252e%252fmain" }],
+    ["github.read.commit", { owner: "remRADAR", repo: "RADARMatrix", sha: "abc123/../../x" }],
+    ["github.read.commit", { owner: "remRADAR", repo: "RADARMatrix", sha: "?query" }],
+    ["github.read.pull_request", { owner: "remRADAR", repo: "RADARMatrix", pull_number: "1%2f.." }],
+  ];
+  for (const [command, args] of cases) {
+    const { config, transport } = okConfig();
+    const adapter = createGitHubReadOnlyAdapter(config);
+    const result = await adapter.execute({ command, args, authority: authorityFor() });
+    assert.equal(result.status, "denied", `${command}: ${JSON.stringify(args)}`);
+    assert.equal(result.notes, "unsafe_path_parameter", `${command}: ${JSON.stringify(args)}`);
+    assert.equal(transport.calls.length, 0, `${command} must not reach transport`);
+  }
+});
+
+test("API base rejects non-HTTPS, credentials, query, fragment and traversal path before transport", async () => {
+  const invalidBases = [
+    "http://api.github.com", "https://user:pass@api.github.com",
+    "https://api.github.com?x=1", "https://api.github.com/#fragment",
+    "https://ghe.example.com/api/../v3", "https://ghe.example.com/api/%2e%2e/v3",
+    "https://ghe.example.com/api/%252e%252e/v3", "https://ghe.example.com/api/%zz",
+    "https://ghe.example.com/api\\..\\v3",
+  ];
+  for (const baseUrl of invalidBases) {
+    const { config, transport } = okConfig({ baseUrl });
+    const adapter = createGitHubReadOnlyAdapter(config);
+    assert.equal(adapter.status, "unavailable", baseUrl);
+    const result = await adapter.execute({
+      command: "github.read.branches",
+      args: { owner: "remRADAR", repo: "RADARMatrix" },
+      authority: authorityFor(),
+    });
+    assert.equal(result.status, "unavailable", baseUrl);
+    assert.equal(result.notes, "invalid_api_base_url", baseUrl);
+    assert.equal(transport.calls.length, 0, `${baseUrl} must not reach transport`);
+  }
+});
+
+test("validated GitHub Enterprise HTTPS origin and /api/v3 prefix are preserved canonically", async () => {
+  const { config, transport } = okConfig({ baseUrl: "https://ghe.example.com/api/v3/" });
+  const adapter = createGitHubReadOnlyAdapter(config);
+  const result = await adapter.execute({
+    command: "github.read.branch",
+    args: { owner: "acme", repo: "widgets", branch: "release/v2" },
+    authority: authorityFor(),
+  });
+  assert.equal(result.status, "executed");
+  assert.equal(transport.calls.length, 1);
+  assert.equal(
+    transport.calls[0].url,
+    "https://ghe.example.com/api/v3/repos/acme/widgets/branches/release%2Fv2",
+  );
+});
+
+test("custom operation cannot change origin, repository prefix, endpoint syntax, or HTTP method", async () => {
+  const invalidOps = [
+    { name: "github.read.bad", method: "POST", pathTemplate: "/repos/{owner}/{repo}/contents/{path}", requiredParams: ["owner", "repo", "path"], requiresApproval: false },
+    { name: "github.read.bad", method: "GET", pathTemplate: "/other/{owner}/{repo}/contents/{path}", requiredParams: ["owner", "repo", "path"], requiresApproval: false },
+    { name: "github.read.bad", method: "GET", pathTemplate: "/repos/{owner}/{repo}/contents/../{path}", requiredParams: ["owner", "repo", "path"], requiresApproval: false },
+    { name: "github.read.bad", method: "GET", pathTemplate: "/repos/{owner}/{repo}/contents/{path}?x=1", requiredParams: ["owner", "repo", "path"], requiresApproval: false },
+  ];
+  for (const op of invalidOps) {
+    const { config, transport } = okConfig({ operations: { [op.name]: op } });
+    const adapter = createGitHubReadOnlyAdapter(config);
+    const result = await adapter.execute({
+      command: op.name,
+      args: { owner: "acme", repo: "widgets", path: "README.md" },
+      authority: authorityFor(),
+    });
+    assert.equal(result.status, "denied");
+    assert.equal(result.notes, "invalid_operation_definition");
+    assert.equal(transport.calls.length, 0);
+  }
 });
 
 // ---------------------------------------------------------------------------

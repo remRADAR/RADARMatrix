@@ -253,6 +253,124 @@ export interface GitHubReadonlyConfig {
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 const DEFAULT_MAX_RESPONSE_BYTES = 1_048_576;
+const DEFAULT_API_BASE_URL = "https://api.github.com";
+
+/** Reject dangerous syntax both before and after repeated percent-decoding. */
+function hasUnsafeUrlSyntax(value: string): boolean {
+  return /[\\?#\u0000-\u001f\u007f]/u.test(value);
+}
+
+function hasTraversalSegment(value: string): boolean {
+  return value.split("/").some((segment) => segment === "." || segment === "..");
+}
+
+/**
+ * Validate caller-controlled URL material before encoding. Repeated decoding
+ * catches `%2e%2e`, `%252e%252e`, encoded separators, and malformed escapes.
+ */
+function isSafePathValue(value: string): boolean {
+  if (!value || hasUnsafeUrlSyntax(value)) return false;
+  let decoded = value;
+  for (let depth = 0; depth < 8; depth += 1) {
+    if (hasUnsafeUrlSyntax(decoded) || hasTraversalSegment(decoded)) return false;
+    if (!decoded.includes("%")) return true;
+    let next: string;
+    try {
+      next = decodeURIComponent(decoded);
+    } catch {
+      return false;
+    }
+    if (next === decoded) return true;
+    decoded = next;
+  }
+  // A ninth layer of encoding is rejected rather than left for another layer
+  // (proxy, router, or upstream server) to interpret.
+  return !decoded.includes("%") && !hasUnsafeUrlSyntax(decoded) && !hasTraversalSegment(decoded);
+}
+
+function isSafeOwnerOrRepository(value: string): boolean {
+  return isSafePathValue(value) && /^[A-Za-z0-9_.-]{1,100}$/u.test(value) && value !== "." && value !== "..";
+}
+
+function isSafeNestedPath(value: string): boolean {
+  return isSafePathValue(value) && value.split("/").every((part) => part.length > 0);
+}
+
+function isSafeBranchOrRef(value: string): boolean {
+  if (!isSafePathValue(value) || value.length > 255) return false;
+  const segments = value.split("/");
+  return segments.every((part) => part.length > 0 && part !== "." && part !== ".." && !part.startsWith(".") && !part.endsWith("."));
+}
+
+function isSafeCommitSha(value: string): boolean {
+  return /^[0-9a-f]{4,64}$/iu.test(value);
+}
+
+function isValidOperation(op: GitHubReadonlyOperation, command: string): boolean {
+  if (op.name !== command || op.method !== "GET" || !op.pathTemplate.startsWith("/repos/{owner}/{repo}/")) return false;
+  if (hasUnsafeUrlSyntax(op.pathTemplate) || op.pathTemplate.includes("//")) return false;
+  const segments = op.pathTemplate.split("/").slice(1);
+  if (segments[0] !== "repos" || segments[1] !== "{owner}" || segments[2] !== "{repo}") return false;
+  return segments.slice(3).every((segment) =>
+    /^\{[a-z_]+\}$/u.test(segment) || /^[A-Za-z0-9_-]+$/u.test(segment),
+  );
+}
+
+function parseApiBaseUrl(value: string): URL | undefined {
+  if (!value || hasUnsafeUrlSyntax(value) || value.includes("\\")) return undefined;
+  // A base path may include an Enterprise prefix such as /api/v3, but it may
+  // not contain encoded traversal, query/fragment syntax, or empty segments.
+  const schemeEnd = value.indexOf("://");
+  if (schemeEnd < 0) return undefined;
+  const authorityAndPath = value.slice(schemeEnd + 3);
+  const slash = authorityAndPath.indexOf("/");
+  const rawPath = slash < 0 ? "" : authorityAndPath.slice(slash);
+  const trimmedRawPath = rawPath.replace(/^\/+|\/+$/gu, "");
+  if (
+    trimmedRawPath &&
+    (!isSafeNestedPath(trimmedRawPath) ||
+      !trimmedRawPath.split("/").every((segment) => /^[A-Za-z0-9._~-]+$/u.test(segment)))
+  ) return undefined;
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    return undefined;
+  }
+  if (parsed.protocol !== "https:" || !parsed.hostname || parsed.username || parsed.password || parsed.search || parsed.hash) return undefined;
+  if (parsed.pathname !== "/" && !isSafeNestedPath(parsed.pathname.replace(/^\/+|\/+$/gu, ""))) return undefined;
+  parsed.pathname = parsed.pathname.replace(/\/+$/u, "") || "/";
+  return parsed;
+}
+
+function validateArgumentValue(key: string, value: string, multiSegment: boolean): boolean {
+  if (key === "owner" || key === "repo") return isSafeOwnerOrRepository(value);
+  if (key === "sha") return isSafeCommitSha(value);
+  if (key === "pull_number") return /^[1-9][0-9]{0,8}$/u.test(value);
+  if (key === "branch" || key === "ref") return isSafeBranchOrRef(value);
+  if (key === "path" || multiSegment) return isSafeNestedPath(value);
+  return isSafePathValue(value);
+}
+
+function validateCanonicalRepositoryUrl(apiBase: URL, requestPath: string): string | undefined {
+  if (!requestPath.startsWith("/repos/") || hasUnsafeUrlSyntax(requestPath)) return undefined;
+  const segments = requestPath.split("/");
+  if (segments.length < 5 || segments[1] !== "repos" || !segments[2] || !segments[3]) return undefined;
+  const basePath = apiBase.pathname === "/" ? "" : apiBase.pathname;
+  const expectedPathname = basePath + requestPath;
+  let candidate: URL;
+  try {
+    candidate = new URL(expectedPathname, apiBase.origin);
+  } catch {
+    return undefined;
+  }
+  if (candidate.protocol !== "https:" || candidate.origin !== apiBase.origin) return undefined;
+  if (candidate.username || candidate.password || candidate.search || candidate.hash) return undefined;
+  if (candidate.pathname !== expectedPathname) return undefined;
+  if (!candidate.pathname.startsWith(basePath + "/repos/")) return undefined;
+  if (hasUnsafeUrlSyntax(candidate.pathname)) return undefined;
+  return candidate.href;
+}
 
 function isNonEmptyString(v: unknown): v is string {
   return typeof v === "string" && v.trim().length > 0;
@@ -301,7 +419,8 @@ export function createGitHubReadOnlyAdapter(
   const cfg: GitHubReadonlyConfig = config ? config : {};
   const token: string | undefined =
     typeof cfg.token === "string" && cfg.token.length > 0 ? cfg.token : undefined;
-  const baseUrl: string = isNonEmptyString(cfg.baseUrl) ? cfg.baseUrl : "https://api.github.com";
+  const rawBaseUrl: string = cfg.baseUrl === undefined ? DEFAULT_API_BASE_URL : cfg.baseUrl;
+  const apiBase: URL | undefined = typeof rawBaseUrl === "string" ? parseApiBaseUrl(rawBaseUrl) : undefined;
   const operations: Record<string, GitHubReadonlyOperation> =
     cfg.operations && typeof cfg.operations === "object"
       ? cfg.operations
@@ -325,7 +444,7 @@ export function createGitHubReadOnlyAdapter(
       ? cfg.maxResponseBytes
       : DEFAULT_MAX_RESPONSE_BYTES;
 
-  const configured: boolean = token !== undefined && fetchImpl !== undefined;
+  const configured: boolean = token !== undefined && fetchImpl !== undefined && apiBase !== undefined;
 
   function nowSeconds(): number {
     if (typeof cfg.now === "number" && Number.isFinite(cfg.now)) {
@@ -365,7 +484,7 @@ export function createGitHubReadOnlyAdapter(
           exitCode: null,
           stdout: "",
           stderr: "",
-          notes: token === undefined ? "no_token_configured" : "no_transport_available",
+          notes: token === undefined ? "no_token_configured" : fetchImpl === undefined ? "no_transport_available" : "invalid_api_base_url",
         };
       }
 
@@ -383,6 +502,9 @@ export function createGitHubReadOnlyAdapter(
         operations[request.command];
       if (op === undefined) {
         return deny("operation_not_in_allowlist");
+      }
+      if (!isValidOperation(op, request.command)) {
+        return deny("invalid_operation_definition");
       }
 
       // 3. Argument validation (fail closed, exact registry contract).
@@ -405,6 +527,17 @@ export function createGitHubReadOnlyAdapter(
           return deny("missing_or_invalid_argument", key);
         }
       }
+      for (const key of knownParams) {
+        if (args[key] !== undefined && !validateArgumentValue(key, args[key], (op.multiSegmentParams || []).includes(key))) {
+          return deny("unsafe_path_parameter", key);
+        }
+      }
+
+      // Build and parse the complete URL before grant reservation. Invalid
+      // paths therefore neither invoke transport nor consume delegated uses.
+      const requestPath = buildPath(op, args);
+      const canonicalUrl = apiBase ? validateCanonicalRepositoryUrl(apiBase, requestPath) : undefined;
+      if (!canonicalUrl) return deny("invalid_repository_url");
 
       // 4. Delegated authority — mandatory on EVERY execution.
       const authority = request.authority;
@@ -433,8 +566,6 @@ export function createGitHubReadOnlyAdapter(
       ) {
         return deny("grant_integrity_unavailable");
       }
-
-      const requestPath = buildPath(op, args);
 
       // 5. M2.2.1 CORRECTED ORDER — grant validation FIRST. Integrity
       //    seal (HMAC over every security-relevant field incl. uses),
@@ -509,8 +640,9 @@ export function createGitHubReadOnlyAdapter(
       //    never echoed into results. The reserved use is already
       //    consumed; transport failure/timeout NEVER refunds it
       //    (documented reservation policy: uncertain outcomes keep
-      //    the reservation).
-      const url = baseUrl + requestPath;
+      //    reservation).
+      const url = validateCanonicalRepositoryUrl(apiBase as URL, requestPath);
+      if (!url || url !== canonicalUrl) return deny("invalid_repository_url");
       const timeoutMs: number =
         typeof request.timeoutMs === "number" &&
         Number.isFinite(request.timeoutMs) &&
