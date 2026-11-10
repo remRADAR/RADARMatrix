@@ -1,0 +1,44 @@
+name: CI
+
+# Zero-budget test execution: GitHub Actions is free for public repositories.
+#
+# M1a: the test runner is now fail-fast — suites report failures via
+# return values or throwing, and the runner exits non-zero on any
+# failure. The PRIMARY CI signal is therefore the process exit code.
+# A secondary guard re-runs the suites and rejects any swallowed
+# failure lines in the output (defense in depth for legacy suites).
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # Repository has zero npm dependencies; no install step needed.
+      # Node >= 22.18 loads the TypeScript gateway/contract sources via
+      # built-in type stripping (erasable syntax only).
+      - name: Run test suites (npm test — exit code enforced)
+        run: npm test
+
+      - name: Deployment smoke test
+        run: npm run test:deployment
+
+      - name: Secondary guard — no swallowed failure lines in output
+        run: |
+          set +e
+          npm test > /tmp/suite-output.log 2>&1
+          if grep -n '✗' /tmp/suite-output.log; then
+            echo "::error::Failure lines present in suite output despite exit-code checks"
+            exit 1
+          fi

@@ -1,43 +1,84 @@
 /**
- * RADARMatrix Test Runner
- * 
+ * RADARMatrix Test Runner (M1a — fail-fast)
+ *
  * Orchestrates all test suites and provides summary reporting.
- * Runs:
- * - v0.7-gateway.test.mjs
- * - v0.8-chatgpt-contract.test.mjs
+ *
+ * M1a change: the runner previously called process.exit(0)
+ * unconditionally, which meant a green run proved nothing. Suites now
+ * report failures as return values (or throw), and this runner exits
+ * non-zero when ANY test fails. CI relies on this exit code; a
+ * secondary output guard additionally rejects swallowed failure lines.
+ *
+ * Suites:
+ * - v0.7-gateway.test.mjs (foundation gateway logic, self-contained)
+ * - v0.8-chatgpt-contract.test.mjs (contract validation, self-contained)
+ * - agent-routing.test.mjs (registry + deterministic router)
+ * - brand-gateway-routing.test.mjs (brand gateway read-only routing)
+ * - gateway-integration-security.test.mjs (M1a: exercises the REAL
+ *   gateway implementation end-to-end)
  */
 
 import { runAllTests as runGatewayTests } from "./v0.7-gateway.test.mjs";
 import { runAllTests as runContractTests } from "./v0.8-chatgpt-contract.test.mjs";
 import { runAllTests as runAgentRoutingTests } from "./agent-routing.test.mjs";
 import { runAllTests as runBrandGatewayRoutingTests } from "./brand-gateway-routing.test.mjs";
+import { runAllTests as runGatewayIntegrationTests } from "./gateway-integration-security.test.mjs";
 
 console.log("\n");
-console.log("╔════════════════════════════════════════╗");
-console.log("║   RADARMatrix Test Suite (v0.8)      ║");
-console.log("║   Foundation Implementation Tests     ║");
-console.log("╚════════════════════════════════════════╝\n");
+console.log("╔═══════════════════════════════════════╗");
+console.log("║   RADARMatrix Test Suite (v0.9 M1a)     ║");
+console.log("║   Foundation + Integration Tests        ║");
+console.log("╚═══════════════════════════════════════╝");
 
 const startTime = Date.now();
 
-// Run gateway tests
-console.log("▶ Running MCP Gateway Tests (v0.7)...\n");
-runGatewayTests();
+const suites = [
+  { name: "▶ MCP Gateway Tests (v0.7 foundation)", run: runGatewayTests },
+  { name: "▶ ChatGPT Contract Tests (v0.8 foundation)", run: runContractTests },
+  { name: "▶ RADAR Agent Routing Tests", run: runAgentRoutingTests },
+  { name: "▶ Brand Gateway Routing Tests", run: runBrandGatewayRoutingTests },
+  { name: "▶ Gateway Integration Security Tests (M1a — real implementation)", run: runGatewayIntegrationTests },
+];
 
-// Run contract tests
-console.log("▶ Running ChatGPT Contract Tests (v0.8)...\n");
-runContractTests();
+const results = [];
 
-console.log("▶ Running RADAR Agent Routing Tests...\n");
-runAgentRoutingTests();
-await runBrandGatewayRoutingTests();
+for (const suite of suites) {
+  console.log("\n" + suite.name + "\n");
+  try {
+    const result = await suite.run();
+    const failed =
+      typeof result === "number"
+        ? result
+        : result && typeof result === "object" && typeof result.failed === "number"
+          ? result.failed
+          : 0;
+    results.push({ name: suite.name, failed, threw: null });
+  } catch (error) {
+    results.push({ name: suite.name, failed: null, threw: error && error.message ? error.message : String(error) });
+  }
+}
 
-// Summary
+const failingSuites = results.filter((r) => (r.failed || 0) > 0 || r.threw !== null);
+const totalFailures = results.reduce((sum, r) => sum + (r.failed || 0) + (r.threw !== null ? 1 : 0), 0);
+
 const duration = Date.now() - startTime;
-console.log("\n╔════════════════════════════════════════╗");
+console.log("\n╔═══════════════════════════════════════╗");
 console.log("║           Test Run Complete            ║");
-console.log(`║   Duration: ${duration}ms                      ║`);
-console.log("║   All foundation tests executed       ║");
-console.log("╚════════════════════════════════════════╝\n");
+console.log("║   Duration: " + duration + "ms");
+console.log("║   Suites: " + results.length + ", failing: " + failingSuites.length);
+if (failingSuites.length > 0) {
+  console.log("║   FAILED SUITES:");
+  for (const r of failingSuites) {
+    const why = r.threw !== null ? " (threw: " + r.threw + ")" : " (" + r.failed + " test failure(s))";
+    console.log("║   - " + r.name + why);
+  }
+}
+console.log("╚═══════════════════════════════════════╝\n");
 
+if (totalFailures > 0) {
+  console.error("Test run FAILED: " + totalFailures + " failure(s) across " + failingSuites.length + " suite(s).");
+  process.exit(1);
+}
+
+console.log("All test suites passed.");
 process.exit(0);
