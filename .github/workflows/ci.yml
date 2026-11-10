@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - main
+      - fix/matrix-ide-lockfile-ci
   pull_request:
     branches:
       - main
+      - fix/reproducible-ci-and-lockfile
 
 permissions:
   contents: read
@@ -19,7 +21,7 @@ jobs:
   verify:
     name: Tests, typecheck, and build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Check out source
@@ -35,7 +37,7 @@ jobs:
       - name: Install locked Matrix Console dependencies
         run: npm ci --prefix apps/matrix-console --ignore-scripts --no-audit --no-fund
 
-      - name: Run foundation and routing tests
+      - name: Run all repository and Matrix IDE tests
         run: npm test
 
       - name: Verify production fails closed when unconfigured
