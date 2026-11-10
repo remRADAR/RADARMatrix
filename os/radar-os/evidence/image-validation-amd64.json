@@ -1,0 +1,14 @@
+{
+  "schema": "radar-os-image-validation/v1",
+  "timestamp_utc": "2026-11-06T16:28:00.000000+00:00",
+  "image": "/workspace/osbuild/radar-os-amd64.iso",
+  "architecture": "amd64",
+  "format": "iso9660",
+  "image_sha256": "248574292632e38ed4e94d9e17ffcca55b54214551c7b1aebc8969391cc3cbe4",
+  "file_description": "ISO 9660 CD-ROM filesystem data (DOS/MBR boot sector) 'RADAROS' (bootable)",
+  "kernel_description": "Linux kernel x86 boot executable bzImage, version 6.1.0-54-amd64",
+  "kernel_path": "/live/vmlinuz",
+  "checksum_sidecar": "/workspace/osbuild/radar-os-amd64.iso.sha256",
+  "metadata_sidecar": "/workspace/osbuild/radar-os-amd64.iso.radar-os.json",
+  "validation": "PASS"
+}

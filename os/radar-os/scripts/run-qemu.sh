@@ -25,7 +25,14 @@ TIMEOUT_SECONDS="${RADAR_OS_QEMU_TIMEOUT:-120}"
 QEMU_VERSION="$("$QEMU" --version | head -n1)"
 IMAGE_SHA="$(sha256sum "$IMAGE" | awk '{print $1}')"
 FIRMWARE_SHA="$(sha256sum "$FIRMWARE" | awk '{print $1}')"
-CMD=("$QEMU" -machine "$MACHINE" -m 2048 -bios "$FIRMWARE" -display none -no-reboot -no-shutdown -serial "file:$LOG" -cdrom "$IMAGE" -boot order=d)
+CMD=("$QEMU" -machine "$MACHINE" -m 2048 -bios "$FIRMWARE" -display none -no-reboot -no-shutdown -serial "file:$LOG")
+if [[ "$ARCH" == arm64 ]]; then
+  # QEMU's ARM `virt` target uses an explicit virtio-SCSI device chain for
+  # optical media. Do not rely on x86-oriented `-cdrom` shorthand here.
+  CMD+=(-drive "if=none,id=radar_cdrom,media=cdrom,readonly=on,file=$IMAGE" -device virtio-scsi-device -device scsi-cd,drive=radar_cdrom)
+else
+  CMD+=(-cdrom "$IMAGE" -boot order=d)
+fi
 printf 'Starting QEMU process is not a boot pass; waiting up to %ss for serial marker: %s\n' "$TIMEOUT_SECONDS" "$READY_PATTERN"
 : > "$LOG"
 : > "$ERR_LOG"

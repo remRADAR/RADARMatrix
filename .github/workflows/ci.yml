@@ -1,27 +1,9 @@
 name: CI
 
-# Why this workflow exists: `main` carries only deploy-staging.yml (push to
-# `staging`, no tests). This branch therefore had NO test workflow at all —
-# PR #14's only check run was "Vercel Preview Comments", so the exit-code
-# enforced suite had no automated consumer and its green appearance was not
-# test evidence.
-#
-# Deliberately matches .github/workflows/ci.yml on the Stage 0.1.1 corrective
-# lineage (#15 / architecture/stage-0-1-1-corrections-verified) — same Node
-# version, same install step, same test commands — so results are comparable
-# across the OS track and a red/green here means the same thing there.
-#
-# KNOWN LIMITATION, stated honestly rather than papered over:
-# the test runner on THIS branch ends with an unconditional `process.exit(0)`
-# (tests/test-runner.mjs line 43). A recorded suite failure does not by itself
-# fail `npm test`, so the exit-code step alone would be vacuous here. The hard
-# gate is therefore the failure-marker guard below, which inspects the suite
-# OUTPUT for the U+2717 marker the suites print on every failed check. That
-# guard is independent of the runner's exit status.
-#
-# #15 replaces the runner with a fail-closed one and adds a "RESULT: PASSED"
-# assertion. Once #15 lands on top of this branch, the exit-code step becomes
-# meaningful as well and this file can be replaced by #15's version wholesale.
+# Why this workflow exists: neither main nor the Stage 0.1.1 branch had a test
+# workflow. main carries only deploy-staging.yml (push to `staging`, no tests),
+# so PR #14's only check run was "Vercel Preview Comments". The exit-code
+# enforced suite therefore had no automated consumer.
 
 on:
   push:
@@ -75,8 +57,9 @@ jobs:
         shell: bash
         run: |
           # The failure marker is U+2717; the pass marker is U+2713. They are
-          # adjacent codepoints, so a character class would match BOTH. Build
-          # the exact codepoint from octal so this file stays pure ASCII.
+          # adjacent codepoints, so the character class [^ -~] alone matched
+          # BOTH and failed a green run (run 42253877282, step 6). Build the
+          # exact codepoint from octal so this file stays pure ASCII.
           MARKER=$(printf '\342\234\227')
           if grep -qE "^[[:space:]]*${MARKER} " /tmp/test.log; then
             echo "::error::Test output contains failure markers"
@@ -84,18 +67,13 @@ jobs:
           fi
           echo "no swallowed failure markers found"
 
-      - name: Assert the suite actually executed
+      - name: Assert runner reported PASSED
         shell: bash
         run: |
-          # Guards the opposite failure mode: a crash before any assertion ran
-          # produces no ✗ marker either, so the guard above would pass on an
-          # empty log. "Test Run Complete" is only printed after every suite has
-          # been invoked.
-          grep -q "Test Run Complete" /tmp/test.log || {
-            echo "::error::Runner did not report Test Run Complete"
+          grep -q "RESULT: PASSED" /tmp/test.log || {
+            echo "::error::Runner did not report RESULT: PASSED"
             exit 1
           }
-          echo "suite executed to completion"
 
       - name: Typecheck Matrix Console
         run: npm run typecheck
