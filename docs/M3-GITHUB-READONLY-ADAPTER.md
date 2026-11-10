@@ -40,6 +40,14 @@ M3 branch and PR #5, and is not merged into `main`.
    name plus validated path parameters; the adapter builds the URL
    itself (each path segment `encodeURIComponent`-encoded; the caller
    cannot inject query strings, hosts, or traversal).
+
+   **Callers MUST pass raw, unencoded path values** (e.g. `docs/a b.md`,
+   `release/v2`), never pre-encoded ones. The adapter performs the
+   encoding itself; a value that arrives already percent-encoded is
+   treated as literal text and its `%` sequences are encoded again
+   (`a%2fb` becomes the filename `a%2fb`, not a path separator). This is
+   not a traversal risk — the repeated-decode validation rejects real
+   dot segments first — but it silently changes the requested resource.
 2. **Read-only only.** Every declared operation is an HTTP GET. The
    adapter has no code path that can issue a write to GitHub.
 3. **Delegated authority is mandatory on every execution.** A request
@@ -106,6 +114,28 @@ M3 branch and PR #5, and is not merged into `main`.
   Untouched. Zero runtime npm dependencies (dev-only typescript +
   @types/node). Erasable-syntax TypeScript only.
 
+## Trusted-origin policy (Phase 4.1.1)
+
+The adapter pins the API origin. `baseUrl` is validated (HTTPS only, no
+embedded credentials, no query/fragment, no backslash, segment-whitelisted
+path prefix) **and** its origin must appear in `trustedOrigins`.
+
+- **Default:** `trustedOrigins` is `["https://api.github.com"]` — the public
+  API origin **only**.
+- **A configured `baseUrl` is NEVER auto-trusted.** Setting
+  `baseUrl: "https://ghe.example.com/api/v3"` without also listing
+  `"https://ghe.example.com"` in `trustedOrigins` yields
+  `status: "unavailable"` and every execution returns
+  `notes: "invalid_api_base_url"` — no transport call, no grant use.
+- **GitHub Enterprise** deployments must declare their host deliberately:
+  `trustedOrigins: ["https://api.github.com", "https://ghe.example.com"]`.
+- An empty `trustedOrigins: []` is treated as "not supplied" and falls back
+  to the public origin only — it never widens trust.
+
+This closes the case where a mis-set or injected `baseUrl` would silently
+widen the allowlist and send the `Authorization: Bearer <token>` header to
+an attacker-controlled host.
+
 ## Test coverage (tests/github-readonly.test.mjs)
 
 All deterministic (injected transport + injected clock; no network,
@@ -152,3 +182,17 @@ calling this branch CI-verified.
 - Production provisioning and rotation of the HMAC integrity secret
   remain owner-gated; the adapter fails closed without it.
 - No rate-limit handling beyond HTTP status mapping; no retry logic.
+
+## Attestation correction (Phase 4.1.1)
+
+An earlier attestation for this branch stated "no PR created". That is
+**incorrect**: **PR #27** exists (`security/phase4-github-readonly-path-boundary`
+→ `main`), was opened 2026-11-10T13:24:04Z, and **remains open and unmerged**.
+It was never merged, retargeted, or closed. Its base is still `main@91d9517`
+while `main` has since advanced, so the PR base is stale and must be
+re-evaluated before any merge decision.
+
+The branch was also force-reset to `cf77f64` to discard commit `8e7a3d4`,
+which had replaced five files with 9-byte binary blobs and failed CI
+(runs #165/#166 at type-check). This document and the accompanying code
+are the clean re-application on top of `cf77f64`.

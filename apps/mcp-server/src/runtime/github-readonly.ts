@@ -513,17 +513,16 @@ export function createGitHubReadOnlyAdapter(
   // Trusted-origin pinning: the base URL's origin must be explicitly
   // trusted. A syntactically valid but unlisted host (an attacker-chosen
   // Enterprise host, a look-alike domain) is NOT accepted.
-  // The allowlist is explicit when the composing server supplies one.
-  // Otherwise the trusted set is the public API origin PLUS the origin of
-  // the server-configured baseUrl — the base URL is server configuration,
-  // never request data, so its origin is trusted by construction. A
-  // request can never widen this set.
+  // Phase 4.1.1: the default trusted set is the public API origin ONLY.
+  // A configured baseUrl is NEVER auto-trusted — a GitHub Enterprise host
+  // must be declared deliberately in cfg.trustedOrigins by the composing
+  // server. Otherwise a mis-set or injected baseUrl would silently widen
+  // the allowlist and could exfiltrate the Authorization header to an
+  // attacker-controlled host. A request can never widen this set.
   const trustedOrigins: readonly string[] =
     Array.isArray(cfg.trustedOrigins) && cfg.trustedOrigins.length > 0
       ? cfg.trustedOrigins
-      : parsedBase !== undefined
-        ? [DEFAULT_API_BASE_URL, parsedBase.origin]
-        : [DEFAULT_API_BASE_URL];
+      : [DEFAULT_API_BASE_URL];
   const originTrusted: boolean =
     parsedBase !== undefined &&
     trustedOrigins.some((origin) => {

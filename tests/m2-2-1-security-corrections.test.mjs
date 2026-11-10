@@ -344,6 +344,8 @@ function makeAdapter(transport, extraConfig) {
       {
         token: "gh_test_token",
         baseUrl: "https://api.test.local",
+        // Phase 4.1.1: a configured baseUrl is never auto-trusted.
+        trustedOrigins: ["https://api.test.local"],
         fetchImpl: transport.fetchImpl,
         operations: TEST_OPERATIONS,
         grantIntegrity: INTEGRITY,
@@ -416,6 +418,8 @@ test("B: missing grant integrity service — every authority-bearing execution D
   const adapter = createGitHubReadOnlyAdapter({
     token: "gh_test_token",
     baseUrl: "https://api.test.local",
+    // Phase 4.1.1: a configured baseUrl is never auto-trusted.
+    trustedOrigins: ["https://api.test.local"],
     fetchImpl: transport.fetchImpl,
     operations: TEST_OPERATIONS,
     grantIntegrity: null,
@@ -611,6 +615,8 @@ function approvalAdapterSetup(maxUses) {
   const adapter = createGitHubReadOnlyAdapter({
     token: "gh_test_token",
     baseUrl: "https://api.test.local",
+    // Phase 4.1.1: a configured baseUrl is never auto-trusted.
+    trustedOrigins: ["https://api.test.local"],
     fetchImpl: transport.fetchImpl,
     operations: TEST_OPERATIONS,
     grantIntegrity: INTEGRITY,

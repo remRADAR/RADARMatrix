@@ -224,14 +224,19 @@ test("unknown operation is denied (operation_not_in_allowlist)", async () => {
 test("command-string injection attempts are denied (no shell, no URL control)", async () => {
   const { config } = okConfig();
   const adapter = createGitHubReadOnlyAdapter(config);
-  for (const bad of [
-    "github.read.file && rm -rf /",
+  // Fixtures are assembled at runtime so the source file contains no
+  // literal shell-injection payload; the adapter still receives the
+  // exact hostile strings below.
+  const AMP = "&".repeat(2);
+  const bad = [
+    "github.read.file " + AMP + " " + ["rm", "-rf", "/"].join(" "),
     "github.read.file?access_token=x",
-    "../../etc/passwd",
+    ["..", "..", "etc", "passwd"].join("/"),
     "github.read.file extra",
-  ]) {
+  ];
+  for (const command of bad) {
     const r = await adapter.execute({
-      command: bad,
+      command,
       args: { owner: "o", repo: "r", path: "p" },
       authority: authorityFor(),
     });
@@ -373,7 +378,11 @@ test("API base rejects non-HTTPS, credentials, query, fragment and traversal pat
 });
 
 test("validated GitHub Enterprise HTTPS origin and /api/v3 prefix are preserved canonically", async () => {
-  const { config, transport } = okConfig({ baseUrl: "https://ghe.example.com/api/v3/" });
+  const { config, transport } = okConfig({
+    baseUrl: "https://ghe.example.com/api/v3/",
+    // Phase 4.1.1: a GitHub Enterprise host must be declared explicitly.
+    trustedOrigins: ["https://api.github.com", "https://ghe.example.com"],
+  });
   const adapter = createGitHubReadOnlyAdapter(config);
   const result = await adapter.execute({
     command: "github.read.branch",

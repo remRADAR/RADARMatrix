@@ -340,6 +340,111 @@ test("a validated GitHub Enterprise origin and /api/v3 prefix are preserved", as
 });
 
 // ---------------------------------------------------------------------------
+// B2. Phase 4.1.1 — a configured baseUrl is NEVER auto-trusted.
+//
+// Regression for the MEDIUM finding: the default trusted set must be the
+// public API origin ONLY. A custom baseUrl (look-alike domain, attacker host,
+// undeclared Enterprise host) must be rejected unless the composing server
+// explicitly lists its origin in trustedOrigins.
+// ---------------------------------------------------------------------------
+
+test("a look-alike baseUrl is rejected when trustedOrigins is absent", async () => {
+  const { config, transport } = makeConfig({ baseUrl: "https://api.github.com.evil.com" });
+  assert.equal(config.trustedOrigins, undefined, "fixture must omit trustedOrigins");
+  const adapter = createGitHubReadOnlyAdapter(config);
+  assert.equal(adapter.status, "unavailable");
+  const auth = authority();
+  const result = await adapter.execute({
+    command: "github.read.branches",
+    args: { owner: "remRADAR", repo: "RADARMatrix" },
+    authority: auth,
+  });
+  assert.equal(result.status, "unavailable");
+  assert.equal(result.notes, "invalid_api_base_url");
+  assert.equal(transport.calls.length, 0, "untrusted origin reached transport");
+  assert.equal(auth.grant.uses, 0, "untrusted origin consumed a grant use");
+});
+
+test("a look-alike baseUrl is rejected when trustedOrigins is an empty array", async () => {
+  const { config, transport } = makeConfig({
+    baseUrl: "https://api.github.com.evil.com",
+    trustedOrigins: [],
+  });
+  const adapter = createGitHubReadOnlyAdapter(config);
+  assert.equal(adapter.status, "unavailable");
+  const auth = authority();
+  const result = await adapter.execute({
+    command: "github.read.branches",
+    args: { owner: "remRADAR", repo: "RADARMatrix" },
+    authority: auth,
+  });
+  assert.equal(result.status, "unavailable");
+  assert.equal(result.notes, "invalid_api_base_url");
+  assert.equal(transport.calls.length, 0, "empty allowlist still trusted the baseUrl");
+  assert.equal(auth.grant.uses, 0, "empty allowlist consumed a grant use");
+});
+
+test("arbitrary default origins are rejected without explicit authorization", async () => {
+  const untrusted = [
+    "https://attacker.example.com",
+    "https://api.github.com.attacker.example.com",
+    "https://ghe.example.com",
+    "https://ghe.example.com/api/v3",
+    "https://github.com",
+  ];
+  for (const baseUrl of untrusted) {
+    const { config, transport } = makeConfig({ baseUrl });
+    const adapter = createGitHubReadOnlyAdapter(config);
+    assert.equal(adapter.status, "unavailable", `${baseUrl} was auto-trusted`);
+    const auth = authority();
+    const result = await adapter.execute({
+      command: "github.read.branches",
+      args: { owner: "remRADAR", repo: "RADARMatrix" },
+      authority: auth,
+    });
+    assert.equal(result.status, "unavailable", baseUrl);
+    assert.equal(result.notes, "invalid_api_base_url", baseUrl);
+    assert.equal(transport.calls.length, 0, `${baseUrl} reached transport`);
+    assert.equal(auth.grant.uses, 0, `${baseUrl} consumed a grant use`);
+  }
+});
+
+test("an explicitly authorized GitHub Enterprise origin still works", async () => {
+  const { config, transport } = makeConfig({
+    baseUrl: "https://ghe.example.com/api/v3",
+    trustedOrigins: ["https://api.github.com", "https://ghe.example.com"],
+  });
+  const adapter = createGitHubReadOnlyAdapter(config);
+  assert.equal(adapter.status, "connected");
+  const result = await adapter.execute({
+    command: "github.read.branches",
+    args: { owner: "acme", repo: "widgets" },
+    authority: authority(),
+  });
+  assert.equal(result.status, "executed");
+  assert.equal(
+    transport.calls[0].url,
+    "https://ghe.example.com/api/v3/repos/acme/widgets/branches",
+  );
+});
+
+test("the public api.github.com default still works with no trustedOrigins", async () => {
+  const { config, transport } = makeConfig({ baseUrl: undefined });
+  const adapter = createGitHubReadOnlyAdapter(config);
+  assert.equal(adapter.status, "connected");
+  const result = await adapter.execute({
+    command: "github.read.branches",
+    args: { owner: "remRADAR", repo: "RADARMatrix" },
+    authority: authority(),
+  });
+  assert.equal(result.status, "executed");
+  assert.equal(
+    transport.calls[0].url,
+    "https://api.github.com/repos/remRADAR/RADARMatrix/branches",
+  );
+});
+
+// ---------------------------------------------------------------------------
 // Harness.
 // ---------------------------------------------------------------------------
 
