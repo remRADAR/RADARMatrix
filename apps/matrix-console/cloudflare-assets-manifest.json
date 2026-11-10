@@ -1,0 +1,44 @@
+{
+  "format": "cloudflare-workers-static-assets-manifest-v1",
+  "source_directory": "apps/matrix-console/dist",
+  "files": [
+    {
+      "path": "/assets/index-DmdJZ-LX.js",
+      "hash": "5212a7b7b86a5c2bdb69b241595bdfc7",
+      "size": 241148
+    },
+    {
+      "path": "/assets/index-QrmQuIIz.css",
+      "hash": "89f0bca320c50f5387142bb0f66c8d2d",
+      "size": 17383
+    },
+    {
+      "path": "/index.html",
+      "hash": "13e049d0174d1953ffa129615b8b21f0",
+      "size": 540
+    },
+    {
+      "path": "/manus-routes.json",
+      "hash": "3c428e64482e47a99aaf0fea511ad536",
+      "size": 489
+    }
+  ],
+  "manifest": {
+    "/assets/index-DmdJZ-LX.js": {
+      "hash": "5212a7b7b86a5c2bdb69b241595bdfc7",
+      "size": 241148
+    },
+    "/assets/index-QrmQuIIz.css": {
+      "hash": "89f0bca320c50f5387142bb0f66c8d2d",
+      "size": 17383
+    },
+    "/index.html": {
+      "hash": "13e049d0174d1953ffa129615b8b21f0",
+      "size": 540
+    },
+    "/manus-routes.json": {
+      "hash": "3c428e64482e47a99aaf0fea511ad536",
+      "size": 489
+    }
+  }
+}

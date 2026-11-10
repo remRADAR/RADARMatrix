@@ -11,7 +11,12 @@
     "test:agents": "node tests/agent-routing.test.mjs && node tests/brand-gateway-routing.test.mjs",
     "brand:dev": "node apps/brand-studio/server.mjs",
     "brand:start": "node apps/brand-studio/server.mjs",
-    "test:deployment": "RADARMATRIX_RUNTIME_MODE=production RADARMATRIX_NO_LISTEN=1 node tests/deployment-smoke.mjs"
+    "test:deployment": "RADARMATRIX_RUNTIME_MODE=production RADARMATRIX_NO_LISTEN=1 node tests/deployment-smoke.mjs",
+    "typecheck": "npm --prefix apps/matrix-console run typecheck",
+    "build:matrix-console": "npm --prefix apps/matrix-console run build",
+    "test:matrix-console": "node tests/matrix-console-smoke.mjs",
+    "create:cloudflare-manifest": "node scripts/create-cloudflare-assets-manifest.mjs",
+    "deploy:matrix-console:wrangler": "bash scripts/deploy-matrix-console-wrangler.sh"
   },
   "keywords": [
     "radarmatrix",
