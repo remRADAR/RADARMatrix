@@ -3,42 +3,132 @@
   "source_directory": "apps/matrix-console/dist",
   "files": [
     {
-      "path": "/assets/index-DmdJZ-LX.js",
-      "hash": "5212a7b7b86a5c2bdb69b241595bdfc7",
-      "size": 241148
+      "path": "/assets/halo-stadium-portrait.webp",
+      "hash": "8b62cd78c8a7ca4ac5a19258a91b6808",
+      "size": 172228
     },
     {
-      "path": "/assets/index-QrmQuIIz.css",
-      "hash": "89f0bca320c50f5387142bb0f66c8d2d",
-      "size": 17383
+      "path": "/assets/halo-stadium-wallpaper.webp",
+      "hash": "d220451e1212c9bec8f4cf5d6c69302d",
+      "size": 300970
+    },
+    {
+      "path": "/assets/index-CG9VHO6v.js",
+      "hash": "9123bbaa42396e3078e5198f96b0513b",
+      "size": 282413
+    },
+    {
+      "path": "/assets/index-DXFid4Or.css",
+      "hash": "99258b25d0d24445c8d1c400fc03bb93",
+      "size": 47267
+    },
+    {
+      "path": "/icons/halo-180.png",
+      "hash": "7381f0774d8998748083b79eb8bea6c2",
+      "size": 10883
+    },
+    {
+      "path": "/icons/halo-192.png",
+      "hash": "a0bef965b0aa6b4631d89a3926312fb7",
+      "size": 11782
+    },
+    {
+      "path": "/icons/halo-512.png",
+      "hash": "c9382cbe5b02e945eb0178d1b0fe04d3",
+      "size": 36806
+    },
+    {
+      "path": "/icons/halo-maskable-512.png",
+      "hash": "1cf1e6a55cd03a5df39c4bd61a099478",
+      "size": 35297
     },
     {
       "path": "/index.html",
-      "hash": "13e049d0174d1953ffa129615b8b21f0",
-      "size": 540
+      "hash": "50361d29b712bbf377ee8bbe58adb108",
+      "size": 1262
+    },
+    {
+      "path": "/manifest.webmanifest",
+      "hash": "4e59d0f54fdba7dbcabfc3c1ae1f0c1f",
+      "size": 704
     },
     {
       "path": "/manus-routes.json",
       "hash": "3c428e64482e47a99aaf0fea511ad536",
       "size": 489
+    },
+    {
+      "path": "/offline.html",
+      "hash": "67f44696b2540216d5e03b4fa28eaa17",
+      "size": 1232
+    },
+    {
+      "path": "/sw.js",
+      "hash": "8dbd2da17a3442dc691b0968d5aa073b",
+      "size": 3701
+    },
+    {
+      "path": "/THIRD-PARTY-NOTICES.txt",
+      "hash": "f8fb572504f864420e4e36078464e2e3",
+      "size": 1185
     }
   ],
   "manifest": {
-    "/assets/index-DmdJZ-LX.js": {
-      "hash": "5212a7b7b86a5c2bdb69b241595bdfc7",
-      "size": 241148
+    "/assets/halo-stadium-portrait.webp": {
+      "hash": "8b62cd78c8a7ca4ac5a19258a91b6808",
+      "size": 172228
     },
-    "/assets/index-QrmQuIIz.css": {
-      "hash": "89f0bca320c50f5387142bb0f66c8d2d",
-      "size": 17383
+    "/assets/halo-stadium-wallpaper.webp": {
+      "hash": "d220451e1212c9bec8f4cf5d6c69302d",
+      "size": 300970
+    },
+    "/assets/index-CG9VHO6v.js": {
+      "hash": "9123bbaa42396e3078e5198f96b0513b",
+      "size": 282413
+    },
+    "/assets/index-DXFid4Or.css": {
+      "hash": "99258b25d0d24445c8d1c400fc03bb93",
+      "size": 47267
+    },
+    "/icons/halo-180.png": {
+      "hash": "7381f0774d8998748083b79eb8bea6c2",
+      "size": 10883
+    },
+    "/icons/halo-192.png": {
+      "hash": "a0bef965b0aa6b4631d89a3926312fb7",
+      "size": 11782
+    },
+    "/icons/halo-512.png": {
+      "hash": "c9382cbe5b02e945eb0178d1b0fe04d3",
+      "size": 36806
+    },
+    "/icons/halo-maskable-512.png": {
+      "hash": "1cf1e6a55cd03a5df39c4bd61a099478",
+      "size": 35297
     },
     "/index.html": {
-      "hash": "13e049d0174d1953ffa129615b8b21f0",
-      "size": 540
+      "hash": "50361d29b712bbf377ee8bbe58adb108",
+      "size": 1262
+    },
+    "/manifest.webmanifest": {
+      "hash": "4e59d0f54fdba7dbcabfc3c1ae1f0c1f",
+      "size": 704
     },
     "/manus-routes.json": {
       "hash": "3c428e64482e47a99aaf0fea511ad536",
       "size": 489
+    },
+    "/offline.html": {
+      "hash": "67f44696b2540216d5e03b4fa28eaa17",
+      "size": 1232
+    },
+    "/sw.js": {
+      "hash": "8dbd2da17a3442dc691b0968d5aa073b",
+      "size": 3701
+    },
+    "/THIRD-PARTY-NOTICES.txt": {
+      "hash": "f8fb572504f864420e4e36078464e2e3",
+      "size": 1185
     }
   }
 }
