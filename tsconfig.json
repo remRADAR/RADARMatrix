@@ -18,6 +18,7 @@
   "include": [
     "packages/contracts/**/*.d.ts",
     "apps/mcp-server/src/auth/**/*.ts",
-    "apps/mcp-server/src/runtime/github-readonly.ts"
+    "apps/mcp-server/src/runtime/github-readonly.ts",
+    "apps/mcp-server/src/runtime/durable-execution/**/*.ts"
   ]
 }

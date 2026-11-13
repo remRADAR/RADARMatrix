@@ -12,6 +12,7 @@
     "brand:dev": "node apps/brand-studio/server.mjs",
     "brand:start": "node apps/brand-studio/server.mjs",
     "test:deployment": "RADARMATRIX_RUNTIME_MODE=production RADARMATRIX_NO_LISTEN=1 node tests/deployment-smoke.mjs",
+    "test:d1-local": "node tests/d1-worker-local.test.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "build:matrix-console": "npm --prefix apps/matrix-console run build",
     "test:matrix-console": "node tests/matrix-console-smoke.mjs",

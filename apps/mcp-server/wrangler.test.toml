@@ -1,0 +1,12 @@
+name = "radarmatrix-d1-local-tests"
+main = "src/runtime/durable-execution/test-worker.ts"
+compatibility_date = "2025-10-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+
+[[d1_databases]]
+binding = "TEST_DB"
+database_name = "radarmatrix-d1-local-tests"
+database_id = "00000000-0000-0000-0000-000000000000"
+preview_database_id = "radarmatrix-d1-local-tests"
+migrations_dir = "migrations"

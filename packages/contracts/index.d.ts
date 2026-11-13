@@ -371,3 +371,198 @@ export interface AuthFailureEvent {
   subject: string;
   timestamp: ISO8601Timestamp;
 }
+
+
+/* ========================================================================
+ * Durable Transactional Execution Layer — PR A contract baseline
+ *
+ * Type-only contracts. These types do NOT authorize or execute operations.
+ * The runtime must keep consequential dispatch disabled until the D1
+ * repository, binding-level acceptance tests, and provider reconciliation
+ * gates have passed and are separately approved.
+ * ====================================================================== */
+
+export type ExecutionState =
+  | "CREATED"
+  | "RESERVED"
+  | "APPROVED"
+  | "DISPATCHING"
+  | "SUCCEEDED"
+  | "FAILED"
+  | "CANCELLED"
+  | "UNCERTAIN";
+
+export type DurableTransactionStatus =
+  | "COMMITTED"
+  | "ROLLED_BACK"
+  | "COMMIT_UNKNOWN"
+  | "CONFLICT"
+  | "STORAGE_UNAVAILABLE";
+
+/**
+ * Identity is server-composed. The request fingerprint is immutable and
+ * binds the canonical tool/action/resource representation approved upstream.
+ */
+export interface ExecutionIdentity {
+  readonly execution_id: string;
+  readonly workspace_id: WorkspaceId;
+  readonly actor_id: CallerId;
+  readonly idempotency_key: string;
+  readonly tool: ToolName;
+  readonly action: string;
+  readonly resource_fingerprint: string;
+}
+
+export interface DurableExecution extends ExecutionIdentity {
+  readonly state: ExecutionState;
+  readonly version: number;
+  readonly created_at: ISO8601Timestamp;
+  readonly updated_at: ISO8601Timestamp;
+  readonly provider_request_id?: string;
+  readonly outcome_evidence_id?: string;
+}
+
+export interface CreateExecutionInput extends ExecutionIdentity {
+  readonly request_fingerprint: string;
+}
+
+export type CreateExecutionResult =
+  | { readonly kind: "CREATED"; readonly execution: DurableExecution }
+  | { readonly kind: "REPLAY"; readonly execution: DurableExecution }
+  | { readonly kind: "IDEMPOTENCY_CONFLICT" };
+
+export interface ExecutionTransition {
+  readonly execution_id: string;
+  readonly expected_state: ExecutionState;
+  readonly expected_version: number;
+  readonly next_state: ExecutionState;
+  readonly event: DurableAuditEvent;
+}
+
+export interface DurableAuditEvent {
+  readonly event_id: string;
+  readonly workspace_id: WorkspaceId;
+  readonly actor_id: CallerId;
+  readonly execution_id: string;
+  readonly sequence: number;
+  readonly event_type: string;
+  readonly from_state?: ExecutionState;
+  readonly to_state?: ExecutionState;
+  readonly occurred_at: ISO8601Timestamp;
+  /** Sanitized, bounded metadata only; never credentials or raw secrets. */
+  readonly metadata: Readonly<Record<string, string | number | boolean | null>>;
+}
+
+/** Opaque handle scoped to one repository transaction. */
+export interface TransactionContext {
+  readonly transaction_id: string;
+}
+
+export type TransactionResult<T> =
+  | { readonly status: "COMMITTED"; readonly value: T }
+  | { readonly status: "ROLLED_BACK"; readonly error_code: string }
+  | { readonly status: "COMMIT_UNKNOWN"; readonly transaction_id: string }
+  | { readonly status: "CONFLICT"; readonly conflict_code: string }
+  | { readonly status: "STORAGE_UNAVAILABLE"; readonly retryable: boolean };
+
+/**
+ * Executes one logical storage boundary. Implementations must not hold this
+ * transaction open during external network I/O. An unknown result is never
+ * equivalent to rollback and never permits dispatch.
+ */
+export interface TransactionRunner {
+  run<T>(
+    operation: (transaction: TransactionContext) => Promise<T>,
+  ): Promise<TransactionResult<T>>;
+}
+
+export interface ExecutionRepository {
+  createOrReplay(
+    transaction: TransactionContext,
+    input: CreateExecutionInput,
+  ): Promise<CreateExecutionResult>;
+  getByScopedIdempotencyKey(
+    transaction: TransactionContext,
+    key: Pick<ExecutionIdentity, "workspace_id" | "actor_id" | "idempotency_key">,
+  ): Promise<DurableExecution | null>;
+  transition(
+    transaction: TransactionContext,
+    change: ExecutionTransition,
+  ): Promise<DurableExecution | null>;
+  listUnresolved(
+    transaction: TransactionContext,
+    input: { readonly before: ISO8601Timestamp; readonly limit: number },
+  ): Promise<readonly DurableExecution[]>;
+}
+
+export interface ReservationRepository {
+  reserveGrantUse(
+    transaction: TransactionContext,
+    input: {
+      readonly execution_id: string;
+      readonly grant_id: string;
+      readonly workspace_id: WorkspaceId;
+      readonly actor_id: CallerId;
+      readonly agent_id: string;
+      readonly tool: ToolName;
+      readonly action: string;
+      readonly expected_seal: string;
+      readonly now: ISO8601Timestamp;
+    },
+  ): Promise<{ readonly reserved: true; readonly reservation_id: string } | { readonly reserved: false; readonly reason: string }>;
+}
+
+export interface ApprovalClaimRepository {
+  claim(
+    transaction: TransactionContext,
+    input: {
+      readonly jti: string;
+      readonly execution_id: string;
+      readonly workspace_id: WorkspaceId;
+      readonly actor_id: CallerId;
+      readonly action: string;
+      readonly resource_fingerprint: string;
+      readonly expires_at: ISO8601Timestamp;
+      readonly now: ISO8601Timestamp;
+    },
+  ): Promise<{ readonly claimed: true } | { readonly claimed: false; readonly reason: string }>;
+}
+
+export interface DurableAuditRepository {
+  append(transaction: TransactionContext, event: DurableAuditEvent): Promise<void>;
+  getForExecution(
+    transaction: TransactionContext,
+    executionId: string,
+  ): Promise<readonly DurableAuditEvent[]>;
+}
+
+export type ReconciliationOutcome =
+  | "CONFIRMED_SUCCEEDED"
+  | "CONFIRMED_FAILED"
+  | "STILL_PENDING"
+  | "UNKNOWN"
+  | "UNSUPPORTED"
+  | "RECONCILIATION_CONFLICT";
+
+export interface ReconciliationEvidence {
+  readonly provider: string;
+  readonly provider_request_id?: string;
+  readonly observed_at: ISO8601Timestamp;
+  readonly outcome: ReconciliationOutcome;
+  readonly evidence_reference?: string;
+  readonly evidence_digest?: string;
+}
+
+/** Provider contract only; implementations must declare real capabilities. */
+export interface ReconciliationAdapter {
+  readonly capabilities: {
+    readonly supports_idempotency_keys: boolean;
+    readonly supports_operation_lookup: boolean;
+  };
+  reconcile(input: {
+    readonly execution_id: string;
+    readonly idempotency_key: string;
+    readonly provider_request_id?: string;
+    readonly request_fingerprint: string;
+  }): Promise<ReconciliationEvidence>;
+}

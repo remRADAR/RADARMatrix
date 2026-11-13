@@ -26,6 +26,12 @@ These interfaces are the stable seams between Matrix Core and its providers. The
 | AgentAdapter | runtime/agent-routing.cjs (plan-only router) | **interface only**; execution adapters **planned** |
 | RateLimiter | none | **planned** |
 
+### Durable transactional execution contracts (PR A)
+
+`index.d.ts` now defines the proposed T0–T4 lifecycle states, scoped execution identity, explicit transaction outcomes, transaction-scoped repository interfaces, durable audit events, and provider reconciliation outcomes. These remain **type-only contracts**: there is no D1 adapter, schema, Worker binding, recovery worker, or consequential dispatch enabled by this change. Do not treat the presence of the interfaces as proof of runtime guarantees.
+
+The runtime must fail closed on `COMMIT_UNKNOWN`, keep unresolved outcomes non-dispatchable, and require separate owner approval plus actual Worker-binding acceptance evidence before any consequential execution is enabled.
+
 Statuses follow the implemented / connected / simulated / planned / unavailable vocabulary. Nothing in this package claims a capability that does not exist.
 
 ## Verification status

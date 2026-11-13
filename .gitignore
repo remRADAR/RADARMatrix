@@ -1,5 +1,7 @@
 # Local durable workspace state
 .data/
+.wrangler/
+node_modules/
 
 # Runtime logs and temporary verification files
 *.log
