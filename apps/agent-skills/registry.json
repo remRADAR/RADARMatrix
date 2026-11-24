@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "registryVersion": "0.1.0",
+  "registryVersion": "0.2.0",
   "sourcePack": {
     "repository": "https://github.com/remRADAR/radar-vibe-queue",
     "branch": "main",
@@ -24,9 +24,49 @@
     { "id": "debug-incident", "name": "Debugging and Incident Response", "sourcePath": "skills/debug-incident/SKILL.md", "file": "skills/debug-incident.md" },
     { "id": "market-intelligence", "name": "Market Intelligence", "sourcePath": "skills/market-intelligence/SKILL.md", "file": "skills/market-intelligence.md" },
     { "id": "code-language", "name": "Code and Language Engineering", "sourcePath": "skills/code-language/SKILL.md", "file": "skills/code-language.md" },
-    { "id": "authorized-product-study", "name": "Authorized Product Study", "sourcePath": "skills/authorized-product-study/SKILL.md", "file": "skills/authorized-product-study.md" }
+    { "id": "authorized-product-study", "name": "Authorized Product Study", "sourcePath": "skills/authorized-product-study/SKILL.md", "file": "skills/authorized-product-study.md" },
+    { "id": "frontier-router", "name": "Frontier Router", "sourcePath": "skills/frontier-router/SKILL.md", "file": "skills/frontier-router.md" },
+    { "id": "radar-master-agent", "name": "RADAR Master Agent", "sourcePath": "skills/radar-master-agent/SKILL.md", "file": "skills/radar-master-agent.md" }
   ],
   "agents": [
+    {
+      "id": "radar_master_agent",
+      "name": "RADAR Master Agent",
+      "role": "Master / lead handling agent for brand activity",
+      "description": "Loads with every skill and knowledge cue in the pack integrated, then takes the lead on the brand's major activities end to end. Plan-only: it prepares, routes and reports; it does not act externally.",
+      "skillIds": [
+        "radar-master-agent",
+        "frontier-router",
+        "radar-vibe-queue",
+        "radar-meta",
+        "universal-agent-architect",
+        "application-engineering",
+        "web-development",
+        "lovable-vibecode",
+        "debug-incident",
+        "market-intelligence",
+        "code-language",
+        "authorized-product-study",
+        "agent-continuation"
+      ],
+      "categories": ["master_agent"],
+      "coordinator": false,
+      "lead": true,
+      "activation": {
+        "phrases": [
+          "load agent from the repo",
+          "load the master agent",
+          "load master agent",
+          "load agent from repo",
+          "load the agent",
+          "radar master agent"
+        ],
+        "knowledgeIndex": "knowledge-index.json",
+        "skillManifest": "skill-manifest.json"
+      },
+      "accessMode": "plan_only",
+      "allowedMcpTools": []
+    },
     {
       "id": "radar_orchestrator",
       "name": "RADAR Orchestrator",
@@ -129,6 +169,7 @@
     }
   ],
   "routes": [
+    { "category": "master_agent", "agentId": "radar_master_agent", "label": "Master agent load", "priority": 110, "keywords": ["load agent from the repo", "load the master agent", "load master agent", "load agent from repo", "load the agent", "radar master agent"] },
     { "category": "incident", "agentId": "debug_incident_responder", "label": "Debug / incident", "priority": 100, "keywords": ["incident", "outage", "broken", "bug", "debug", "regression", "crash", "error", "failure", "failed", "fix"] },
     { "category": "ai_builder", "agentId": "ai_builder_engineer", "label": "AI builder / vibecode", "priority": 90, "keywords": ["lovable", "vibecode", "vibe coding", "ai builder", "prompt-driven builder", "generated app"] },
     { "category": "product_study", "agentId": "product_study_analyst", "label": "Authorized product study", "priority": 80, "keywords": ["study this product", "product study", "compare interface", "user flow", "ux", "ui behavior", "feature comparison", "inspect portal", "analyze website", "product discovery"] },
