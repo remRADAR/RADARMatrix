@@ -73,6 +73,7 @@
  * - github-readonly-path-boundary.test.mjs (Phase 4.1: URL path
  *   boundary — traversal in every encoding, base-URL/origin pinning,
  *   query-parameter injection, operation-definition integrity)
+ * - master-agent.test.mjs (master-agent load contract + self-upgrade)
  */
 
 import { runAllTests as runGatewayTests } from "./v0.7-gateway.test.mjs";
@@ -91,6 +92,7 @@ import { runAllTests as runM224CompositionBoundary } from "./m2-2-4-composition-
 import { runAllTests as runM231BoundaryContracts } from "./m2-3-1-boundary-contracts.test.mjs";
 import { runAllTests as runM3GithubReadonly } from "./github-readonly.test.mjs";
 import { runAllTests as runM3GithubPathBoundary } from "./github-readonly-path-boundary.test.mjs";
+import { runAllTests as runMasterAgentTests } from "./master-agent.test.mjs";
 
 console.log("\n");
 console.log("╔═════════════════════════════════════════╗");
@@ -117,6 +119,7 @@ const suites = [
   { name: "▶ M2.3.1 RM-IEP/1 Boundary Contracts (schemas, sessions, NDJSON)", run: runM231BoundaryContracts },
   { name: "▶ M3 GitHub Read-Only Runtime Adapter Tests (HMAC grants + atomic reservation)", run: runM3GithubReadonly },
   { name: "▶ Phase 4.1 GitHub Read-Only Path Boundary Tests (traversal, origin, query)", run: runM3GithubPathBoundary },
+  { name: "▶ RADAR Master Agent Tests (load contract + self-upgrade)", run: runMasterAgentTests },
 ];
 
 const results = [];
