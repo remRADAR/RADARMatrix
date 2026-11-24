@@ -6,15 +6,16 @@ const { getAgentDirectory, planTask, loadSkillText, getRegistrySummary } = requi
 
 export function runAllTests() {
   const summary = getRegistrySummary();
-  assert.equal(summary.version, '0.1.0');
-  assert.equal(summary.agentCount, 9);
-  assert.equal(summary.skillCount, 11);
+  assert.equal(summary.version, '0.2.0');
+  assert.equal(summary.agentCount, 10);
+  assert.equal(summary.skillCount, 13);
 
   const directory = getAgentDirectory();
   assert.equal(directory.executionMode, 'plan_only');
-  assert.equal(directory.agents.length, 9);
+  assert.equal(directory.agents.length, 10);
   assert.ok(directory.agents.every((agent) => agent.allowedMcpTools.length === 0));
   assert.ok(directory.agents.some((agent) => agent.id === 'radar_orchestrator' && agent.coordinator));
+  assert.ok(directory.agents.some((agent) => agent.id === 'radar_master_agent' && agent.lead));
 
   const social = planTask('Analyze RADARCharts Instagram community and audience trends for African artists.');
   assert.equal(social.status, 'planned');

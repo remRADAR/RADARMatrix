@@ -6,6 +6,7 @@ const { DevelopmentAuthenticationProvider } = require('../providers/authenticati
 const { DefaultAuthorizationProvider } = require('../providers/authorization.cjs');
 const { DevelopmentMembershipProvider } = require('../providers/membership.cjs');
 const { TaskRoutingError, getAgentDirectory, planTask } = require('./agent-routing.cjs');
+const { loadMasterAgent, matchActivation } = require('./master-agent.cjs');
 
 const WORKSPACE_ID = 'w_dev';
 const authProvider = new DevelopmentAuthenticationProvider();
@@ -23,6 +24,7 @@ const TOOL_REGISTRY = {
   'radar.get_context': { requiredRole: 'viewer', write: false },
   'radar.search': { requiredRole: 'viewer', write: false },
   'radar.list_agents': { requiredRole: 'viewer', write: false },
+  'radar.load_agent': { requiredRole: 'viewer', write: false },
   'radar.plan_task': { requiredRole: 'viewer', write: false },
   'radar.remember': { requiredRole: 'contributor', write: true },
   'radar.record_decision': { requiredRole: 'editor', write: true },
@@ -33,6 +35,7 @@ const RATE_LIMITS = {
   'radar.get_context': { capacity: 60, refillPerSecond: 1 },
   'radar.search': { capacity: 60, refillPerSecond: 1 },
   'radar.list_agents': { capacity: 120, refillPerSecond: 2 },
+  'radar.load_agent': { capacity: 60, refillPerSecond: 1 },
   'radar.plan_task': { capacity: 30, refillPerSecond: 30 / 60 },
   'radar.remember': { capacity: 12, refillPerSecond: 12 / 3600 },
   'radar.record_decision': { capacity: 12, refillPerSecond: 12 / 3600 },
@@ -106,7 +109,7 @@ export class BrandGateway {
     if (!request.context || typeof request.context !== 'object') throw new GatewayError('INVALID_REQUEST', 'Request context is required', 400);
     if (request.context.workspace_id !== WORKSPACE_ID) throw new GatewayError('INVALID_REQUEST', 'Invalid workspace context', 400);
     if (request.params.workspace_id && request.params.workspace_id !== request.context.workspace_id) throw new GatewayError('INVALID_REQUEST', 'Workspace mismatch between context and params', 400);
-    if (['radar.list_agents', 'radar.plan_task'].includes(request.tool) && request.params.workspace_id !== request.context.workspace_id) throw new GatewayError('INVALID_REQUEST', 'Workspace-scoped agent requests must include the authenticated workspace_id', 400);
+    if (['radar.list_agents', 'radar.plan_task', 'radar.load_agent'].includes(request.tool) && request.params.workspace_id !== request.context.workspace_id) throw new GatewayError('INVALID_REQUEST', 'Workspace-scoped agent requests must include the authenticated workspace_id', 400);
   }
 
   consumeRate(callerId, workspaceId, tool) {
@@ -126,6 +129,10 @@ export class BrandGateway {
     if (tool === 'radar.get_context') return { workspace: this.store.getWorkspace(workspaceId), workspace_id: workspaceId };
     if (tool === 'radar.search') return { results: [], total: 0, query: params.query || '' };
     if (tool === 'radar.list_agents') return getAgentDirectory(params.category);
+    if (tool === 'radar.load_agent') {
+      const workspace = await this.store.getWorkspace(workspaceId);
+      return loadMasterAgent({ instruction: params.instruction, workspace });
+    }
     if (tool === 'radar.plan_task') return planTask(params.goal, params.category);
     if (tool === 'radar.remember') {
       if (params.asset) return { asset: await this.store.addAsset(workspaceId, params.asset), approval: request.approval };

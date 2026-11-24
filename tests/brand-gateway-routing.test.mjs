@@ -43,7 +43,7 @@ export async function runAllTests() {
     assert.equal(directoryResponse.statusCode, 200);
     const directory = JSON.parse(directoryResponse.body).data;
     assert.equal(directory.executionMode, 'plan_only');
-    assert.equal(directory.agents.length, 9);
+    assert.equal(directory.agents.length, 10);
     assert.ok(directory.agents.every((agent) => agent.allowedMcpTools.length === 0));
 
     const planResponse = makeResponse();
