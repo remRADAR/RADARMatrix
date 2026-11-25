@@ -1,6 +1,8 @@
-# Durable Transaction Runtime (local implementation)
+# Durable Transaction Runtime (implemented, not yet integrated)
 
-RADARMatrix now contains a Cloudflare D1 schema and a server-side runtime for the T0–T4 transaction lifecycle. The implementation is local and uncommitted. It does not provision a database, deploy a Worker, connect the existing Vercel/Node gateway to D1, or authorize consequential execution.
+RADARMatrix contains a Cloudflare D1 schema and a server-side runtime for the T0–T4 transaction lifecycle. The implementation is **committed to `main`** (commit `faf00dd`, 2026-11-13). It remains local-only and unintegrated: it does not provision a database, deploy a Worker, connect the existing Vercel/Node gateway to D1, or authorize consequential execution.
+
+> Correction 2026-11-25: an earlier version of this document described the implementation as "local and uncommitted". The D1 runtime work was committed to `main` in `faf00dd`; only its integration, staging acceptance, and enablement remain outstanding. This is a documentation-status fix only; no runtime behavior is changed.
 
 ## Components
 
