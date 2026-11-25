@@ -42,3 +42,13 @@ These contracts have **not** been type-checked: no TypeScript compiler step exis
 **These contracts are now type-checked.** CI runs `tsc --noEmit` (strict) over this package and the M2 auth modules (`tsconfig.json` at the repository root; `typescript` + `@types/node` are dev-only dependencies — the runtime still has zero npm dependencies). The M1a statement above remains for the historical record.
 
 **Type-checked does not mean runtime-verified:** type-level brands (VerifiedPrincipal and the rest of the ladder) prevent structural misuse in type-checked code; they add no runtime checks. Runtime enforcement remains the gateway's fail-closed pipeline, proven by the integration suites.
+
+### M4 domain contracts (PROPOSAL, 2026-11-25 — draft PR, owner-gated)
+
+An additive, type-only `M4 SECTION` is proposed in `index.d.ts`: control-plane domain contracts shared by the workstreams — projects, tasks, task graphs with dependencies, deterministic specialist selection, task execution records, approval requests, activity events, and independent verification (evidence, digests, reports).
+
+- Additive only: no existing contract is widened or changed (Rule 9 proposal via draft PR).
+- Type-only: no runtime code, no database, no execution, no milestone moved.
+- Domain law recorded in the section: no task completes on agent claims (verification-only completion), idempotent scheduling, approval tokens never stored in this layer, keyed digests for authority-bearing evidence (M2.2.1 law), honest BLOCKED/UNVERIFIED states.
+- Recorded naming conflict for the owner to reconcile: Phase 1 build plan defines M4 as the Matrix IDE; HANDOFF.md and docs/ACCELERATED-DEVELOPMENT-PLAN.md define M4 as contracts-first. This section follows the newer authorities.
+- Status: **proposed (draft)** — becomes part of the contract surface only on owner merge, after strict `tsc --noEmit` passes in CI.
