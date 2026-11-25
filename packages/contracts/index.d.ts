@@ -566,3 +566,303 @@ export interface ReconciliationAdapter {
     readonly request_fingerprint: string;
   }): Promise<ReconciliationEvidence>;
 }
+
+/* ==========================================================================
+ * M4 SECTION (2026-11-25) — control-plane domain contracts
+ * ==========================================================================
+ *
+ * PROPOSAL (Rule 9): additive, type-only draft authored as an isolated
+ * branch + owner-gated draft PR. Owner authorization for contract-first
+ * M4 authoring was recorded in-session on 2026-11-25 (acceleration plan,
+ * docs/ACCELERATED-DEVELOPMENT-PLAN.md §8 "Author M4 contracts NOW
+ * (contracts-first) while the owner reviews the security chain").
+ *
+ * Note on M4 naming (recorded conflict, owner to reconcile): the Phase 1
+ * build plan defines M4 as the Matrix IDE, while HANDOFF.md and the
+ * accelerated development plan use "M4 contracts-first" and place the IDE
+ * under W2. This section follows the newer authorities (HANDOFF.md,
+ * 2026-11-04, and docs/ACCELERATED-DEVELOPMENT-PLAN.md). No milestone is
+ * declared complete or moved by these type declarations.
+ *
+ * This section defines the core domain seams shared by the workstreams:
+ * W3 (tasks/planning/routing), W4 (persistence schemas), W2 (event feed
+ * for panels). It adds no runtime code, executes nothing, and widens no
+ * existing contract. Consumers import these types; implementations must
+ * preserve the existing fail-closed pipeline
+ * (authenticate → authorize → isolation → audit → execute) and the
+ * durable execution laws above.
+ *
+ * Domain law (binding for implementations of these contracts):
+ * 1. No task may reach a terminal COMPLETED_* state because an agent
+ *    reported success. Only independent verification evidence produces
+ *    COMPLETED_VERIFIED (see VerificationReport).
+ * 2. Scheduling is idempotent per (workspace_id, idempotency_key);
+ *    duplicate scheduling of the same task is a conflict, never a
+ *    second task.
+ * 3. Consequential actions carry an ApprovalClaims token verified by
+ *    the real execution adapter. This layer never issues, stores, or
+ *    re-verifies approval tokens — ApprovalProvider already owns that.
+ * 4. Digests over evidence that supports authority or completion claims
+ *    are keyed (HMAC) per the M2.2.1 law: recomputed unkeyed hashes are
+ *    never accepted for authority-bearing data.
+ * 5. Every state is honestly reportable: BLOCKED and COMPLETED_UNVERIFIED
+ *    exist so systems can tell the truth instead of failing silently.
+ * ======================================================================== */
+
+/** Stable identifier of a project within one workspace. */
+export type ProjectId = string;
+/** Stable identifier of a task within one project. */
+export type TaskId = string;
+
+export interface Project {
+  readonly project_id: ProjectId;
+  readonly workspace_id: WorkspaceId;
+  readonly title: string;
+  readonly goal: string;
+  readonly repository?: {
+    readonly owner: string;
+    readonly name: string;
+    readonly default_branch?: string;
+  };
+  readonly created_at: ISO8601Timestamp;
+  readonly updated_at: ISO8601Timestamp;
+}
+
+export type ProjectStatus =
+  | "DRAFT"
+  | "PLANNING"
+  | "ACTIVE"
+  | "PAUSED"
+  | "COMPLETED_VERIFIED"
+  | "COMPLETED_UNVERIFIED"
+  | "BLOCKED"
+  | "CANCELLED";
+
+export interface ProjectState {
+  readonly project: Project;
+  readonly status: ProjectStatus;
+  /** Present when BLOCKED; names what must be resolved, never a secret. */
+  readonly blocking_reason?: string;
+  readonly task_graph_version: number;
+}
+
+/** An independently checkable condition a task must satisfy. */
+export interface AcceptanceCriterion {
+  readonly criterion_id: string;
+  readonly description: string;
+  /** The kind of evidence that can prove or refute this criterion. */
+  readonly evidence_kind:
+    | "test_run"
+    | "file_diff"
+    | "build_result"
+    | "live_check"
+    | "artifact_inspection"
+    | "human_review";
+  readonly required: boolean;
+}
+
+/**
+ * Task states form a strict lifecycle. There is deliberately no
+ * "COMPLETED" state reachable from an agent report: only verification
+ * produces COMPLETED_VERIFIED, and unverified final work is
+ * COMPLETED_UNVERIFIED (visible, labeled, never silently "done").
+ */
+export type TaskState =
+  | "PLANNED"
+  | "READY"
+  | "ASSIGNED"
+  | "AWAITING_APPROVAL"
+  | "EXECUTING"
+  | "UNDER_VERIFICATION"
+  | "COMPLETED_VERIFIED"
+  | "COMPLETED_UNVERIFIED"
+  | "VERIFICATION_FAILED"
+  | "FAILED"
+  | "BLOCKED"
+  | "CANCELLED";
+
+export interface Task {
+  readonly task_id: TaskId;
+  readonly project_id: ProjectId;
+  readonly workspace_id: WorkspaceId;
+  readonly title: string;
+  readonly description: string;
+  readonly state: TaskState;
+  readonly acceptance_criteria: readonly AcceptanceCriterion[];
+  /** Server-composed idempotency scope; duplicate keys conflict. */
+  readonly idempotency_key: string;
+  readonly assigned_agent_id?: string;
+  /** Present when BLOCKED; names what must be resolved. */
+  readonly blocking_reason?: string;
+  readonly created_at: ISO8601Timestamp;
+  readonly updated_at: ISO8601Timestamp;
+}
+
+/** A declared ordering constraint between two tasks of one project. */
+export interface TaskDependency {
+  readonly task_id: TaskId;
+  readonly depends_on: TaskId;
+  readonly kind: "finish_to_start";
+}
+
+/**
+ * An immutable plan revision. Plans are revised by producing a new
+ * revision, never by mutating history: prior revisions stay inspectable.
+ */
+export interface TaskGraph {
+  readonly project_id: ProjectId;
+  readonly revision: number;
+  readonly tasks: readonly Task[];
+  readonly dependencies: readonly TaskDependency[];
+  readonly created_at: ISO8601Timestamp;
+}
+
+/** The deterministic explanation attached to every routing decision. */
+export interface SpecialistSelection {
+  readonly task_id: TaskId;
+  readonly selected_agent_id: string;
+  /**
+   * Deterministic reason code (e.g. "capability_match", "only_qualified",
+   * "fallback_by_policy"). Rationale text may supplement, never replace,
+   * the code.
+   */
+  readonly reason_code: string;
+  readonly rationale?: string;
+  readonly required_capabilities: readonly string[];
+  /** True only after the registry check, not self-reported by the agent. */
+  readonly capabilities_verified: boolean;
+  /**
+   * True only after the server confirms the agent's delegated authority
+   * covers every tool this task needs (DelegatedGrant subset law).
+   */
+  readonly permissions_verified: boolean;
+  readonly decided_at: ISO8601Timestamp;
+}
+
+/**
+ * Control-plane record linking one task to its controlled execution.
+ * Immutable once terminal. Links to the durable layer by execution_id
+ * when the durable runtime is connected; the link is evidence, not a
+ * success claim.
+ */
+export interface TaskExecutionRecord {
+  readonly task_id: TaskId;
+  readonly execution_id: string;
+  readonly workspace_id: WorkspaceId;
+  readonly attempt: number;
+  readonly started_at: ISO8601Timestamp;
+  readonly ended_at?: ISO8601Timestamp;
+  readonly outcome:
+    | "running"
+    | "succeeded"
+    | "failed"
+    | "timeout"
+    | "interrupted"
+    | "cancelled"
+    | "outcome_unknown";
+  /** Sanitized, bounded references; never credentials or raw secrets. */
+  readonly artifact_references: readonly string[];
+  readonly error_code?: string;
+}
+
+/**
+ * A queued request for a human decision on a consequential action.
+ * The approval token itself is issued and verified only by
+ * ApprovalProvider at the execution boundary — it is never embedded here.
+ */
+export interface ApprovalRequest {
+  readonly request_id: string;
+  readonly workspace_id: WorkspaceId;
+  readonly action: string;
+  readonly resource_ids: readonly string[];
+  readonly requested_by: CallerId;
+  readonly reason: string;
+  readonly status: "pending" | "approved" | "rejected" | "expired";
+  readonly created_at: ISO8601Timestamp;
+  readonly decided_at?: ISO8601Timestamp;
+  readonly decided_by?: CallerId;
+}
+
+/** Consumer-facing feed event for panels (W2). Same sanitization law as
+ * DurableAuditEvent metadata: bounded, no secrets, no raw prompts. */
+export interface ActivityEvent {
+  readonly event_id: string;
+  readonly workspace_id: WorkspaceId;
+  readonly kind:
+    | "project_created"
+    | "plan_revised"
+    | "task_state_changed"
+    | "agent_assigned"
+    | "execution_started"
+    | "execution_finished"
+    | "approval_requested"
+    | "approval_decided"
+    | "verification_recorded";
+  readonly subject: { readonly project_id?: ProjectId; readonly task_id?: TaskId };
+  readonly occurred_at: ISO8601Timestamp;
+  readonly summary: string;
+  readonly metadata?: Readonly<Record<string, string | number | boolean | null>>;
+}
+
+/** Hash of collected evidence. Keyed digests are required wherever the
+ * digest supports an authority or completion claim (see domain law 4). */
+export type EvidenceDigest =
+  | { readonly algorithm: "hmac-sha256"; readonly value: string }
+  | { readonly algorithm: "sha256"; readonly value: string };
+
+/** One collected, honestly-reported piece of evidence. */
+export interface VerificationEvidence {
+  readonly evidence_id: string;
+  readonly kind: AcceptanceCriterion["evidence_kind"];
+  /** Where it came from (e.g. "github", "ci", "execution-workspace"). */
+  readonly source: string;
+  /**
+   * Binds the evidence to exactly one subject: repository identity and
+   * source revision are required, so stale or foreign evidence cannot
+   * masquerade as proof for another task or commit.
+   */
+  readonly subject: {
+    readonly repository?: string;
+    readonly revision?: string;
+    readonly task_id?: TaskId;
+  };
+  readonly digest: EvidenceDigest;
+  readonly collected_at: ISO8601Timestamp;
+  /** Honest collection result; collection debt is never a pass. */
+  readonly collection_status: "collected" | "missing" | "stale" | "unavailable";
+}
+
+export type VerificationVerdict =
+  | "VERIFIED"
+  | "VERIFICATION_FAILED"
+  | "BLOCKED"
+  | "UNVERIFIED";
+
+/** Per-criterion outcome inside a verification report. */
+export interface CriterionResult {
+  readonly criterion_id: string;
+  readonly required: boolean;
+  readonly outcome: "passed" | "failed" | "not_evaluated";
+  readonly evidence_ids: readonly string[];
+}
+
+/**
+ * The structured result of independent verification, produced only by
+ * the verification component — never by a task worker or agent. A
+ * required criterion with no collected evidence yields BLOCKED or
+ * UNVERIFIED, never VERIFIED (fail closed, domain law 1).
+ */
+export interface VerificationReport {
+  readonly task_id: TaskId;
+  readonly workspace_id: WorkspaceId;
+  readonly verdict: VerificationVerdict;
+  readonly criteria_results: readonly CriterionResult[];
+  readonly evidence: readonly VerificationEvidence[];
+  readonly issued_at: ISO8601Timestamp;
+  /**
+   * Sanitized explanation when the verdict is not VERIFIED. Missing
+   * credentials, unavailable services, and unexecuted tests are named
+   * here honestly.
+   */
+  readonly notes?: string;
+}
