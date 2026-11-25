@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "indexVersion": "1.0.0",
-  "generation": 1,
-  "description": "Runtime-resolvable knowledge cues for the RADAR Master Agent. Every entry can be cited by id. Entries whose text lives in a workspace asset are resolved live from the workspace store; entries whose text lives in the repository are resolved from their file path. Nothing here grants capability — resolution is read-only.",
-  "upgradedAt": "2026-11-24T00:00:00.000Z",
-  "upgradedFrom": "initial integration of remRADAR/RADARMatrix + remRADAR/radar-vibe-queue",
+  "indexVersion": "1.1.0",
+  "generation": 2,
+  "description": "Runtime-resolvable knowledge cues for the RADAR Master Agent. Every entry can be cited by id. Entries whose text lives in a workspace asset are resolved live from the workspace store; entries whose text lives in the repository are resolved from their file path. Nothing here grants capability \u2014 resolution is read-only.",
+  "upgradedAt": "2026-11-25T00:00:00.000Z",
+  "upgradedFrom": "complete upstream skill and supporting-source integration at e8262b19a71c8b0b3d338b69a81659ebc5a8980c",
   "cueTypes": [
     "workspace-asset",
     "workspace-record",
@@ -19,7 +19,10 @@
       "type": "workspace-asset",
       "assetId": "asset_voice",
       "resolver": "workspace-store.assets",
-      "tags": ["VOICE", "CANONICAL"],
+      "tags": [
+        "VOICE",
+        "CANONICAL"
+      ],
       "summary": "Direct, culturally literate, never over-explained. Governs every line of copy the brand publishes or recommends.",
       "use": "Mandatory before recommending any reply, caption, or public-facing line.",
       "version": "0.4",
@@ -30,7 +33,10 @@
       "type": "workspace-asset",
       "assetId": "asset_visual",
       "resolver": "workspace-store.assets",
-      "tags": ["VISUAL", "CANONICAL"],
+      "tags": [
+        "VISUAL",
+        "CANONICAL"
+      ],
       "summary": "High contrast, editorial, kinetic, human-made. Governs art direction for carousels, reels, portals and press assets.",
       "use": "Consult when a recommendation touches creative direction or a release portal's look.",
       "version": "0.3",
@@ -41,7 +47,10 @@
       "type": "workspace-asset",
       "assetId": "asset_community",
       "resolver": "workspace-store.assets",
-      "tags": ["POLICY", "GOVERNANCE"],
+      "tags": [
+        "POLICY",
+        "GOVERNANCE"
+      ],
       "summary": "Moderation posture, escalation boundaries and human handoff. Defines what the agent may classify versus what a human must decide.",
       "use": "Mandatory before any moderation or community-reply recommendation.",
       "version": "0.2",
@@ -52,7 +61,10 @@
       "type": "workspace-asset",
       "assetId": "asset_pillars",
       "resolver": "workspace-store.assets",
-      "tags": ["STRATEGY", "CONTENT"],
+      "tags": [
+        "STRATEGY",
+        "CONTENT"
+      ],
       "summary": "Culture radar, signal reports, artist worlds, and the work behind the work. The four buckets every content recommendation must map to.",
       "use": "Required when proposing content; an item that maps to no pillar is not on-brand.",
       "version": "0.6",
@@ -63,7 +75,10 @@
       "type": "workspace-record",
       "recordPath": "policy",
       "resolver": "workspace-store.policy",
-      "tags": ["POLICY", "CANONICAL"],
+      "tags": [
+        "POLICY",
+        "CANONICAL"
+      ],
       "summary": "Active brand policy version. Content is checked against the version in force; a policy change supersedes earlier approvals.",
       "use": "Cite the version in force in any output that references policy.",
       "version": "0.4",
@@ -74,7 +89,10 @@
       "type": "workspace-record",
       "recordPath": "safety",
       "resolver": "workspace-store.safety",
-      "tags": ["SAFETY", "OPERATIONS"],
+      "tags": [
+        "SAFETY",
+        "OPERATIONS"
+      ],
       "summary": "Account health, mutation pause, webhook integrity and operation budgets. HEALTHY_OBSERVE_ONLY means observe and recommend, never act.",
       "use": "Read before any run that could touch an account surface; a paused mutation budget ends the run for that action.",
       "version": "0.4",
@@ -83,8 +101,11 @@
     {
       "id": "skill-frontier-router",
       "type": "repo-skill",
-      "file": "skills/frontier-router.md",
-      "tags": ["ROUTING", "ENTRY"],
+      "file": "skills/frontier-router/SKILL.md",
+      "tags": [
+        "ROUTING",
+        "ENTRY"
+      ],
       "summary": "First-pass project-aware router. Selects the smallest useful specialist set before execution.",
       "use": "Always consulted first when a request could match more than one discipline.",
       "version": "1.0.0"
@@ -92,8 +113,11 @@
     {
       "id": "skill-radar-meta",
       "type": "repo-skill",
-      "file": "skills/radar-meta.md",
-      "tags": ["BRAND", "SOCIAL"],
+      "file": "skills/radar-meta/SKILL.md",
+      "tags": [
+        "BRAND",
+        "SOCIAL"
+      ],
       "summary": "RADARCharts social and account intelligence: account health, community, network, trends, brand positioning.",
       "use": "Lead skill for every brand activity in the master playbook.",
       "version": "1.0.0"
@@ -101,8 +125,11 @@
     {
       "id": "skill-universal-agent-architect",
       "type": "repo-skill",
-      "file": "skills/universal-agent-architect.md",
-      "tags": ["AGENT-DESIGN", "GOVERNANCE"],
+      "file": "skills/universal-agent-architect/SKILL.md",
+      "tags": [
+        "AGENT-DESIGN",
+        "GOVERNANCE"
+      ],
       "summary": "Agents as governed components: goal, tool allowlist, state transitions, approval gates, evaluation.",
       "use": "Required for any new agent, automation or capability-expansion design.",
       "version": "1.0.0"
@@ -110,8 +137,10 @@
     {
       "id": "skill-application-engineering",
       "type": "repo-skill",
-      "file": "skills/application-engineering.md",
-      "tags": ["ENGINEERING"],
+      "file": "skills/application-engineering/SKILL.md",
+      "tags": [
+        "ENGINEERING"
+      ],
       "summary": "Requirements to architecture to implementation to verification, cross-layer.",
       "use": "Lead skill for platform and product engineering.",
       "version": "1.0.0"
@@ -119,8 +148,11 @@
     {
       "id": "skill-web-development",
       "type": "repo-skill",
-      "file": "skills/web-development.md",
-      "tags": ["ENGINEERING", "WEB"],
+      "file": "skills/web-development/SKILL.md",
+      "tags": [
+        "ENGINEERING",
+        "WEB"
+      ],
       "summary": "Interface delivery with accessibility, performance, security and responsive behaviour in scope.",
       "use": "Lead skill for portals, consoles and any user-facing surface.",
       "version": "1.0.0"
@@ -128,8 +160,11 @@
     {
       "id": "skill-lovable-vibecode",
       "type": "repo-skill",
-      "file": "skills/lovable-vibecode.md",
-      "tags": ["ENGINEERING", "AI-BUILDER"],
+      "file": "skills/lovable-vibecode/SKILL.md",
+      "tags": [
+        "ENGINEERING",
+        "AI-BUILDER"
+      ],
       "summary": "AI-generated code is untrusted until inspected and verified.",
       "use": "Required whenever the input is output from a prompt-driven builder.",
       "version": "1.0.0"
@@ -137,8 +172,11 @@
     {
       "id": "skill-debug-incident",
       "type": "repo-skill",
-      "file": "skills/debug-incident.md",
-      "tags": ["ENGINEERING", "INCIDENT"],
+      "file": "skills/debug-incident/SKILL.md",
+      "tags": [
+        "ENGINEERING",
+        "INCIDENT"
+      ],
       "summary": "Evidence preservation, mitigation, root cause, recovery proof.",
       "use": "Lead skill for outages and regressions.",
       "version": "1.0.0"
@@ -146,8 +184,10 @@
     {
       "id": "skill-market-intelligence",
       "type": "repo-skill",
-      "file": "skills/market-intelligence.md",
-      "tags": ["RESEARCH"],
+      "file": "skills/market-intelligence/SKILL.md",
+      "tags": [
+        "RESEARCH"
+      ],
       "summary": "Company, industry and market research with dated sources and explicit cut-offs.",
       "use": "Required for any figure that reaches an external audience.",
       "version": "1.0.0"
@@ -155,8 +195,11 @@
     {
       "id": "skill-code-language",
       "type": "repo-skill",
-      "file": "skills/code-language.md",
-      "tags": ["ENGINEERING", "MIGRATION"],
+      "file": "skills/code-language/SKILL.md",
+      "tags": [
+        "ENGINEERING",
+        "MIGRATION"
+      ],
       "summary": "Cross-language work where runtime semantics change behaviour.",
       "use": "Attach to engineering work that migrates runtimes or syntax.",
       "version": "1.0.0"
@@ -164,8 +207,11 @@
     {
       "id": "skill-authorized-product-study",
       "type": "repo-skill",
-      "file": "skills/authorized-product-study.md",
-      "tags": ["RESEARCH", "PRODUCT"],
+      "file": "skills/authorized-product-study/SKILL.md",
+      "tags": [
+        "RESEARCH",
+        "PRODUCT"
+      ],
       "summary": "Permitted observation of an existing product; no access-control bypass, ever.",
       "use": "Required before building an equivalent of a product the user does not own.",
       "version": "1.0.0"
@@ -173,8 +219,11 @@
     {
       "id": "skill-agent-continuation",
       "type": "repo-skill",
-      "file": "skills/agent-continuation.md",
-      "tags": ["CONTINUITY", "HANDOFF"],
+      "file": "skills/agent-continuation/SKILL.md",
+      "tags": [
+        "CONTINUITY",
+        "HANDOFF"
+      ],
       "summary": "Handoff ledger discipline so work survives a session boundary.",
       "use": "Required for multi-session work.",
       "version": "1.0.0"
@@ -182,8 +231,10 @@
     {
       "id": "skill-radar-vibe-queue",
       "type": "repo-skill",
-      "file": "skills/radar-vibe-queue.md",
-      "tags": ["ROUTING"],
+      "file": "skills/radar-vibe-queue/SKILL.md",
+      "tags": [
+        "ROUTING"
+      ],
       "summary": "Repository sub-router and specialist map.",
       "use": "Consult when routing within the brand skill pack.",
       "version": "1.0.0"
@@ -192,7 +243,9 @@
       "id": "workflow-router",
       "type": "repo-workflow",
       "file": "queues/00-router.md",
-      "tags": ["ROUTING"],
+      "tags": [
+        "ROUTING"
+      ],
       "summary": "Copy-ready router prompt.",
       "use": "Paste verbatim when another agent cannot import skills.",
       "version": "1.0.0"
@@ -201,7 +254,10 @@
       "id": "workflow-social-intelligence",
       "type": "repo-workflow",
       "file": "queues/radarmeta-social-intelligence.md",
-      "tags": ["BRAND", "SOCIAL"],
+      "tags": [
+        "BRAND",
+        "SOCIAL"
+      ],
       "summary": "Social intelligence run recipe with evidence sections.",
       "use": "Execute for content and performance audits.",
       "version": "1.0.0"
@@ -210,7 +266,10 @@
       "id": "workflow-monitoring-cycle",
       "type": "repo-workflow",
       "file": "queues/radarmeta-monitoring-cycle.md",
-      "tags": ["BRAND", "MONITORING"],
+      "tags": [
+        "BRAND",
+        "MONITORING"
+      ],
       "summary": "Read-only monitoring cycle with baseline and dated change log.",
       "use": "Execute for recurring observation runs.",
       "version": "1.0.0"
@@ -219,7 +278,10 @@
       "id": "workflow-following-hygiene",
       "type": "repo-workflow",
       "file": "queues/radarmeta-following-hygiene.md",
-      "tags": ["BRAND", "NETWORK"],
+      "tags": [
+        "BRAND",
+        "NETWORK"
+      ],
       "summary": "Following and relationship hygiene with protected relationships and approval gating.",
       "use": "Execute for network reviews; candidates never action automatically.",
       "version": "1.0.0"
@@ -228,7 +290,10 @@
       "id": "workflow-intelligence-modes",
       "type": "repo-workflow",
       "file": "queues/radarmeta-intelligence-modes.md",
-      "tags": ["BRAND", "MODES"],
+      "tags": [
+        "BRAND",
+        "MODES"
+      ],
       "summary": "Six intelligence modes: engagement, content, moderation, partnership, trend, network.",
       "use": "Select the matching mode before a brand-analysis run.",
       "version": "1.0.0"
@@ -237,7 +302,9 @@
       "id": "workflow-agent-architect",
       "type": "repo-workflow",
       "file": "queues/universal-agent-architect.md",
-      "tags": ["AGENT-DESIGN"],
+      "tags": [
+        "AGENT-DESIGN"
+      ],
       "summary": "Agent design recipe: contract, tool schemas, threat model, evaluation.",
       "use": "Execute when adding an agent or automation.",
       "version": "1.0.0"
@@ -246,7 +313,9 @@
       "id": "workflow-application-engineering",
       "type": "repo-workflow",
       "file": "queues/application-engineering.md",
-      "tags": ["ENGINEERING"],
+      "tags": [
+        "ENGINEERING"
+      ],
       "summary": "Application engineering recipe with verification gates.",
       "use": "Execute for cross-layer implementation work.",
       "version": "1.0.0"
@@ -255,7 +324,10 @@
       "id": "workflow-web-development",
       "type": "repo-workflow",
       "file": "queues/web-development.md",
-      "tags": ["ENGINEERING", "WEB"],
+      "tags": [
+        "ENGINEERING",
+        "WEB"
+      ],
       "summary": "Web delivery recipe with accessibility and performance checks.",
       "use": "Execute for interface delivery.",
       "version": "1.0.0"
@@ -264,7 +336,10 @@
       "id": "workflow-lovable-vibecode",
       "type": "repo-workflow",
       "file": "queues/lovable-vibecode.md",
-      "tags": ["ENGINEERING", "AI-BUILDER"],
+      "tags": [
+        "ENGINEERING",
+        "AI-BUILDER"
+      ],
       "summary": "Recipe for inspecting and hardening builder-generated applications.",
       "use": "Execute before trusting generated code.",
       "version": "1.0.0"
@@ -273,7 +348,10 @@
       "id": "workflow-debug-incident",
       "type": "repo-workflow",
       "file": "queues/debug-incident.md",
-      "tags": ["ENGINEERING", "INCIDENT"],
+      "tags": [
+        "ENGINEERING",
+        "INCIDENT"
+      ],
       "summary": "Incident recipe: evidence log, isolation, minimal repair, recovery proof.",
       "use": "Execute during an outage.",
       "version": "1.0.0"
@@ -282,7 +360,9 @@
       "id": "workflow-market-intelligence",
       "type": "repo-workflow",
       "file": "queues/market-intelligence.md",
-      "tags": ["RESEARCH"],
+      "tags": [
+        "RESEARCH"
+      ],
       "summary": "Market research recipe with period and source discipline.",
       "use": "Execute for market or competitor research.",
       "version": "1.0.0"
@@ -291,7 +371,10 @@
       "id": "workflow-code-language",
       "type": "repo-workflow",
       "file": "queues/code-language.md",
-      "tags": ["ENGINEERING", "MIGRATION"],
+      "tags": [
+        "ENGINEERING",
+        "MIGRATION"
+      ],
       "summary": "Migration recipe preserving runtime semantics.",
       "use": "Execute for language or runtime migrations.",
       "version": "1.0.0"
@@ -300,7 +383,10 @@
       "id": "workflow-authorized-product-study",
       "type": "repo-workflow",
       "file": "queues/authorized-product-study.md",
-      "tags": ["RESEARCH", "PRODUCT"],
+      "tags": [
+        "RESEARCH",
+        "PRODUCT"
+      ],
       "summary": "Product study recipe separating observation from inference.",
       "use": "Execute before building an equivalent product.",
       "version": "1.0.0"
@@ -309,7 +395,9 @@
       "id": "workflow-agent-continuation",
       "type": "repo-workflow",
       "file": "queues/agent-continuation.md",
-      "tags": ["CONTINUITY"],
+      "tags": [
+        "CONTINUITY"
+      ],
       "summary": "Handoff recipe producing a ledger.",
       "use": "Execute when handing off or resuming.",
       "version": "1.0.0"
@@ -318,7 +406,10 @@
       "id": "workflow-radar-release-portal",
       "type": "repo-workflow",
       "file": "queues/radar-release-portal.md",
-      "tags": ["BRAND", "WEB"],
+      "tags": [
+        "BRAND",
+        "WEB"
+      ],
       "summary": "Artist release portal recipe: mobile-first Listen/Watch/Shorts/Press page per release.",
       "use": "Execute for an artist release page.",
       "version": "1.0.0"
@@ -328,7 +419,10 @@
       "type": "repo-doc",
       "root": "repo",
       "file": "docs/AGENT-ROUTING.md",
-      "tags": ["GOVERNANCE", "ROUTING"],
+      "tags": [
+        "GOVERNANCE",
+        "ROUTING"
+      ],
       "summary": "How the registry, router, master agent and load contract work together.",
       "use": "Consult when explaining or auditing its own routing behaviour.",
       "version": "1.0.0"
@@ -337,7 +431,10 @@
       "id": "doc-master-skill",
       "type": "repo-skill",
       "file": "skills/radar-master-agent.md",
-      "tags": ["MASTER", "DEFINITION"],
+      "tags": [
+        "MASTER",
+        "DEFINITION"
+      ],
       "summary": "This agent's own definition: lead role, futuristic skill set, goals, upgrade behaviour, hard rules.",
       "use": "The device resolves this first on load.",
       "version": "1.0.0"
@@ -346,9 +443,119 @@
       "id": "external-radar-vibe-queue",
       "type": "external-source",
       "url": "https://github.com/remRADAR/radar-vibe-queue",
-      "tags": ["PROVENANCE"],
+      "tags": [
+        "PROVENANCE"
+      ],
       "summary": "Upstream source pack for the skills and workflow prompts carried in this repository.",
       "use": "Cite when provenance matters; re-sync through the upgrade script, never by hand-editing vendored files.",
+      "version": "1.0.0"
+    },
+    {
+      "id": "reference-following-hygiene",
+      "type": "repo-reference",
+      "file": "source/radar-vibe-queue/skills/radar-meta/references/following-hygiene.md",
+      "root": "registry",
+      "tags": [
+        "UPSTREAM",
+        "VERIFIED"
+      ],
+      "summary": "RADARMeta following hygiene reference",
+      "version": "1.0.0"
+    },
+    {
+      "id": "reference-intelligence-modes",
+      "type": "repo-reference",
+      "file": "source/radar-vibe-queue/skills/radar-meta/references/intelligence-modes.md",
+      "root": "registry",
+      "tags": [
+        "UPSTREAM",
+        "VERIFIED"
+      ],
+      "summary": "RADARMeta intelligence modes reference",
+      "version": "1.0.0"
+    },
+    {
+      "id": "reference-monitoring-workflow",
+      "type": "repo-reference",
+      "file": "source/radar-vibe-queue/skills/radar-meta/references/monitoring-workflow.md",
+      "root": "registry",
+      "tags": [
+        "UPSTREAM",
+        "VERIFIED"
+      ],
+      "summary": "RADARMeta monitoring workflow reference",
+      "version": "1.0.0"
+    },
+    {
+      "id": "template-handoff",
+      "type": "repo-template",
+      "file": "source/radar-vibe-queue/skills/agent-continuation/templates/HANDOFF.template.md",
+      "root": "registry",
+      "tags": [
+        "UPSTREAM",
+        "VERIFIED"
+      ],
+      "summary": "Agent continuation handoff template",
+      "version": "1.0.0"
+    },
+    {
+      "id": "source-AGENTS",
+      "type": "repo-source",
+      "file": "source/radar-vibe-queue/AGENTS.md",
+      "root": "registry",
+      "tags": [
+        "UPSTREAM",
+        "VERIFIED"
+      ],
+      "summary": "Vendored upstream operating document: AGENTS.md",
+      "version": "1.0.0"
+    },
+    {
+      "id": "source-QUEUE",
+      "type": "repo-source",
+      "file": "source/radar-vibe-queue/QUEUE.md",
+      "root": "registry",
+      "tags": [
+        "UPSTREAM",
+        "VERIFIED"
+      ],
+      "summary": "Vendored upstream operating document: QUEUE.md",
+      "version": "1.0.0"
+    },
+    {
+      "id": "source-queue.json",
+      "type": "repo-source",
+      "file": "source/radar-vibe-queue/queue.json",
+      "root": "registry",
+      "tags": [
+        "UPSTREAM",
+        "VERIFIED"
+      ],
+      "summary": "Vendored upstream operating document: queue.json",
+      "version": "1.0.0"
+    },
+    {
+      "id": "source-SKILL-AUDIT",
+      "type": "repo-source",
+      "file": "source/radar-vibe-queue/SKILL-AUDIT.md",
+      "root": "registry",
+      "tags": [
+        "UPSTREAM",
+        "VERIFIED"
+      ],
+      "summary": "Vendored upstream operating document: SKILL-AUDIT.md",
+      "version": "1.0.0"
+    },
+    {
+      "id": "source-SOURCE_NOTES",
+      "type": "repo-source",
+      "file": "source/radar-vibe-queue/SOURCE_NOTES.md",
+      "root": "registry",
+      "tags": [
+        "UPSTREAM",
+        "VERIFIED"
+      ],
+      "summary": "Vendored upstream operating document: SOURCE_NOTES.md",
       "version": "1.0.0"
     }
   ]

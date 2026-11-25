@@ -5,10 +5,11 @@ This directory holds the platform-neutral skill pack that RADARMatrix agents loa
 ## Layout
 
 - `registry.json` — profiles, skill IDs, routing categories, and bounded limits.
-- `skills/` — one Markdown file per skill.
+- `skills/<skill-id>/SKILL.md` — the 12 complete upstream specialist packages, preserved byte-for-byte; `skills/radar-master-agent.md` remains the separate Matrix-specific profile.
 - `queues/` — the 15 workflow prompts (14 recipes plus the router), vendored so the master agent resolves them from the repository at load.
 - `knowledge-index.json` — the runtime-resolvable knowledge base, every entry versioned.
-- `skill-manifest.json` — generated inventory of every integrated skill and workflow prompt, with content hashes.
+- `source/radar-vibe-queue/` — namespaced upstream operating documents, references, and the handoff template.
+- `skill-manifest.json` — generated inventory of skills, workflows, references, handoff templates, and source documents, with byte lengths and SHA-256 hashes.
 
 ## Runtime contract
 
@@ -29,3 +30,9 @@ This directory holds the platform-neutral skill pack that RADARMatrix agents loa
 ## Adding a skill
 
 Add a bounded Markdown skill under `skills/`, register a stable skill ID and source path, and attach it to one or more profiles. Keep tool grants empty until a real execution adapter and policy enforcement exist. Do not place secrets in skill files or log task bodies. After adding a skill, run `npm run manifest:agent` so the manifest and the master agent's load coverage stay accurate.
+
+## Library boundaries
+
+The **skill library** is reusable Markdown guidance. **Agent profiles** in `registry.json` select skills and remain bounded by `plan_only` plus empty `allowedMcpTools`; the Matrix-specific RADAR Master Agent is not an upstream skill package. **Workflow prompts** in `queues/` are copy-ready task recipes. **Knowledge resources** include vendored references, handoff templates, and upstream operating documents under `source/radar-vibe-queue/`. **Execution capabilities** are separate: importing this library does not provide live model execution, connector authorization, credentials, autonomous workers, or permission to perform external actions.
+
+The loader verifies every declared file and recorded hash before reporting a complete inventory. `loadSkillBundle(skillId)` and `loadWorkflow(workflowId)` load content on demand rather than inserting every full skill into every model context.

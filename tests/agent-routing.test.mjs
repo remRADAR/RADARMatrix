@@ -6,7 +6,7 @@ const { getAgentDirectory, planTask, loadSkillText, getRegistrySummary } = requi
 
 export function runAllTests() {
   const summary = getRegistrySummary();
-  assert.equal(summary.version, '0.2.0');
+  assert.equal(summary.version, '0.3.0');
   assert.equal(summary.agentCount, 10);
   assert.equal(summary.skillCount, 13);
 
@@ -53,7 +53,7 @@ export function runAllTests() {
   assert.throws(() => planTask('x'.repeat(4001)), (error) => error.code === 'TASK_TOO_LONG' && error.status === 413);
   assert.throws(() => planTask('A request', 'not-configured'), (error) => error.code === 'INVALID_CATEGORY');
   assert.throws(() => getAgentDirectory('../private'), (error) => error.code === 'INVALID_CATEGORY');
-  assert.ok(loadSkillText('radar-meta').includes('Missing evidence is UNKNOWN'));
+  assert.ok(loadSkillText('radar-meta').includes('Missing evidence is **UNKNOWN**'));
   assert.throws(() => loadSkillText('../../package.json'), (error) => error.code === 'UNKNOWN_SKILL');
 
   console.log('agent routing tests passed: registry, deterministic routing, limits, explicit category, and plan-only behavior');

@@ -21,7 +21,7 @@ const require = createRequire(import.meta.url);
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
 
-const { loadMasterAgent, matchActivation, MASTER_AGENT_ID } = require('../apps/mcp-server/src/runtime/master-agent.cjs');
+const { loadMasterAgent, loadSkillBundle, loadWorkflow, loadSourceDocument, verifyInventory, matchActivation, MASTER_AGENT_ID } = require('../apps/mcp-server/src/runtime/master-agent.cjs');
 const { reconcile } = await import('../scripts/upgrade-master-agent.mjs');
 
 const tests = [];
@@ -109,6 +109,30 @@ test('L7: the load performs no execution', () => {
   assert.equal(load.execution.externalActionsPerformed, false);
 });
 
+test('L8: inventory verifies all imported resource classes and exact hashes', () => {
+  const result = verifyInventory();
+  assert.equal(result.complete, true);
+  assert.deepEqual(result.unresolved, []);
+  assert.equal(result.manifest.counts.skills, 13);
+  assert.equal(result.manifest.counts.workflows, 15);
+  assert.equal(result.manifest.counts.references, 4);
+  assert.equal(result.manifest.counts.sourceDocuments, 5);
+});
+test('L9: specialist bundles load complete content and associated references on demand', () => {
+  const bundle = loadSkillBundle('radar-meta');
+  assert.ok(bundle.skill.content.includes('Missing evidence is **UNKNOWN**'));
+
+  assert.equal(bundle.references.length, 3);
+  assert.ok(bundle.fileHashes.skill.match(/^[0-9a-f]{64}$/));
+  assert.equal(loadSkillBundle('agent-continuation').references.length, 1);
+});
+test('L10: workflow and supporting-resource loaders are confined and hash-verified', () => {
+  assert.equal(loadWorkflow('radarmeta-monitoring-cycle').matchesManifest, true);
+  assert.equal(loadSourceDocument('source/radar-vibe-queue/AGENTS.md').matchesManifest, true);
+  assert.throws(() => loadWorkflow('../../package.json'), (error) => error.code === 'UNKNOWN_WORKFLOW');
+  assert.throws(() => loadSourceDocument('../package.json'), (error) => error.code === 'UNKNOWN_RESOURCE');
+  assert.throws(() => loadSkillBundle('../package.json'), (error) => error.code === 'UNKNOWN_SKILL');
+});
 // ---------------------------------------------------------------------------
 // self-upgrade
 // ---------------------------------------------------------------------------
