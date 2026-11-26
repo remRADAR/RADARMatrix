@@ -15,7 +15,7 @@
     "test:d1-local": "node tests/d1-worker-local.test.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "build:matrix-console": "npm --prefix apps/matrix-console run build",
-    "test:matrix-console": "node tests/matrix-console-smoke.mjs",
+    "test:matrix-console": "npm run build:matrix-console && node tests/matrix-console-smoke.mjs",
     "create:cloudflare-manifest": "node scripts/create-cloudflare-assets-manifest.mjs",
     "deploy:matrix-console:wrangler": "bash scripts/deploy-matrix-console-wrangler.sh",
     "test:security": "RADARMATRIX_RUNTIME_MODE=test node tests/gateway-integration-security.test.mjs",

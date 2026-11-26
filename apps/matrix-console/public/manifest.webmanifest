@@ -1,0 +1,18 @@
+{
+  "id": "/?screen=halo",
+  "name": "Halo OS — RADARMatrix",
+  "short_name": "Halo OS",
+  "description": "A mobile-first Halo workspace surface inside RADARMatrix.",
+  "start_url": "/?screen=halo",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "theme_color": "#10151c",
+  "background_color": "#10151c",
+  "icons": [
+    { "src": "/icons/halo-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/halo-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/halo-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
