@@ -614,6 +614,13 @@ function canRoleExecuteTool(role: string, tool_name: string): boolean {
 // EXPORTS FOR TESTING AND INTEGRATION
 // ============================================================================
 
+/**
+ * M1a: value exports below are consumed at runtime (the gateway
+ * imports TOOL_REGISTRY). Type-only names are exported with
+ * "export type" so Node.js type stripping (Node >= 22.18) can load
+ * this module: interfaces are erased at load time and must not
+ * appear in the runtime export list.
+ */
 export {
   TOOL_REGISTRY,
   TOOL_RADAR_SEARCH,
@@ -629,6 +636,9 @@ export {
   validateRegistry,
   validateRequestParams,
   canRoleExecuteTool,
+};
+
+export type {
   MCPToolDefinition,
   ValidationResult,
 };

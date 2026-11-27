@@ -1,5 +1,7 @@
 # Local durable workspace state
 .data/
+.wrangler/
+node_modules/
 
 # Runtime logs and temporary verification files
 *.log
@@ -10,3 +12,7 @@
 apps/matrix-console/node_modules/
 apps/matrix-console/dist/
 apps/matrix-console/*.tsbuildinfo
+
+# Local environment files (secrets must never be committed)
+.env
+.env.*

@@ -1,0 +1,194 @@
+{
+  "name": "RADAR VIBE QUEUE",
+  "version": "1.4.0",
+  "description": "Portable prompt queue with 14 focused workflows and 12 importable skills for RADAR social intelligence, agent handoffs, AI builders, engineering, finance research, and authorized product study.",
+  "entrypoint": "SKILL.md",
+  "router": "queues/00-router.md",
+  "root_skill": "skills/frontier-router/SKILL.md",
+  "modules": [
+    {
+      "id": "radarmeta-social-intelligence",
+      "file": "queues/radarmeta-social-intelligence.md",
+      "skill": "skills/radar-meta/SKILL.md",
+      "triggers": [
+        "RADARCharts",
+        "social intelligence",
+        "content audit",
+        "trend radar",
+        "brand audit",
+        "community",
+        "Instagram"
+      ]
+    },
+    {
+      "id": "universal-agent-architect",
+      "file": "queues/universal-agent-architect.md",
+      "skill": "skills/universal-agent-architect/SKILL.md",
+      "triggers": [
+        "agent design",
+        "tool use",
+        "orchestration",
+        "handoff",
+        "agent evaluation"
+      ]
+    },
+    {
+      "id": "application-engineering",
+      "file": "queues/application-engineering.md",
+      "skill": "skills/application-engineering/SKILL.md",
+      "triggers": [
+        "application",
+        "product engineering",
+        "API",
+        "database",
+        "mobile app"
+      ]
+    },
+    {
+      "id": "web-development",
+      "file": "queues/web-development.md",
+      "skill": "skills/web-development/SKILL.md",
+      "triggers": [
+        "website",
+        "web app",
+        "accessibility",
+        "web security",
+        "deployment"
+      ]
+    },
+    {
+      "id": "lovable-vibecode",
+      "file": "queues/lovable-vibecode.md",
+      "skill": "skills/lovable-vibecode/SKILL.md",
+      "triggers": [
+        "Lovable",
+        "vibecode",
+        "AI builder",
+        "generated app"
+      ]
+    },
+    {
+      "id": "debug-incident",
+      "file": "queues/debug-incident.md",
+      "skill": "skills/debug-incident/SKILL.md",
+      "triggers": [
+        "bug",
+        "outage",
+        "failure",
+        "regression",
+        "incident"
+      ]
+    },
+    {
+      "id": "market-intelligence",
+      "file": "queues/market-intelligence.md",
+      "skill": "skills/market-intelligence/SKILL.md",
+      "triggers": [
+        "company research",
+        "filings",
+        "financial analysis",
+        "market data",
+        "portfolio risk"
+      ]
+    },
+    {
+      "id": "code-language",
+      "file": "queues/code-language.md",
+      "skill": "skills/code-language/SKILL.md",
+      "triggers": [
+        "code translation",
+        "language semantics",
+        "runtime",
+        "language-specific review"
+      ]
+    },
+    {
+      "id": "authorized-product-study",
+      "file": "queues/authorized-product-study.md",
+      "skill": "skills/authorized-product-study/SKILL.md",
+      "triggers": [
+        "product study",
+        "competitor analysis",
+        "functional equivalent",
+        "reverse engineering"
+      ]
+    },
+    {
+      "id": "radarmeta-monitoring-cycle",
+      "file": "queues/radarmeta-monitoring-cycle.md",
+      "skill": "skills/radar-meta/SKILL.md",
+      "triggers": [
+        "read-only monitoring",
+        "content performance tracking",
+        "account snapshot",
+        "change log"
+      ]
+    },
+    {
+      "id": "radarmeta-following-hygiene",
+      "file": "queues/radarmeta-following-hygiene.md",
+      "skill": "skills/radar-meta/SKILL.md",
+      "triggers": [
+        "following audit",
+        "relationship review",
+        "cleanup candidates",
+        "network hygiene"
+      ]
+    },
+    {
+      "id": "radarmeta-intelligence-modes",
+      "file": "queues/radarmeta-intelligence-modes.md",
+      "skill": "skills/radar-meta/SKILL.md",
+      "triggers": [
+        "daily intelligence brief",
+        "community review",
+        "trend radar",
+        "collaboration screening"
+      ]
+    },
+    {
+      "id": "radar-release-portal",
+      "file": "queues/radar-release-portal.md",
+      "skill": "skills/web-development/SKILL.md",
+      "triggers": [
+        "RADARMusic release portal",
+        "artist release page",
+        "Listen Watch Shorts Press"
+      ]
+    },
+    {
+      "id": "agent-continuation",
+      "file": "queues/agent-continuation.md",
+      "skill": "skills/agent-continuation/SKILL.md",
+      "triggers": [
+        "cross-agent handoff",
+        "multi-session coding continuity",
+        "shared implementation ledger"
+      ]
+    }
+  ],
+  "skills": [
+    "skills/frontier-router/SKILL.md",
+    "skills/radar-vibe-queue/SKILL.md",
+    "skills/radar-meta/SKILL.md",
+    "skills/universal-agent-architect/SKILL.md",
+    "skills/application-engineering/SKILL.md",
+    "skills/web-development/SKILL.md",
+    "skills/lovable-vibecode/SKILL.md",
+    "skills/debug-incident/SKILL.md",
+    "skills/market-intelligence/SKILL.md",
+    "skills/code-language/SKILL.md",
+    "skills/authorized-product-study/SKILL.md",
+    "skills/agent-continuation/SKILL.md"
+  ],
+  "portability": {
+    "format": "Markdown + YAML frontmatter + JSON",
+    "platform_assumptions": [],
+    "import_pattern": "Import repository root for complete router, or import an individual skills/<name> directory"
+  },
+  "safety": {
+    "does_not_grant_permissions": true,
+    "external_content_is_untrusted_data": true,
+    "high_impact_actions_require_authorization": true
+  }
+}

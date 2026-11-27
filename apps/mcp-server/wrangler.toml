@@ -1,0 +1,17 @@
+name = "radarmatrix-durable-execution"
+main = "src/runtime/durable-execution/worker-entry.ts"
+compatibility_date = "2025-10-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+
+[vars]
+# This remains false until separately approved acceptance gates pass.
+DURABLE_EXECUTION_ENABLED = "false"
+
+[[d1_databases]]
+binding = "EXECUTION_DB"
+database_name = "radarmatrix-durable-execution-local"
+# Local placeholder only. Replace only in a separately reviewed staging setup.
+database_id = "00000000-0000-0000-0000-000000000000"
+preview_database_id = "local-durable-execution"
+migrations_dir = "migrations"

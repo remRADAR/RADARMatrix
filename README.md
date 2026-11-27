@@ -19,11 +19,12 @@ RADARMatrix provides a foundation for integrating knowledge management, context 
 - ✅ Comprehensive security model (read/write separation, immutability, audit events)
 - ✅ OAuth protected resource definition
 - ✅ Existing foundation checks plus agent-router and BrandGateway API regression tests
-- ⏳ **NOT**: Production Cloudflare (D1/R2/Vectorize) deployment
+- ✅ Local-only Cloudflare D1 transaction schema/runtime and Wrangler binding configuration; consequential execution remains disabled
+- ⏳ **NOT**: Production Cloudflare (D1/R2/Vectorize) provisioning or deployment
 - ⏳ **NOT**: Live MCP endpoint
 - ⏳ **NOT**: Live ChatGPT connection
 - ⏳ **NOT**: Live OAuth/OIDC validation
-- ⏳ **NOT**: Database or vector store connectivity
+- ⏳ **NOT**: D1 wiring through the existing gateway's trusted authentication and authorization pipeline
 
 Production connectivity, deployment infrastructure, and live credential validation are not yet implemented.
 
@@ -140,6 +141,14 @@ Brand Studio now has a Live Preview view with an HTTP(S)-only URL form and isola
 - `apps/mcp-server/src/chatgpt-app-contract.ts` — Tool definitions and schemas
 - `apps/mcp-server/.well-known/oauth-protected-resource.json` — OAuth configuration
 
+### Durable Transaction Runtime
+
+- `apps/mcp-server/migrations/0001_durable_execution.sql` — versioned D1 schema with audit append-only triggers and in-batch write assertions
+- `apps/mcp-server/src/runtime/durable-execution/d1-runtime.ts` — local T0–T4 lifecycle implementation with primary reads, guarded reservations, durable approval claims, dispatch intents, outcomes, and reconciliation
+- `apps/mcp-server/wrangler.toml` — separate Cloudflare Worker D1 binding; execution flag defaults to `false`, and the Worker exposes no transaction routes
+- `docs/DURABLE-TRANSACTION-RUNTIME.md` — implementation boundaries, local test command, and outstanding acceptance gates
+- `npm run test:d1-local` — local Wrangler/workerd integration tests; does not test remote or multi-Worker guarantees
+
 ### Testing
 
 - `tests/v0.7-gateway.test.mjs` — 18 gateway tests (authentication, authorization, isolation, errors)
@@ -172,7 +181,8 @@ npm run brand:dev             # Run the local brand command center
 - Scope-based permission checks
 
 ### v1.0: Database Integration
-- Cloudflare D1 integration for metadata storage
+- Complete authorized staging acceptance for the local D1 transaction implementation before any production or consequential use
+- Wire durable operations only through the existing trusted authentication, membership, and authorization composition
 - Cloudflare R2 integration for document storage
 - Cloudflare Vectorize for semantic search
 - Real tool execution with data persistence

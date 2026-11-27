@@ -94,6 +94,7 @@ function publicAgent(agent) {
     optionalSkillIds: [...(agent.optionalSkillIds || [])],
     categories: [...(agent.categories || [])],
     coordinator: Boolean(agent.coordinator),
+    lead: Boolean(agent.lead),
     accessMode: agent.accessMode,
     allowedMcpTools: [...agent.allowedMcpTools],
   };

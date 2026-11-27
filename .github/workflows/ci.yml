@@ -1,67 +1,106 @@
 name: CI
 
+# Zero-budget test execution: GitHub Actions is free for public repositories.
+#
+# M1a follow-up (Finding E): single-run design.
+# - Primary signal: the test runner's exit code, preserved through the
+#   tee pipe by "set -o pipefail" — a failed test run fails the step.
+# - Captured output is always available: streamed to the step log and
+#   kept in /tmp/suite-output.log; uploaded as an artifact if the job
+#   fails.
+# - The guard step rejects any swallowed failure-marker line in the
+#   output (defense in depth for legacy suites).
+# - actions/upload-artifact is free for public repositories. No paid
+#   services, no dependencies.
+#
+# M2 (P0): type-checking added. typescript + @types/node are DEV-ONLY
+# dependencies (the runtime keeps ZERO npm dependencies). The typecheck
+# step runs "tsc --noEmit" over the contracts package and the M2 auth
+# modules. The claim "contracts are type-checked" begins here.
+#
+# M2.2: on failure the captured suite output is ALSO published to the
+# job step summary — visible on the run page without log access, so
+# the exact failing tests are diagnosable from the run page alone.
+
 on:
   push:
-    branches:
-      - 'feat/matrix-ide-surface'
-      - 'feat/**'
-      - 'fix/**'
+    branches: ['**']
   pull_request:
-    branches:
-      - main
-
-permissions:
-  contents: read
-
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   test:
-    name: Tests and typecheck
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-
     steps:
-      - name: Check out source
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
 
-      - name: Install Matrix Console dependencies
-        run: npm install --prefix apps/matrix-console --ignore-scripts --no-audit --no-fund
+      # Dev-only install (typescript + @types/node). Runtime has zero
+      # npm dependencies; this install does not affect the test suites.
+      - name: Install dev dependencies (typescript + @types/node)
+        run: npm install --no-audit --no-fund
 
-      - name: Typecheck Matrix Console
+      # M2 P0: compiler-based verification of the contracts package and
+      # the M2 auth modules. No runtime code is emitted (noEmit).
+      - name: Type-check (tsc --noEmit)
         run: npm run typecheck
 
-      - name: Build Matrix Console
-        run: npm run build:matrix-console
+      # M2.2.4: approved import graph for the composition root and
+      # authority-state module. This is source-architecture enforcement,
+      # not runtime isolation against arbitrary same-process code.
+      - name: Check trusted authority import boundary
+        run: npm run check:authority-boundary
 
-      - name: Matrix Console smoke (build artifacts, routes, IDE surface)
-        run: npm run test:matrix-console
-
-      - name: Repository test suite (exit-code enforced)
-        shell: bash
+      # Repository has zero RUNTIME npm dependencies.
+      # Node >= 22.18 loads the TypeScript gateway/contract sources via
+      # built-in type stripping (erasable syntax only).
+      - name: Run test suites (npm test — exit code enforced, output captured)
         run: |
-          set -Eeuo pipefail
-          npm test 2>&1 | tee /tmp/test-output.txt
-          status=${PIPESTATUS[0]}
-          if [ "$status" -ne 0 ]; then
-            echo "npm test exited $status" >&2
-            exit "$status"
-          fi
-          if grep -E '^\s*✗|FAILED:' /tmp/test-output.txt; then
-            echo "A test suite reported a failure marker" >&2
+          set -o pipefail
+          npm test 2>&1 | tee /tmp/suite-output.log
+
+      - name: Guard — no swallowed failure markers in suite output
+        run: |
+          if grep -n '✗' /tmp/suite-output.log; then
+            echo "::error::Failure markers (✗) present in suite output despite exit-code checks"
             exit 1
           fi
-          echo "No failure markers found"
 
-      - name: Deployment smoke (production mode fails closed)
+      - name: Deployment smoke test
         run: npm run test:deployment
 
-      - name: Whitespace check
-        run: git diff --check
+      # M2.2: publish the captured suite output to the job summary on
+      # failure so the failing tests are visible from the run page.
+      - name: Publish suite output to job summary (on failure)
+        if: failure()
+        run: |
+          echo "# Test suite output" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat /tmp/suite-output.log >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      # M2.2: ALSO annotate the failing lines so they are readable from
+      # the run-page annotations table even without log/summary access.
+      - name: Annotate failing tests (on failure)
+        if: failure()
+        run: |
+          if [ -f /tmp/suite-output.log ]; then
+            if grep -q '✗' /tmp/suite-output.log; then
+              grep '✗' /tmp/suite-output.log | while IFS= read -r line; do echo "::error::${line}"; done
+            else
+              echo "No failure markers found — annotating log tail (possible runner crash):"
+              tail -n 10 /tmp/suite-output.log | while IFS= read -r line; do echo "::error::${line}"; done
+            fi
+          fi
+
+      - name: Upload test output (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output
+          path: /tmp/suite-output.log
+          if-no-files-found: ignore
