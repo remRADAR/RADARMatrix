@@ -6,15 +6,16 @@ const { getAgentDirectory, planTask, loadSkillText, getRegistrySummary } = requi
 
 export function runAllTests() {
   const summary = getRegistrySummary();
-  assert.equal(summary.version, '0.1.0');
-  assert.equal(summary.agentCount, 9);
-  assert.equal(summary.skillCount, 11);
+  assert.equal(summary.version, '0.3.0');
+  assert.equal(summary.agentCount, 10);
+  assert.equal(summary.skillCount, 13);
 
   const directory = getAgentDirectory();
   assert.equal(directory.executionMode, 'plan_only');
-  assert.equal(directory.agents.length, 9);
+  assert.equal(directory.agents.length, 10);
   assert.ok(directory.agents.every((agent) => agent.allowedMcpTools.length === 0));
   assert.ok(directory.agents.some((agent) => agent.id === 'radar_orchestrator' && agent.coordinator));
+  assert.ok(directory.agents.some((agent) => agent.id === 'radar_master_agent' && agent.lead));
 
   const social = planTask('Analyze RADARCharts Instagram community and audience trends for African artists.');
   assert.equal(social.status, 'planned');
@@ -52,7 +53,7 @@ export function runAllTests() {
   assert.throws(() => planTask('x'.repeat(4001)), (error) => error.code === 'TASK_TOO_LONG' && error.status === 413);
   assert.throws(() => planTask('A request', 'not-configured'), (error) => error.code === 'INVALID_CATEGORY');
   assert.throws(() => getAgentDirectory('../private'), (error) => error.code === 'INVALID_CATEGORY');
-  assert.ok(loadSkillText('radar-meta').includes('Missing evidence is UNKNOWN'));
+  assert.ok(loadSkillText('radar-meta').includes('Missing evidence is **UNKNOWN**'));
   assert.throws(() => loadSkillText('../../package.json'), (error) => error.code === 'UNKNOWN_SKILL');
 
   console.log('agent routing tests passed: registry, deterministic routing, limits, explicit category, and plan-only behavior');

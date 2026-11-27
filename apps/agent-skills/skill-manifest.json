@@ -1,0 +1,298 @@
+{
+  "schemaVersion": 1,
+  "manifestVersion": "2.0.0",
+  "description": "Complete integrity inventory for the RADAR Master Agent knowledge library.",
+  "agent": "radar_master_agent",
+  "provenance": {
+    "repository": "https://github.com/remRADAR/radar-vibe-queue",
+    "commit": "e8262b19a71c8b0b3d338b69a81659ebc5a8980c",
+    "integration": "Vendored source; hashes are computed from actual bytes on disk."
+  },
+  "counts": {
+    "skills": 13,
+    "workflows": 15,
+    "references": 4,
+    "handoffTemplates": 1,
+    "sourceDocuments": 5,
+    "total": 37
+  },
+  "skills": [
+    {
+      "id": "radar-vibe-queue",
+      "name": "RADAR Task Router",
+      "file": "skills/radar-vibe-queue/SKILL.md",
+      "sourcePath": "skills/radar-vibe-queue/SKILL.md",
+      "sha256": "53203553f51b8ffa8d1fa83914c28c2a7fd6489e548b898e91e1cc7e9f630c0e",
+      "bytes": 3532
+    },
+    {
+      "id": "agent-continuation",
+      "name": "Agent Continuation",
+      "file": "skills/agent-continuation/SKILL.md",
+      "sourcePath": "skills/agent-continuation/SKILL.md",
+      "sha256": "d7939d1a19e01d9e92a9371e9192f90944925b8333ed96ab1f865afe0c7bb9b0",
+      "bytes": 6001
+    },
+    {
+      "id": "universal-agent-architect",
+      "name": "Universal Agent Architect",
+      "file": "skills/universal-agent-architect/SKILL.md",
+      "sourcePath": "skills/universal-agent-architect/SKILL.md",
+      "sha256": "9a50fa6fb26133ec9fc631b9fc809283dd5424fb98d341b8181f557bcdbc6cc3",
+      "bytes": 1958
+    },
+    {
+      "id": "radar-meta",
+      "name": "RADAR Social Intelligence",
+      "file": "skills/radar-meta/SKILL.md",
+      "sourcePath": "skills/radar-meta/SKILL.md",
+      "sha256": "7f8b304712e8ed45e80cfdc24377fc40b808ee5ece0ba73f20be2aeea88c4308",
+      "bytes": 2976
+    },
+    {
+      "id": "application-engineering",
+      "name": "Application Engineering",
+      "file": "skills/application-engineering/SKILL.md",
+      "sourcePath": "skills/application-engineering/SKILL.md",
+      "sha256": "ec7db036de48cec70c3cdc7e3474b222e94d1f6aceea2ec6e197a8c6c504666e",
+      "bytes": 1909
+    },
+    {
+      "id": "web-development",
+      "name": "Web Development",
+      "file": "skills/web-development/SKILL.md",
+      "sourcePath": "skills/web-development/SKILL.md",
+      "sha256": "932fe9dd2e38ea24e3ad73e17d4450af8adefc8f23dde4d3e744df12ef1cd479",
+      "bytes": 1424
+    },
+    {
+      "id": "lovable-vibecode",
+      "name": "AI Builder / Vibecode Engineering",
+      "file": "skills/lovable-vibecode/SKILL.md",
+      "sourcePath": "skills/lovable-vibecode/SKILL.md",
+      "sha256": "ef9d602eb21e0dab5dffbc6b41c8da1f30f26f1bd31d71d0b1ed41c5a8bce161",
+      "bytes": 1576
+    },
+    {
+      "id": "debug-incident",
+      "name": "Debugging and Incident Response",
+      "file": "skills/debug-incident/SKILL.md",
+      "sourcePath": "skills/debug-incident/SKILL.md",
+      "sha256": "702e09a9320d8cf177e603d353e645ca02554c8787c0af5f3035d88e4db27dc7",
+      "bytes": 1443
+    },
+    {
+      "id": "market-intelligence",
+      "name": "Market Intelligence",
+      "file": "skills/market-intelligence/SKILL.md",
+      "sourcePath": "skills/market-intelligence/SKILL.md",
+      "sha256": "cf87dc817c7eec2f0cf6e782b335c6855feb165f021e5ccc214789eaddd2ad85",
+      "bytes": 1631
+    },
+    {
+      "id": "code-language",
+      "name": "Code and Language Engineering",
+      "file": "skills/code-language/SKILL.md",
+      "sourcePath": "skills/code-language/SKILL.md",
+      "sha256": "4932ddadb42c8d8b5903a92188532b7e534d3e496aa6a4ad0c31b4a0feaae00e",
+      "bytes": 1250
+    },
+    {
+      "id": "authorized-product-study",
+      "name": "Authorized Product Study",
+      "file": "skills/authorized-product-study/SKILL.md",
+      "sourcePath": "skills/authorized-product-study/SKILL.md",
+      "sha256": "8a84f8db132a297850b22fe19e878733d643df135481671e09b87f4df6054d37",
+      "bytes": 1271
+    },
+    {
+      "id": "frontier-router",
+      "name": "Frontier Router",
+      "file": "skills/frontier-router/SKILL.md",
+      "sourcePath": "skills/frontier-router/SKILL.md",
+      "sha256": "d785ef3b59949a51e842e49479f4427af85faf4b0b58e726443b8c744f7f5861",
+      "bytes": 6291
+    },
+    {
+      "id": "radar-master-agent",
+      "name": "RADAR Master Agent",
+      "file": "skills/radar-master-agent.md",
+      "sourcePath": "skills/radar-master-agent/SKILL.md",
+      "sha256": "a19d2d8136aba3483a8f81f2351c48ca7b8d4072fd0ff9ee2274d0f2c33458a3",
+      "bytes": 10357
+    }
+  ],
+  "workflows": [
+    {
+      "id": "00-router",
+      "file": "queues/00-router.md",
+      "sourcePath": null,
+      "sha256": "bee74ddbc92062e75780a1cb0609f5b73bc5909cf3830e6ce9b94d0a70469e9b",
+      "bytes": 1988
+    },
+    {
+      "id": "agent-continuation",
+      "file": "queues/agent-continuation.md",
+      "sourcePath": null,
+      "sha256": "9fad32e5ab1c8563ad6c12a7391a801484431034d46932084733bb76a8803f7d",
+      "bytes": 1002
+    },
+    {
+      "id": "application-engineering",
+      "file": "queues/application-engineering.md",
+      "sourcePath": null,
+      "sha256": "37d9d55221abdfaef0b22ea70bded9b32ab4d296e3d907c916e261cc544ce859",
+      "bytes": 1729
+    },
+    {
+      "id": "authorized-product-study",
+      "file": "queues/authorized-product-study.md",
+      "sourcePath": null,
+      "sha256": "4bc37cb5be88ac58d78b68c4d731616a6783a3f65ca63bea9023333801352e38",
+      "bytes": 1146
+    },
+    {
+      "id": "code-language",
+      "file": "queues/code-language.md",
+      "sourcePath": null,
+      "sha256": "561cd9cdf5834ac960a9fc8a011d51a3b06d0abb5c07b4ab287403669f51df60",
+      "bytes": 1224
+    },
+    {
+      "id": "debug-incident",
+      "file": "queues/debug-incident.md",
+      "sourcePath": null,
+      "sha256": "35680d33bece8185731388d0b804786d356ddeb397ad07a99b31fa34b3e79a7c",
+      "bytes": 1534
+    },
+    {
+      "id": "lovable-vibecode",
+      "file": "queues/lovable-vibecode.md",
+      "sourcePath": null,
+      "sha256": "624c3183e7a987c1ae13a65eb6b24bba12f8fe7044c60ecbf6c417af2c938b1a",
+      "bytes": 1522
+    },
+    {
+      "id": "market-intelligence",
+      "file": "queues/market-intelligence.md",
+      "sourcePath": null,
+      "sha256": "c0bf4794b6ff3e0302de90ba353a5f0e8b1b0cb2e66b518c5984d72ad6e52e70",
+      "bytes": 1591
+    },
+    {
+      "id": "radar-release-portal",
+      "file": "queues/radar-release-portal.md",
+      "sourcePath": null,
+      "sha256": "4525661b55889bb18432b5ed4912a3e98ff51057cc22519bbe7537a1f27aed3f",
+      "bytes": 2800
+    },
+    {
+      "id": "radarmeta-following-hygiene",
+      "file": "queues/radarmeta-following-hygiene.md",
+      "sourcePath": null,
+      "sha256": "5136f1feda328673e30904159410a60df55084da0989f2a8bfc6960fe9c0d4a7",
+      "bytes": 2005
+    },
+    {
+      "id": "radarmeta-intelligence-modes",
+      "file": "queues/radarmeta-intelligence-modes.md",
+      "sourcePath": null,
+      "sha256": "94e53ada6c09273bcdfff5f61baf4874db901598587cc7732a4aa4fad93fe418",
+      "bytes": 1923
+    },
+    {
+      "id": "radarmeta-monitoring-cycle",
+      "file": "queues/radarmeta-monitoring-cycle.md",
+      "sourcePath": null,
+      "sha256": "be3d53db3260989d25300ed5d9439823d5ab5230a7dd6066b9d14511503d17ad",
+      "bytes": 2274
+    },
+    {
+      "id": "radarmeta-social-intelligence",
+      "file": "queues/radarmeta-social-intelligence.md",
+      "sourcePath": null,
+      "sha256": "9d3e39be1ba302c914ba1e9b4020dbcf6f0587f2659cc8df80e258648c83540c",
+      "bytes": 2782
+    },
+    {
+      "id": "universal-agent-architect",
+      "file": "queues/universal-agent-architect.md",
+      "sourcePath": null,
+      "sha256": "4b68a7edbfcfa4b7ed2392430181270865d81c874bfe6c2cb60c1f2c1a127f8e",
+      "bytes": 1738
+    },
+    {
+      "id": "web-development",
+      "file": "queues/web-development.md",
+      "sourcePath": null,
+      "sha256": "7e439a59ad19878700371ed37dd45236f98d31f330a4b7cf1de7fa49ee67a873",
+      "bytes": 1413
+    }
+  ],
+  "references": [
+    {
+      "file": "source/radar-vibe-queue/skills/radar-meta/references/following-hygiene.md",
+      "sourcePath": "source/radar-vibe-queue/skills/radar-meta/references/following-hygiene.md",
+      "sha256": "a758d200b607c8e457c0ed338999d3ed6ffc9de056ba1031821065d069deb81f",
+      "bytes": 1897
+    },
+    {
+      "file": "source/radar-vibe-queue/skills/radar-meta/references/intelligence-modes.md",
+      "sourcePath": "source/radar-vibe-queue/skills/radar-meta/references/intelligence-modes.md",
+      "sha256": "aa9f8c01297037d4714c33d5f2e53666d87f431968605f07b2587e6d7542eaf4",
+      "bytes": 2711
+    },
+    {
+      "file": "source/radar-vibe-queue/skills/radar-meta/references/monitoring-workflow.md",
+      "sourcePath": "source/radar-vibe-queue/skills/radar-meta/references/monitoring-workflow.md",
+      "sha256": "bc05b2b6c959cf573026d7578f2e87d695ef376b7869e6aa16aa8268ef857ba8",
+      "bytes": 1894
+    },
+    {
+      "file": "source/radar-vibe-queue/skills/agent-continuation/templates/HANDOFF.template.md",
+      "sourcePath": "source/radar-vibe-queue/skills/agent-continuation/templates/HANDOFF.template.md",
+      "sha256": "ee17d2b700c7623dfdb08468b414c5ae2be2fd382d92f8eaec97e5cdd4494053",
+      "bytes": 1494
+    }
+  ],
+  "handoffTemplates": [
+    {
+      "file": "source/radar-vibe-queue/skills/agent-continuation/templates/HANDOFF.template.md",
+      "sourcePath": "source/radar-vibe-queue/skills/agent-continuation/templates/HANDOFF.template.md",
+      "sha256": "ee17d2b700c7623dfdb08468b414c5ae2be2fd382d92f8eaec97e5cdd4494053",
+      "bytes": 1494
+    }
+  ],
+  "sourceDocuments": [
+    {
+      "file": "source/radar-vibe-queue/AGENTS.md",
+      "sourcePath": "source/radar-vibe-queue/AGENTS.md",
+      "sha256": "ab1f8073c9f60f3d71ed8f550126ad1e44ddb913edfcc4979c36a5f37257fb09",
+      "bytes": 2332
+    },
+    {
+      "file": "source/radar-vibe-queue/QUEUE.md",
+      "sourcePath": "source/radar-vibe-queue/QUEUE.md",
+      "sha256": "10026af8bdba74f9910942370c23f77e33757392f254f68f97761465b8bd3637",
+      "bytes": 2189
+    },
+    {
+      "file": "source/radar-vibe-queue/queue.json",
+      "sourcePath": "source/radar-vibe-queue/queue.json",
+      "sha256": "24299db717e702dd10e3bfee789f6c078443418574e22ee12b623770d91e9aa3",
+      "bytes": 5403
+    },
+    {
+      "file": "source/radar-vibe-queue/SKILL-AUDIT.md",
+      "sourcePath": "source/radar-vibe-queue/SKILL-AUDIT.md",
+      "sha256": "320da87c6efbb09899ff3abb1bdb3a1ca4c4f021ae2c11ad554ed370314c844f",
+      "bytes": 4308
+    },
+    {
+      "file": "source/radar-vibe-queue/SOURCE_NOTES.md",
+      "sourcePath": "source/radar-vibe-queue/SOURCE_NOTES.md",
+      "sha256": "c36e3b40bd25d48328a248079a2a20ae573deaf80b0fcbffca52ac7168739911",
+      "bytes": 1837
+    }
+  ]
+}

@@ -1,26 +1,47 @@
 # Specialist Skills and Task Routing
 
-## Current capability
+RADARMatrix contains a vendored, verifiable specialist knowledge library and a separate Matrix-specific agent-profile layer. The library is guidance, not executable authority.
 
-RADARMatrix now has a versioned, declarative specialist registry and a deterministic plan-only router. It selects the smallest useful specialist set from the requested goal, associates skill IDs, and returns a bounded handoff plan. It does **not** invoke a model, persist a task, start a worker, or perform an external action. This is deliberate: the repository has no agent execution provider/queue, and the existing production OAuth/MCP transport is not live.
+## Complete source integration
 
-The registry is in `apps/agent-skills/registry.json`; adapted skill guidance is in `apps/agent-skills/skills/`. Source provenance is recorded in the registry and `apps/agent-skills/README.md`.
+The 12 upstream packages from `remRADAR/radar-vibe-queue` are preserved under `apps/agent-skills/skills/<skill-id>/SKILL.md` at pinned commit `e8262b19a71c8b0b3d338b69a81659ebc5a8980c`. The existing `radar-master-agent` profile remains separate because it is Matrix-specific. The 15 upstream workflow prompts are under `apps/agent-skills/queues/`.
 
-## Specialist profiles
+Supporting resources are namespaced under `apps/agent-skills/source/radar-vibe-queue/`: three RADARMeta references, the agent-continuation handoff template, and the upstream `AGENTS.md`, `QUEUE.md`, `queue.json`, `SKILL-AUDIT.md`, and `SOURCE_NOTES.md` operating documents. No live fetch is required at load time.
 
-The configured roster contains a plan-only RADAR Orchestrator and eight specialists: RADAR Social Intelligence, Agent Architect, Application Engineer, Web Engineer, AI Builder/Vibecode Engineer, Debug/Incident Responder, Market Intelligence Analyst, and Authorized Product Study Analyst. Optional `code-language` support is attached when language/runtime semantics or migration is central.
+## Distinct layers
 
-Routing precedence is incident diagnosis, AI-builder work, authorized product study, RADAR social intelligence, agent architecture, market intelligence, web development, then general application engineering. The router uses configured keyword signals, stable ordering, an optional explicit category, a maximum of two specialists, and a clarification response when no configured route matches. The orchestrator performs routing/review only; it is not a hidden executor.
+- **Skill library:** complete Markdown specialist instructions and bundled reference material.
+- **Agent profiles:** `registry.json` entries that select skills, categories, and metadata. They do not grant capabilities.
+- **Workflow prompts:** copy-ready queue recipes loaded by workflow ID.
+- **Knowledge resources:** references, templates, source documents, and workspace cues indexed in `knowledge-index.json`.
+- **Execution capabilities:** provider adapters, connector authorization, credentials, workers, and external side effects. These are not supplied by the library.
 
-## Interfaces
+Every profile remains `plan_only` and every `allowedMcpTools` array remains empty. Loading a skill never authorizes a connector, model call, repository write, deployment, or autonomous execution.
 
-- `GET /api/agents` returns the safe agent directory and available routing categories.
-- `POST /api/task-routing/plan` accepts `{ "goal": "...", "category": "auto" }` and returns a route plan only.
-- MCP contract tools `radar.list_agents` and `radar.plan_task` are read-only and require `workspace_id`; the plan tool also requires a goal.
-- The Brand Studio Agent Operations view uses those API routes to browse the roster and preview a route.
+## Inventory and load contracts
 
-Task goals are bounded to 4,000 characters. The route plan identifies candidate agents, skills, rationales, ordered handoffs, unresolved questions, and an explicit execution state of `plan_only`. It does not echo the full task body into audit metadata. All agents have no MCP tools granted; connector access must be implemented and authorized separately.
+`verifyInventory()` checks every declared skill, workflow, reference, source document, and handoff template for existence, substantive content, recorded byte length, and SHA-256 equality. Missing or corrupted content fails closed and is returned in `unresolvedItems`; the loader never reports `complete: true` for a partial corpus.
 
-## Next work before autonomous runs
+`loadSkillBundle(skillId)` rejects unknown IDs and path traversal, then returns the complete specialist text, associated references, metadata, file hashes, and upstream provenance. `loadWorkflow(workflowId)` returns the actual queue prompt and its hash result. `loadSourceDocument(file)` resolves only declared supporting resources. These are on-demand APIs so the full corpus is not unnecessarily inserted into every model context.
 
-A separate execution milestone must add a verified model/provider adapter, durable run/task state, a scoped worker/queue, cancellation/retry/idempotency behavior, per-tool capability enforcement, human approval for external side effects, and production OAuth/workspace authorization. The current deterministic planner should remain the preflight stage and must not be presented as an active multi-agent conversation until those components exist.
+`loadMasterAgent()` verifies the complete inventory, resolves the selected profile and its skills, reports cue coverage against the live workspace, and explicitly returns `execution.mode: plan_only`. It does not invoke a provider, persist a run, start a worker, or perform an external action.
+
+## Routing interfaces
+
+- `GET /api/agents` returns safe profile metadata.
+- `POST /api/task-routing/plan` accepts `{ "goal": "...", "category": "auto" }` and returns a bounded deterministic handoff plan.
+- MCP contract tools `radar.list_agents`, `radar.plan_task`, and `radar.load_agent` are read-only and workspace-scoped.
+
+The router selects at most two specialists. Frontier Router guidance determines the smallest useful skill set; the Master Agent coordinates verification and synthesis but is not a hidden executor.
+
+## Verification commands
+
+```bash
+npm test
+npm run typecheck
+npm run verify-agent
+node scripts/rebuild-skill-manifest.mjs --check
+npm run check:authority-boundary
+```
+
+The manifest is generated from actual files. Never fabricate hashes or hand-edit `skill-manifest.json`; run `npm run manifest:agent` after an authorized source update.

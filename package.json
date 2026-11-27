@@ -20,6 +20,10 @@
     "deploy:matrix-console:wrangler": "bash scripts/deploy-matrix-console-wrangler.sh",
     "test:security": "RADARMATRIX_RUNTIME_MODE=test node tests/gateway-integration-security.test.mjs",
     "check:authority-boundary": "node scripts/check-authority-boundary.mjs",
+    "upgrade-agent": "node scripts/upgrade-master-agent.mjs",
+    "verify-agent": "node scripts/upgrade-master-agent.mjs --verify",
+    "manifest:agent": "node scripts/rebuild-skill-manifest.mjs",
+    "test:master-agent": "RADARMATRIX_RUNTIME_MODE=test node tests/master-agent.test.mjs",
     "test:m2-3-1": "node tests/m2-3-1-boundary-contracts.test.mjs",
     "typecheck:matrix-console": "npm --prefix apps/matrix-console run typecheck"
   },
