@@ -1,5 +1,9 @@
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
+
+// The IDE carries CodeMirror 6 (~600 kB). It is a separate surface, so it is
+// code-split: the console shell must not pay for the editor on first paint.
+const MatrixIDE = lazy(() => import('./ide/MatrixIDE').then((module) => ({ default: module.MatrixIDE })));
 
 type Screen = 'overview' | 'chat' | 'agents' | 'skills' | 'knowledge' | 'tasks' | 'connections' | 'operator' | 'ide' | 'cloud' | 'halo';
 type Status = 'Implemented' | 'Connected' | 'Planned' | 'Unavailable' | 'Demo only';
@@ -11,9 +15,9 @@ const nav: { id: Screen; label: string; icon: string; group: string }[] = [
   { id: 'skills', label: 'Skills Library', icon: '⌘', group: 'Workspace' },
   { id: 'knowledge', label: 'Knowledge Centre', icon: '▤', group: 'Workspace' },
   { id: 'tasks', label: 'Task Centre', icon: '✓', group: 'Workspace' },
+  { id: 'ide', label: 'Matrix IDE', icon: '⌺_', group: 'Workspace' },
   { id: 'connections', label: 'Connections', icon: '⌁', group: 'System' },
   { id: 'operator', label: 'Operator Screen', icon: '◌', group: 'Future surfaces' },
-  { id: 'ide', label: 'Matrix IDE', icon: '〉_', group: 'Future surfaces' },
   { id: 'cloud', label: 'Cloud Computer', icon: '▣', group: 'Future surfaces' },
   { id: 'halo', label: 'Halo OS', icon: '◉', group: 'Future surfaces' },
 ];
@@ -38,7 +42,6 @@ const skills = [
 
 const future: Record<string, { title: string; description: string; status: Status }> = {
   operator: { title: 'Operator Screen', description: 'A future surface for approval-aware operator workflows.', status: 'Planned' },
-  ide: { title: 'Matrix IDE', description: 'A future surface for repository-aware implementation work.', status: 'Unavailable' },
   cloud: { title: 'Cloud Computer', description: 'No connected remote computer or terminal is exposed by this prototype.', status: 'Unavailable' },
   halo: { title: 'Halo OS', description: 'A future ambient workspace surface for RADAR operations.', status: 'Planned' },
 };
@@ -47,8 +50,14 @@ function Badge({ children, tone = 'neutral' }: { children: ReactNode; tone?: str
   return <span className={`badge ${tone}`}>{children}</span>;
 }
 
+/** Resolve the initial screen from the URL so surfaces are deep-linkable. */
+function screenFromLocation(): Screen {
+  const segment = window.location.pathname.replace(/^\/+|\/+$/g, '').split('/')[0];
+  return (nav.some((item) => item.id === segment) ? segment : 'overview') as Screen;
+}
+
 function App() {
-  const [screen, setScreen] = useState<Screen>('overview');
+  const [screen, setScreen] = useState<Screen>(screenFromLocation);
   const [query, setQuery] = useState('');
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState<string[]>([]);
@@ -63,12 +72,26 @@ function App() {
     window.history.replaceState({}, '', next === 'overview' ? '/' : `/${next}`);
   }
 
+  useEffect(() => {
+    const syncScreen = () => setScreen(screenFromLocation());
+    window.addEventListener('popstate', syncScreen);
+    return () => window.removeEventListener('popstate', syncScreen);
+  }, []);
+
   function sendChat(event: FormEvent) {
     event.preventDefault();
     const trimmed = chatInput.trim();
     if (!trimmed) return;
     setChatMessages((messages) => [...messages, trimmed]);
     setChatInput('');
+  }
+
+  if (screen === 'ide') {
+    return (
+      <Suspense fallback={<div className="ide-boot" role="status" aria-live="polite"><span className="ide-boot-mark">◈</span><p>Loading Matrix IDE…</p></div>}>
+        <MatrixIDE onExit={() => go('overview')} />
+      </Suspense>
+    );
   }
 
   return <div className="app-shell">
@@ -100,10 +123,10 @@ function PageHeader({ eyebrow, title, description, action }: { eyebrow: string; 
 }
 
 function Overview({ go }: { go: (s: Screen) => void }) {
-  const modules = [['RADAR Intelligence', 'Workspace context and signal layer', 'Planned', 'gold'], ['RADAR Agent Network', 'Six local specialist profiles', 'Implemented', 'green'], ['RADAR Chat', 'Conversation and plan preview', 'Implemented', 'green'], ['RADAR Operator Screen', 'Approval-aware operator surface', 'Planned', 'gold'], ['RADAR Cloud Computer', 'No connected execution host', 'Unavailable', 'red'], ['RADAR IDE', 'Repository workbench surface', 'Unavailable', 'red'], ['RADAR Halo OS', 'Ambient operating layer', 'Planned', 'gold']];
+  const modules = [['RADAR Intelligence', 'Workspace context and signal layer', 'Planned', 'gold'], ['RADAR Agent Network', 'Six local specialist profiles', 'Implemented', 'green'], ['RADAR Chat', 'Conversation and plan preview', 'Implemented', 'green'], ['RADAR Operator Screen', 'Approval-aware operator surface', 'Planned', 'gold'], ['RADAR Cloud Computer', 'No connected execution host', 'Unavailable', 'red'], ['RADAR IDE', 'Editor, explorer and terminal', 'Implemented', 'green'], ['RADAR Halo OS', 'Ambient operating layer', 'Planned', 'gold']];
   return <><PageHeader eyebrow="WORKSPACE OVERVIEW" title={<>The operating <em>surface</em></>} description="A truthful first interface for RADAR's intelligence, orchestration and approval-aware workspace." action={<Badge tone="gold">NO LIVE CONNECTIONS</Badge>} />
     <div className="notice"><span>i</span><div><strong>Prototype boundary</strong><p>All data on this screen is local demonstration data. Nothing here dispatches an agent, calls a model, persists memory or changes an external system.</p></div><button onClick={() => go('connections')}>Review status →</button></div>
-    <section className="metric-grid"><Metric label="ACTIVE MODULES" value="02" detail="of 07 represented" tone="gold" /><Metric label="DEMO TASKS" value="03" detail="local records only" tone="violet" /><Metric label="SPECIALISTS" value="06" detail="plan-only directory" tone="blue" /><Metric label="CONNECTIONS" value="00" detail="none attached" tone="red" /></section>
+    <section className="metric-grid"><Metric label="ACTIVE MODULES" value="03" detail="of 07 represented" tone="gold" /><Metric label="DEMO TASKS" value="03" detail="local records only" tone="violet" /><Metric label="SPECIALISTS" value="06" detail="plan-only directory" tone="blue" /><Metric label="CONNECTIONS" value="00" detail="none attached" tone="red" /></section>
     <div className="overview-grid"><section className="panel"><PanelHeading title="Architecture status" kicker="SEVEN PARTS" /><div className="module-list">{modules.map(([name, detail, status, tone]) => <div className="module-row" key={name}><span className={`module-icon ${tone}`}>◇</span><div><strong>{name}</strong><small>{detail}</small></div><Badge tone={tone}>{status}</Badge></div>)}</div></section><section className="panel"><PanelHeading title="Recent activity" kicker="DEMO RECORDS" /><div className="activity-list"><Activity code="RM" title="Prototype baseline verified" detail="main · 93c1dc18" time="today" /><Activity code="AI" title="Route plan preview opened" detail="Web Engineer · plan-only" time="2h" /><Activity code="KN" title="Workspace memory inspected" detail="persistence unavailable" time="yesterday" /></div><button className="panel-link" onClick={() => go('tasks')}>Open task centre <span>→</span></button></section></div>
     <section className="panel architecture-panel"><PanelHeading title="Operating model" kicker="AUTHORITY FIRST" /><div className="flow"><FlowItem n="01" label="Request" /><b>→</b><FlowItem n="02" label="Route" /><b>→</b><FlowItem n="03" label="Approve" muted /><b>→</b><FlowItem n="04" label="Execute" muted /><b>→</b><FlowItem n="05" label="Audit" muted /></div><p className="caption">The prototype exposes request and route preview only. Approval, execution and audit are future contracts—not simulated activity.</p></section>
   </>;
