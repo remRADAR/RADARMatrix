@@ -9,12 +9,12 @@
     "integration": "Vendored source; hashes are computed from actual bytes on disk."
   },
   "counts": {
-    "skills": 13,
+    "skills": 14,
     "workflows": 15,
     "references": 4,
     "handoffTemplates": 1,
     "sourceDocuments": 5,
-    "total": 37
+    "total": 38
   },
   "skills": [
     {
@@ -120,6 +120,14 @@
       "sourcePath": "skills/radar-master-agent/SKILL.md",
       "sha256": "a19d2d8136aba3483a8f81f2351c48ca7b8d4072fd0ff9ee2274d0f2c33458a3",
       "bytes": 10357
+    },
+    {
+      "id": "radar-repo-operations",
+      "name": "RADAR Repository Operations",
+      "file": "skills/radar-repo-operations/SKILL.md",
+      "sourcePath": "skills/radar-repo-operations/SKILL.md",
+      "sha256": "3fc99dd896cb304bd1ce5f1c915a1020841160efb55dc8b85700548cb52fa44c",
+      "bytes": 5179
     }
   ],
   "workflows": [

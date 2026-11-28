@@ -91,6 +91,12 @@
       "name": "RADAR Master Agent",
       "sourcePath": "skills/radar-master-agent/SKILL.md",
       "file": "skills/radar-master-agent.md"
+    },
+    {
+      "id": "radar-repo-operations",
+      "name": "RADAR Repository Operations",
+      "sourcePath": "skills/radar-repo-operations/SKILL.md",
+      "file": "skills/radar-repo-operations/SKILL.md"
     }
   ],
   "agents": [
@@ -112,7 +118,8 @@
         "market-intelligence",
         "code-language",
         "authorized-product-study",
-        "agent-continuation"
+        "agent-continuation",
+        "radar-repo-operations"
       ],
       "categories": [
         "master_agent"
